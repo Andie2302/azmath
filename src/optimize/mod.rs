@@ -66,6 +66,7 @@ mod linesearch;
 mod lm;
 
 pub use bfgs::{MinimizeResult, bfgs, bfgs_work_len, lbfgs, lbfgs_work_len};
+pub(crate) use broyden::invert;
 pub use broyden::{broyden, broyden_fd, broyden_work_len};
 pub use dogleg::{dogleg, dogleg_fd, dogleg_work_len};
 pub use gauss_newton::{

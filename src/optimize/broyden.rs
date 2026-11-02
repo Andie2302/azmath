@@ -11,7 +11,7 @@ pub const fn broyden_work_len(n: usize) -> usize {
 
 /// Invertiert die `n × n`-Matrix `j` per Gauß-Jordan mit Spaltenpivotsuche. `aug` hat Platz für `n × 2n`,
 /// das Ergebnis steht in `inv`. `false` bei (numerisch) singulärer Matrix.
-pub(super) fn invert<T: Real>(j: &[T], n: usize, aug: &mut [T], inv: &mut [T]) -> bool {
+pub(crate) fn invert<T: Real>(j: &[T], n: usize, aug: &mut [T], inv: &mut [T]) -> bool {
     let w = 2 * n;
     let mut scale = T::ZERO;
     for r in 0..n {
