@@ -61,7 +61,7 @@ impl Real for f32 {
     const ONE: Self = 1.0;
     const PI: Self = core::f32::consts::PI;
     const E: Self = core::f32::consts::E;
-    const EPSILON: Self = core::f32::EPSILON;
+    const EPSILON: Self = f32::EPSILON;
 
     #[inline(always)]
     fn abs(self) -> Self {
@@ -246,7 +246,7 @@ impl Real for f64 {
     const ONE: Self = 1.0;
     const PI: Self = core::f64::consts::PI;
     const E: Self = core::f64::consts::E;
-    const EPSILON: Self = core::f64::EPSILON;
+    const EPSILON: Self = f64::EPSILON;
 
     #[inline(always)]
     fn abs(self) -> Self {
