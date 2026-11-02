@@ -45,13 +45,13 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | ~~**Matrixnormen** (Frobenius, 1, ∞, 2-Norm über SVD)~~ ✅ und ~~**Äquilibrierung**~~ ✅ (Zeilen-/Spaltenskalierung nach Ruiz bzw. Sinkhorn) | S–M | `linalg`, SVD ✅ | bessere Konditionierung, Fehlerabschätzung |
 | ✅ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
 | ⬜ | `Real` ergänzen (`copysign`, `from_usize`, `fma`-Varianten …) | S | – | bei Bedarf |
-| ⚠️ | Sparse-Formate (COO ✅, CSR ✅, `CsrView` ohne Allokator ✅), Bandmatrizen ⬜ | M | `alloc` | große Systeme, FEM, Innere-Punkte |
+| ⚠️ | Sparse-Formate (COO ✅, CSR ✅, `CsrView` ohne Allokator ✅), Bandmatrizen ✅ | M | `alloc` | große Systeme, FEM, Innere-Punkte |
 
 ### B. Lineare Algebra – Lücken
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
 | ✅ | **Gauß-Elimination** (`gauss_solve`, `rank`, `row_echelon`) | S | LU ✅ |
-| ⬜ | Banded-LU/-Cholesky | M | Bandformat |
+| ✅ | Banded-LU/-Cholesky (`BandLu`, `BandCholesky`) | M | Bandformat |
 | ⬜ | Links-Vorkonditionierer, ILU/IC, SSOR | M | Sparse |
 | ⬜ | Iterative Verfeinerung, Konditionsschätzer, QR mit Spaltenpivot, LDLᵀ | S–M | – |
 | ⬜ | Eigenwerte **nichtsymmetrisch** (Hessenberg + QR-Algorithmus, Schur), verallgemeinert | L | `Complex` |
