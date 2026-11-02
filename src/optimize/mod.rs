@@ -3,6 +3,7 @@
 //! | Funktion | Problem | Verfahren |
 //! |---|---|---|
 //! | [`newton_system`] | `F(x) = 0` mit `n` Gleichungen, `n` Unbekannten | Newton mit Schrittweitensteuerung |
+//! | [`broyden`] | `F(x) = 0` | Broyden (Rang-1-Update der inversen Jacobi-Matrix), nur eine Jacobi-Matrix am Start |
 //! | [`gauss_newton`] | `min ‖r(x)‖₂` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
 //! | [`levenberg_marquardt`] | `min ‖r(x)‖₂` | Levenberg-Marquardt, robust auch bei schlechtem Startwert und Rangmangel |
 //! | [`bfgs`], [`lbfgs`] | `min f(x)` mit Gradient | Quasi-Newton (dicht bzw. mit begrenztem Speicher), starke Wolfe-Schrittweite |
@@ -56,12 +57,14 @@
 //!   unter Umständen nie erreicht; für verlässliche Ergebnisse `std` oder `libm` verwenden.
 
 mod bfgs;
+mod broyden;
 mod gauss_newton;
 mod jacobian;
 mod linesearch;
 mod lm;
 
 pub use bfgs::{MinimizeResult, bfgs, bfgs_work_len, lbfgs, lbfgs_work_len};
+pub use broyden::{broyden, broyden_fd, broyden_work_len};
 pub use gauss_newton::{
     gauss_newton, gauss_newton_fd, gauss_newton_work_len, newton_system, newton_system_fd,
     newton_work_len,

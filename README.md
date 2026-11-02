@@ -17,7 +17,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::roots` | Nullstellen in einer Veränderlichen |
 | `azmath::integrate` | numerische Integration |
 | `azmath::interp` | Interpolation, Splines |
-| `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt, BFGS, L-BFGS, Wolfe-Schrittweitensuche |
+| `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt, Broyden, BFGS, L-BFGS, Wolfe-Schrittweitensuche |
 | `azmath::ode` | gewöhnliche Differentialgleichungen |
 | `azmath::multigrid` | Multigrid für Poisson |
 | `azmath::complex` | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie) |

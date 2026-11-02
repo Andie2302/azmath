@@ -304,3 +304,163 @@ fn works_for_f32() {
     bfgs(f, grad, &mut x, OptimizeOptions::default(), &mut work).unwrap();
     assert!((x[0] - 1.0).abs() < 1e-3 && (x[1] + 0.5).abs() < 1e-3);
 }
+
+// ---------------------------------------------------------------------------
+// Broyden
+// ---------------------------------------------------------------------------
+
+mod broyden_tests {
+    use azmath::optimize::{
+        OptimizeError, OptimizeOptions, Termination, broyden, broyden_fd, broyden_work_len,
+        newton_system, newton_work_len,
+    };
+
+    fn circle_line(x: &[f64], out: &mut [f64]) {
+        out[0] = x[0] * x[0] + x[1] * x[1] - 4.0;
+        out[1] = x[1] - x[0];
+    }
+    fn circle_line_jac(x: &[f64], j: &mut [f64]) {
+        j.copy_from_slice(&[2.0 * x[0], 2.0 * x[1], -1.0, 1.0]);
+    }
+
+    #[test]
+    fn solves_circle_and_line() {
+        let mut x = [1.0, 0.5];
+        let mut work = [0.0; broyden_work_len(2)];
+        let r = broyden(
+            circle_line,
+            circle_line_jac,
+            &mut x,
+            OptimizeOptions::default(),
+            &mut work,
+        )
+        .unwrap();
+        let s = 2f64.sqrt();
+        assert!((x[0] - s).abs() < 1e-7 && (x[1] - s).abs() < 1e-7, "{x:?}");
+        assert!(r.residual_norm < 1e-7);
+        let mut y = [1.0, 0.5];
+        broyden_fd(circle_line, &mut y, OptimizeOptions::default(), &mut work).unwrap();
+        assert!((y[0] - s).abs() < 1e-6);
+    }
+
+    #[test]
+    fn evaluates_the_jacobian_only_at_the_start() {
+        let mut calls = 0;
+        let mut x = [1.0, 0.5];
+        let mut work = [0.0; broyden_work_len(2)];
+        let jac = |x: &[f64], j: &mut [f64]| {
+            calls += 1;
+            circle_line_jac(x, j);
+        };
+        let r = broyden(
+            circle_line,
+            jac,
+            &mut x,
+            OptimizeOptions::default(),
+            &mut work,
+        )
+        .unwrap();
+        assert_eq!(
+            calls, 1,
+            "Jacobi-Matrix nur am Start (Iterationen: {})",
+            r.iterations
+        );
+    }
+
+    #[test]
+    fn solves_a_ten_dimensional_system_like_newton() {
+        // F_i(x) = x_i + 0,1·Σ_j sin(x_j) − 1,   Startwert 0
+        let n = 10;
+        let f = |x: &[f64], out: &mut [f64]| {
+            let s: f64 = x.iter().map(|v| v.sin()).sum();
+            for i in 0..n {
+                out[i] = x[i] + 0.1 * s - 1.0;
+            }
+        };
+        let jac = |x: &[f64], j: &mut [f64]| {
+            for i in 0..n {
+                for k in 0..n {
+                    j[i * n + k] = 0.1 * x[k].cos() + if i == k { 1.0 } else { 0.0 };
+                }
+            }
+        };
+        let mut xb = [0.0; 10];
+        let mut wb = [0.0; broyden_work_len(10)];
+        let rb = broyden(f, jac, &mut xb, OptimizeOptions::default(), &mut wb).unwrap();
+        let mut xn = [0.0; 10];
+        let mut wn = [0.0; newton_work_len(10)];
+        newton_system(f, jac, &mut xn, OptimizeOptions::default(), &mut wn).unwrap();
+        for i in 0..n {
+            assert!(
+                (xb[i] - xn[i]).abs() < 1e-8,
+                "x[{i}]: {} gegen {}",
+                xb[i],
+                xn[i]
+            );
+        }
+        assert!(rb.iterations <= 25, "{} Iterationen", rb.iterations);
+    }
+
+    #[test]
+    fn rosenbrock_as_a_system() {
+        let f = |x: &[f64], out: &mut [f64]| {
+            out[0] = 10.0 * (x[1] - x[0] * x[0]);
+            out[1] = 1.0 - x[0];
+        };
+        let mut x = [-1.2, 1.0];
+        let mut work = [0.0; broyden_work_len(2)];
+        broyden_fd(f, &mut x, OptimizeOptions::default(), &mut work).unwrap();
+        assert!(
+            (x[0] - 1.0).abs() < 1e-6 && (x[1] - 1.0).abs() < 1e-6,
+            "{x:?}"
+        );
+    }
+
+    #[test]
+    fn already_solved_and_errors() {
+        let s = 2f64.sqrt();
+        let mut x = [s, s];
+        let mut work = [0.0; broyden_work_len(2)];
+        let o = OptimizeOptions {
+            tol_f: 1e-12,
+            ..OptimizeOptions::default()
+        };
+        let r = broyden_fd(circle_line, &mut x, o, &mut work).unwrap();
+        assert_eq!((r.iterations, r.termination), (0, Termination::Residual));
+
+        let mut empty: [f64; 0] = [];
+        assert_eq!(
+            broyden_fd(
+                circle_line,
+                &mut empty,
+                OptimizeOptions::default(),
+                &mut work
+            ),
+            Err(OptimizeError::InvalidInput)
+        );
+        let mut short = [0.0; 10];
+        let mut x = [1.0, 0.5];
+        assert_eq!(
+            broyden_fd(circle_line, &mut x, OptimizeOptions::default(), &mut short),
+            Err(OptimizeError::InvalidInput)
+        );
+        let mut bad = [f64::NAN, 0.0];
+        assert_eq!(
+            broyden_fd(circle_line, &mut bad, OptimizeOptions::default(), &mut work),
+            Err(OptimizeError::NotFinite)
+        );
+        // singuläre Anfangs-Jacobi-Matrix: x² − 1 = 0 bei x = 0
+        let mut z = [0.0];
+        let mut w1 = [0.0; broyden_work_len(1)];
+        let sq = |x: &[f64], out: &mut [f64]| out[0] = x[0] * x[0] - 1.0;
+        let dsq = |x: &[f64], j: &mut [f64]| j[0] = 2.0 * x[0];
+        assert_eq!(
+            broyden(sq, dsq, &mut z, OptimizeOptions::default(), &mut w1),
+            Err(OptimizeError::SingularJacobian)
+        );
+        // keine Lösung: x² + 1 = 0
+        let mut z = [1.0];
+        let none = |x: &[f64], out: &mut [f64]| out[0] = x[0] * x[0] + 1.0;
+        assert!(broyden_fd(none, &mut z, OptimizeOptions::default(), &mut w1).is_err());
+    }
+}
