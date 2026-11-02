@@ -23,6 +23,7 @@ fn f64_constants() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn epsilon_is_positive_and_small() {
     assert!(<f32 as Real>::EPSILON > 0.0);
     assert!(<f32 as Real>::EPSILON < 1e-5);

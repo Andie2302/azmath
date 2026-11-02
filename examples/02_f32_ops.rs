@@ -26,14 +26,21 @@ fn main() {
     println!("floor(2.7)      = {}", Real::floor(2.7f32));
     println!("ceil(2.1)       = {}", Real::ceil(2.1f32));
     println!("powi(a, 10)     = {}", Real::powi(a, 10));
-    println!("is_nan(0/0)     = {}", Real::is_nan(f32::ZERO / f32::ZERO));
-    println!("is_infinite(1/0) = {}", Real::is_infinite(f32::ONE / f32::ZERO));
+    println!("is_nan(sqrt(-1)) = {}", Real::is_nan(Real::sqrt(-1.0f32)));
+    println!(
+        "is_infinite(1/0) = {}",
+        Real::is_infinite(f32::ONE / f32::ZERO)
+    );
 
     // Trigonometrie (Winkel in Bogenmaß)
     let halb_pi = <f32 as Real>::PI / 2.0;
     println!("sin(π/2) ≈ {:.4}", Real::sin(halb_pi));
     println!("cos(0)   = {:.4}", Real::cos(0.0f32));
-    println!("atan2(1, 1) ≈ {:.4} (π/4 = {:.4})", Real::atan2(1.0f32, 1.0f32), <f32 as Real>::PI / 4.0);
+    println!(
+        "atan2(1, 1) ≈ {:.4} (π/4 = {:.4})",
+        Real::atan2(1.0f32, 1.0f32),
+        <f32 as Real>::PI / 4.0
+    );
 }
 
 #[cfg(not(any(feature = "std", feature = "libm", feature = "micromath")))]

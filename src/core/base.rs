@@ -1,22 +1,21 @@
-
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Universeller Trait für alle Fließkommatypen (f32, f64) in einer no_std Umgebung.
 pub trait Real:
-Copy
-+ Clone
-+ PartialEq
-+ PartialOrd
-+ Add<Output = Self>
-+ Sub<Output = Self>
-+ Mul<Output = Self>
-+ Div<Output = Self>
-+ Neg<Output = Self>
-+ AddAssign
-+ SubAssign
-+ MulAssign
-+ DivAssign
-+ Sized
+    Copy
+    + Clone
+    + PartialEq
+    + PartialOrd
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<Output = Self>
+    + Div<Output = Self>
+    + Neg<Output = Self>
+    + AddAssign
+    + SubAssign
+    + MulAssign
+    + DivAssign
+    + Sized
 {
     // Konstanten
     const ZERO: Self;
@@ -98,141 +97,225 @@ impl Real for f32 {
     #[inline(always)]
     fn sqrt(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::sqrt(self) }
+        {
+            std::primitive::f32::sqrt(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::sqrtf(self) }
+        {
+            libm::sqrtf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::sqrt(self) }
+        {
+            micromath::F32Ext::sqrt(self)
+        }
     }
 
     #[inline(always)]
     fn sin(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::sin(self) }
+        {
+            std::primitive::f32::sin(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::sinf(self) }
+        {
+            libm::sinf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::sin(self) }
+        {
+            micromath::F32Ext::sin(self)
+        }
     }
 
     #[inline(always)]
     fn cos(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::cos(self) }
+        {
+            std::primitive::f32::cos(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::cosf(self) }
+        {
+            libm::cosf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::cos(self) }
+        {
+            micromath::F32Ext::cos(self)
+        }
     }
 
     #[inline(always)]
     fn tan(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::tan(self) }
+        {
+            std::primitive::f32::tan(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::tanf(self) }
+        {
+            libm::tanf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::tan(self) }
+        {
+            micromath::F32Ext::tan(self)
+        }
     }
 
     #[inline(always)]
     fn asin(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::asin(self) }
+        {
+            std::primitive::f32::asin(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::asinf(self) }
+        {
+            libm::asinf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::asin(self) }
+        {
+            micromath::F32Ext::asin(self)
+        }
     }
 
     #[inline(always)]
     fn acos(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::acos(self) }
+        {
+            std::primitive::f32::acos(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::acosf(self) }
+        {
+            libm::acosf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::acos(self) }
+        {
+            micromath::F32Ext::acos(self)
+        }
     }
 
     #[inline(always)]
     fn atan(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::atan(self) }
+        {
+            std::primitive::f32::atan(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::atanf(self) }
+        {
+            libm::atanf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::atan(self) }
+        {
+            micromath::F32Ext::atan(self)
+        }
     }
 
     #[inline(always)]
     fn atan2(self, other: Self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::atan2(self, other) }
+        {
+            std::primitive::f32::atan2(self, other)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::atan2f(self, other) }
+        {
+            libm::atan2f(self, other)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::atan2(self, other) }
+        {
+            micromath::F32Ext::atan2(self, other)
+        }
     }
 
     #[inline(always)]
     fn exp(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::exp(self) }
+        {
+            std::primitive::f32::exp(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::expf(self) }
+        {
+            libm::expf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::exp(self) }
+        {
+            micromath::F32Ext::exp(self)
+        }
     }
 
     #[inline(always)]
     fn ln(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::ln(self) }
+        {
+            std::primitive::f32::ln(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::logf(self) }
+        {
+            libm::logf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::ln(self) }
+        {
+            micromath::F32Ext::ln(self)
+        }
     }
 
     #[inline(always)]
     fn powf(self, n: Self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::powf(self, n) }
+        {
+            std::primitive::f32::powf(self, n)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::powf(self, n) }
+        {
+            libm::powf(self, n)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::powf(self, n) }
+        {
+            micromath::F32Ext::powf(self, n)
+        }
     }
 
     #[inline(always)]
     fn powi(self, n: i32) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::powi(self, n) }
-        #[cfg(all(not(feature = "std"), not(feature = "micromath"), feature = "libm"))]
-        { exp_by_squaring(self, n) }
+        {
+            std::primitive::f32::powi(self, n)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            exp_by_squaring(self, n)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::powi(self, n) }
+        {
+            micromath::F32Ext::powi(self, n)
+        }
     }
 
     #[inline(always)]
     fn floor(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::floor(self) }
+        {
+            std::primitive::f32::floor(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::floorf(self) }
+        {
+            libm::floorf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::floor(self) }
+        {
+            micromath::F32Ext::floor(self)
+        }
     }
 
     #[inline(always)]
     fn ceil(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f32::ceil(self) }
+        {
+            std::primitive::f32::ceil(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::ceilf(self) }
+        {
+            libm::ceilf(self)
+        }
         #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
-        { micromath::F32Ext::ceil(self) }
+        {
+            micromath::F32Ext::ceil(self)
+        }
     }
 }
 
@@ -281,113 +364,169 @@ impl Real for f64 {
     #[inline(always)]
     fn sqrt(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::sqrt(self) }
+        {
+            std::primitive::f64::sqrt(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::sqrt(self) }
+        {
+            libm::sqrt(self)
+        }
     }
 
     #[inline(always)]
     fn sin(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::sin(self) }
+        {
+            std::primitive::f64::sin(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::sin(self) }
+        {
+            libm::sin(self)
+        }
     }
 
     #[inline(always)]
     fn cos(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::cos(self) }
+        {
+            std::primitive::f64::cos(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::cos(self) }
+        {
+            libm::cos(self)
+        }
     }
 
     #[inline(always)]
     fn tan(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::tan(self) }
+        {
+            std::primitive::f64::tan(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::tan(self) }
+        {
+            libm::tan(self)
+        }
     }
 
     #[inline(always)]
     fn asin(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::asin(self) }
+        {
+            std::primitive::f64::asin(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::asin(self) }
+        {
+            libm::asin(self)
+        }
     }
 
     #[inline(always)]
     fn acos(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::acos(self) }
+        {
+            std::primitive::f64::acos(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::acos(self) }
+        {
+            libm::acos(self)
+        }
     }
 
     #[inline(always)]
     fn atan(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::atan(self) }
+        {
+            std::primitive::f64::atan(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::atan(self) }
+        {
+            libm::atan(self)
+        }
     }
 
     #[inline(always)]
     fn atan2(self, other: Self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::atan2(self, other) }
+        {
+            std::primitive::f64::atan2(self, other)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::atan2(self, other) }
+        {
+            libm::atan2(self, other)
+        }
     }
 
     #[inline(always)]
     fn exp(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::exp(self) }
+        {
+            std::primitive::f64::exp(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::exp(self) }
+        {
+            libm::exp(self)
+        }
     }
 
     #[inline(always)]
     fn ln(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::ln(self) }
+        {
+            std::primitive::f64::ln(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::log(self) }
+        {
+            libm::log(self)
+        }
     }
 
     #[inline(always)]
     fn powf(self, n: Self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::powf(self, n) }
+        {
+            std::primitive::f64::powf(self, n)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::pow(self, n) }
+        {
+            libm::pow(self, n)
+        }
     }
 
     #[inline(always)]
     fn powi(self, n: i32) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::powi(self, n) }
+        {
+            std::primitive::f64::powi(self, n)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { exp_by_squaring(self, n) }
+        {
+            exp_by_squaring(self, n)
+        }
     }
 
     #[inline(always)]
     fn floor(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::floor(self) }
+        {
+            std::primitive::f64::floor(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::floor(self) }
+        {
+            libm::floor(self)
+        }
     }
 
     #[inline(always)]
     fn ceil(self) -> Self {
         #[cfg(feature = "std")]
-        { std::primitive::f64::ceil(self) }
+        {
+            std::primitive::f64::ceil(self)
+        }
         #[cfg(all(not(feature = "std"), feature = "libm"))]
-        { libm::ceil(self) }
+        {
+            libm::ceil(self)
+        }
     }
 }
 

@@ -39,7 +39,11 @@ fn main() {
     println!("ln(e)        = {}", Real::ln(<f64 as Real>::E));
     println!("2^0.5        = {}", Real::powf(2.0f64, 0.5));
     println!("sqrt(2)      = {}", Real::sqrt(2.0f64));
-    println!("asin(1)      = {} (π/2 = {})", Real::asin(1.0f64), <f64 as Real>::PI / 2.0);
+    println!(
+        "asin(1)      = {} (π/2 = {})",
+        Real::asin(1.0f64),
+        <f64 as Real>::PI / 2.0
+    );
     println!("tan(π/4)     ≈ {:.12}", Real::tan(<f64 as Real>::PI / 4.0));
     println!("EPSILON      = {:e}", <f64 as Real>::EPSILON);
 }

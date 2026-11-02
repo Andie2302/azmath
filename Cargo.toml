@@ -2,6 +2,10 @@
 name = "azmath"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+description = "Ein generisches Real-Trait für f32 und f64 mit austauschbarem Backend (std, libm, micromath) für no_std"
+keywords = ["math", "no_std", "float", "trait", "embedded"]
+categories = ["mathematics", "no-std"]
 
 [features]
 default = ["std"]

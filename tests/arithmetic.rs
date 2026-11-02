@@ -49,6 +49,7 @@ fn division_by_zero_f32() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn comparison_f32() {
     fn less<T: Real>(a: T, b: T) -> bool {
         a < b
