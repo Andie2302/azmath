@@ -5,6 +5,7 @@
 //! | [`CsrView`] | geliehene Sicht auf CSR-Arrays (Zeilenzeiger, Spaltenindizes, Werte) | nein |
 //! | `CsrMatrix` | CSR-Matrix mit eigenem Speicher: Matrix-Vektor-Produkt, Transponierte, Summe, Umwandlungen | `alloc` |
 //! | `CooMatrix` | Tripletliste zum Aufbauen (Duplikate werden summiert) | `alloc` |
+//! | `Ilu0`, `Ic0`, `Ssor` | Vorkonditionierer für CSR-Matrizen (unvollständige LU/Cholesky, SSOR) | `alloc` |
 //! | `BandMatrix` | Bandmatrix mit direkten Lösern `BandLu` (Pivotisierung) und `BandCholesky` (SPD) | `alloc` |
 //!
 //! CSR-Matrizen implementieren [`LinearOperator`](crate::linalg::LinearOperator) und laufen damit unverändert
@@ -30,6 +31,8 @@ mod coo;
 #[cfg(feature = "alloc")]
 mod csr;
 mod error;
+#[cfg(feature = "alloc")]
+mod precond;
 mod view;
 
 #[cfg(feature = "alloc")]
@@ -39,4 +42,6 @@ pub use coo::CooMatrix;
 #[cfg(feature = "alloc")]
 pub use csr::CsrMatrix;
 pub use error::SparseError;
+#[cfg(feature = "alloc")]
+pub use precond::{Ic0, Ilu0, Ssor};
 pub use view::CsrView;
