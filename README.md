@@ -434,6 +434,7 @@ cargo run --release --example 17_multigrid
 | `17_multigrid`              | Multigrid: gitterunabhängige Konvergenz, Vorkonditionierer, O(h²) |
 | `18_autodiff`               | Autodiff: exakte Jacobi-Matrix für Levenberg-Marquardt, Hessematrix |
 | `19_rotations`              | Rotationen: Quaternionen, slerp, Euler-Winkel mit Gimbal Lock, Drift beheben |
+| `20_sparse`                 | Sparse: CSR, CG mit IC(0)/SSOR, Lanczos-Eigenwerte (`--features alloc`) |
 
 ## Tests
 

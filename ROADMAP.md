@@ -52,10 +52,10 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 |---|---|---|---|
 | ✅ | **Gauß-Elimination** (`gauss_solve`, `rank`, `row_echelon`) | S | LU ✅ |
 | ✅ | Banded-LU/-Cholesky (`BandLu`, `BandCholesky`) | M | Bandformat |
-| ⬜ | Links-Vorkonditionierer, ILU/IC, SSOR | M | Sparse |
+| ✅ | Links-Vorkonditionierer (`pgmres_left`), ILU(0), IC(0), SSOR (ungetestet) | M | Sparse |
 | ⬜ | Iterative Verfeinerung, Konditionsschätzer, QR mit Spaltenpivot, LDLᵀ | S–M | – |
 | ⬜ | Eigenwerte **nichtsymmetrisch** (Hessenberg + QR-Algorithmus, Schur), verallgemeinert | L | `Complex` |
-| ⬜ | Lanczos / Arnoldi (Teilspektren großer Matrizen) | M | Sparse/`LinearOperator` ✅ |
+| ⚠️ | Lanczos ✅ (Ritz-Werte), Arnoldi-Zerlegung ✅ (ungetestet); Ritz-Werte aus Arnoldi folgen mit dem nichtsymmetrischen Eigenlöser | M | Sparse/`LinearOperator` ✅ |
 | ⬜ | Algebraisches Multigrid (AMG) | XL | Sparse |
 
 ### C. Nullstellen und Nichtlineares
@@ -217,7 +217,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **1** | ~~`Complex`~~ ✅, ~~Modul `autodiff` (**`Jet<T, N>`**)~~ ✅, ~~Matrixnormen~~ ✅, ~~Äquilibrierung (Ruiz/Sinkhorn)~~ ✅, ~~Orthonormalisierung (MGS/Householder)~~ ✅ | ✅ |
 | **2** | Schnelle Gewinne: ~~Regula Falsi~~ ✅, ~~Rotationen/Quaternionen~~ ✅, ~~benannte Gauß-Elimination~~ ✅ | ✅ |
 | **3** | Nichtlinear ausbauen: ~~BFGS/L-BFGS~~ ✅, ~~Broyden~~ ✅, ~~Linesearch~~ ✅, ~~Trust-Region (Dogleg)~~ ✅, ~~**Polynom-Nullstellen** (Durand-Kerner, Aberth)~~ ✅ | ✅ |
-| **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | ⬜ |
+| **4** | Sparse/Band ✅, Links-Vorkonditionierer/ILU ✅, Lanczos/Arnoldi ✅ (Teile ohne Tests) | ✅ |
 | **5** | Steife ODE: Adams-Bashforth, **BDF**, **Radau IIA**, **Rodas**, Ereignissuche | ⬜ |
 | **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus), Begleitmatrix, Jenkins-Traub | ⬜ |
 | **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
