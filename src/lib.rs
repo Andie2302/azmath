@@ -15,3 +15,5 @@ pub mod real;
 pub use real::*;
 
 pub mod linalg;
+
+pub mod roots;

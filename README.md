@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.1", default-features = false, features = ["libm"] }
+azmath = { version = "0.2", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -112,6 +112,36 @@ Näherungen von `micromath` wirken sich hier also nicht aus. **Cholesky und QR b
 `sqrt`**: mit `micromath` (bewusst schnell, aber ungenau) können die Ergebnisse deutlich abweichen
 (`sqrt(0)` ist dort z. B. nur ≈ 8e-20). Für genaue Werte `std` oder `libm` verwenden.
 
+## Nullstellen
+
+Das Modul `azmath::roots` löst `f(x) = 0` für Funktionen einer Veränderlichen. Die Funktionen
+werden als Closures übergeben, alle Verfahren sind generisch über `Real` und brauchen keinen
+Allokator.
+
+| Funktion | Braucht | Eigenschaft |
+|---|---|---|
+| `brent` | Intervall mit Vorzeichenwechsel | schnell **und** sicher, die erste Wahl |
+| `bisection` | Intervall mit Vorzeichenwechsel | langsam, aber absolut sicher |
+| `newton` | Funktion, Ableitung, Startwert | quadratisch konvergent, kann divergieren |
+| `secant` | zwei Startwerte | ohne Ableitung, überlinear konvergent |
+
+Abbruch bei Intervallbreite bzw. Schritt `≤ tol · max(1, |x|)` (`RootOptions`, Standard: `8·ε`
+und 500 Iterationen). Das Ergebnis (`RootResult`) enthält Nullstelle, `f(x)` und Iterationszahl;
+Fehler (`RootError`, `#[non_exhaustive]`): `NotBracketed`, `NoConvergence`, `NotFinite`,
+`ZeroDerivative`.
+
+```rust
+use azmath::roots::{brent, RootOptions};
+use azmath::Real;
+
+// Lösung von cos(x) = x
+let r = brent(|x: f64| Real::cos(x) - x, 0.0, 1.0, RootOptions::default()).unwrap();
+assert!((r.root - 0.7390851332151607).abs() < 1e-14);
+```
+
+Hinweis: Funktionen wie `cos` in der Closure am besten als `Real::cos(x)` aufrufen. Bei einem
+`f64` würde `x.cos()` sonst die Methode der Standardbibliothek statt des gewählten Backends nehmen.
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -123,6 +153,7 @@ cargo run --example 04_backends --no-default-features --features libm
 cargo run --example 06_linear_system --features alloc
 cargo run --example 07_least_squares
 cargo run --example 08_conjugate_gradient
+cargo run --example 09_roots
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -135,6 +166,7 @@ cargo run --example 08_conjugate_gradient
 | `06_linear_system`          | LU-Löser, Determinante, Inverse (mit `alloc`: dynamisch) |
 | `07_least_squares`          | Ausgleichsgerade und Polynomfit mit QR, Cholesky       |
 | `08_conjugate_gradient`     | CG matrixfrei (Poisson) und Jacobi-Vorkonditionierer   |
+| `09_roots`                  | Nullstellen: Bisektion, Brent, Newton, Sekante, Kepler |
 
 ## Tests
 
