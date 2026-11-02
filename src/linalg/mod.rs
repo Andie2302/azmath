@@ -12,6 +12,7 @@
 //!   [`LinearOperator`] arbeiten.
 //! - [`solve_tridiagonal`] und [`solve_cyclic_tridiagonal`] lösen tridiagonale Systeme (Thomas-Algorithmus)
 //!   in `O(n)`, etwa für Splines und Differenzenverfahren.
+//! - [`eigen`] berechnet Eigenwerte und -vektoren (Jacobi, Potenzmethode) und die Singulärwertzerlegung.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -29,6 +30,7 @@
 //! ```
 
 mod cholesky;
+pub mod eigen;
 mod error;
 pub mod iterative;
 pub(crate) mod kernel;

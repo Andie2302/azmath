@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.6", default-features = false, features = ["libm"] }
+azmath = { version = "0.7", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -97,6 +97,15 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   und mit Vorkonditionierer. Arbeitsspeicher: `8·n`. In seltenen Fällen bricht das Verfahren
   zusammen (`LinalgError::Breakdown`). Bei sehr schlecht konditionierten Matrizen sagt das
   Residuum mehr aus als der Fehler der Lösung selbst.
+- **Eigenwerte und SVD** (`azmath::linalg::eigen`): `Matrix::symmetric_eigen` liefert **alle** Eigenwerte
+  (aufsteigend) und orthonormale Eigenvektoren einer symmetrischen Matrix (zyklisches Jacobi-Verfahren,
+  sehr genau auch für kleine Eigenwerte). `Matrix::svd` berechnet die dünne SVD `A = U·Σ·Vᵀ` (`M ≥ N`,
+  einseitiges Jacobi-Verfahren) samt `rank()`, `condition_number()`, `pseudo_inverse()` und `solve()`, der
+  Lösung **kleinster Norm** auch bei Rangmangel (wo QR `Singular` meldet). Matrixfrei gibt es
+  `power_iteration` (betragsgrößter Eigenwert, nur `A·x` nötig) und `inverse_iteration` (Eigenwert nahe
+  einem `shift`, bequem als `Matrix::eigenpair_near`). Mit `alloc` stehen `DynMatrix::symmetric_eigen`,
+  `svd`, `dominant_eigenpair` und `eigenpair_near` bereit. Nicht enthalten: Eigenwerte nichtsymmetrischer
+  Matrizen (komplexe Eigenwerte) und Teilspektren großer Matrizen (Lanczos, Arnoldi).
 - **Tridiagonal** (`solve_tridiagonal`, `solve_cyclic_tridiagonal`): Thomas-Algorithmus in `O(n)`, auch
   mit zyklischen Ecken (Sherman-Morrison); stabil für diagonaldominante bzw. symmetrisch positiv
   definite Matrizen, sonst besser LU. Grundlage der Splines.
@@ -333,6 +342,7 @@ cargo run --example 12_curve_fit
 cargo run --example 13_ode
 cargo run --example 14_gmres
 cargo run --example 15_interpolation
+cargo run --example 16_eigen_svd
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -352,6 +362,7 @@ cargo run --example 15_interpolation
 | `13_ode`                    | ODE: RK45, RK4, Euler, steifes Problem mit implizitem Euler |
 | `14_gmres`                  | GMRES(m): schiefsymmetrisch, Neustart-Kosten, Vorkonditionierer |
 | `15_interpolation`          | Interpolation: Runge-Phänomen, Randbedingungen, PCHIP, Integral |
+| `16_eigen_svd`              | Eigenwerte (Jacobi, Potenzmethode), SVD, PCA, Rangmangel |
 
 ## Tests
 
