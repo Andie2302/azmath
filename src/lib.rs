@@ -21,3 +21,5 @@ pub mod roots;
 pub mod integrate;
 
 pub mod optimize;
+
+pub mod ode;

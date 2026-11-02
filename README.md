@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.4", default-features = false, features = ["libm"] }
+azmath = { version = "0.5", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -225,6 +225,47 @@ mehreren Lösungen nicht zwingend die beste). Levenberg-Marquardt löst die ged�
 Normalengleichungen per Cholesky (die Konditionszahl wird quadriert), Gauß-Newton und Newton
 verwenden QR.
 
+## Differentialgleichungen
+
+Das Modul `azmath::ode` löst Anfangswertprobleme `y' = f(t, y)`, `y(t₀) = y₀`, auch Systeme und
+rückwärts in der Zeit. Wie bei `optimize` arbeiten die Funktionen auf Slices ohne Allokator: Der
+Zustand wird in-place fortgeschrieben, der Arbeitsspeicher übergeben (`*_work_len` als `const fn`).
+
+| Funktion | Art | Ordnung | Geeignet für |
+|---|---|---|---|
+| `rk45` | explizit, **adaptiv** (Dormand-Prince) | 5(4) | die erste Wahl für nicht steife Probleme |
+| `rk4`, `rk4_step` | explizit, feste Schrittweite | 4 | glatte Probleme mit bekannter Schrittweite |
+| `euler` | explizit, feste Schrittweite | 1 | Demonstrationen |
+| `implicit_euler` | implizit (Newton), feste Schrittweite | 1 | **steife** Probleme, L-stabil |
+| `implicit_trapezoid` | implizit (Newton), feste Schrittweite | 2 | steife Probleme, genauer, aber nur A-stabil |
+
+Ein **Observer** `|t, y| …` wird mit dem Anfangszustand und nach jedem (akzeptierten) Schritt
+aufgerufen, um den Verlauf aufzuzeichnen, ohne dass das Verfahren Speicher belegt. `rk45` steuert die
+Schrittweite über `Rk45Options` (`rtol`, `atol`, `h_init`, `h_max`, `max_steps`); die impliziten Verfahren
+lösen je Schritt mit `optimize::newton_system` (analytische Jacobi-Matrix oder `*_fd`). Fehler
+(`OdeError`, `#[non_exhaustive]`): `InvalidInput`, `NotFinite`, `StepSizeTooSmall`,
+`MaxStepsExceeded`, `NewtonFailed`.
+
+```rust
+use azmath::ode::{rk45, rk45_work_len, Rk45Options};
+
+// Harmonischer Oszillator y'' = −y als System (y, v)' = (v, −y), y(0) = 0, v(0) = 1
+let f = |_t: f64, y: &[f64], dy: &mut [f64]| {
+    dy[0] = y[1];
+    dy[1] = -y[0];
+};
+let mut y = [0.0, 1.0];
+let mut work = [0.0; rk45_work_len(2)];
+rk45(f, 0.0, core::f64::consts::PI / 2.0, &mut y, Rk45Options::default(), &mut work, |_, _| {})
+    .unwrap();
+assert!((y[0] - 1.0).abs() < 1e-5 && y[1].abs() < 1e-5);
+```
+
+Steife Probleme (sehr schnell abklingende Anteile) zwingen explizite Verfahren zu winzigen Schritten;
+dort sind die impliziten Verfahren im Vorteil. Die Trapezregel dämpft steife Einschwingvorgänge nur
+schwach (sie schwingt nach), das implizite Euler-Verfahren dagegen sofort. Nicht enthalten sind
+bisher Verfahren höherer Ordnung für steife Probleme (BDF, Radau) und Ereignissuche.
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -240,6 +281,7 @@ cargo run --example 09_roots
 cargo run --example 10_bicgstab
 cargo run --example 11_integrate
 cargo run --example 12_curve_fit
+cargo run --example 13_ode
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -256,6 +298,7 @@ cargo run --example 12_curve_fit
 | `10_bicgstab`               | BiCGSTAB für nichtsymmetrische Systeme                 |
 | `11_integrate`              | Integration: feste Regeln, adaptiv, Messdaten          |
 | `12_curve_fit`              | Kurvenanpassung (LM, Gauß-Newton) und Newton-System    |
+| `13_ode`                    | ODE: RK45, RK4, Euler, steifes Problem mit implizitem Euler |
 
 ## Tests
 
