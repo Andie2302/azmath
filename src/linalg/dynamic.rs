@@ -284,6 +284,30 @@ impl<T: Real> DynMatrix<T> {
         Ok((x, res))
     }
 
+    /// Löst `self · x = b` für beliebige reguläre (auch nichtsymmetrische) Matrizen mit dem
+    /// BiCGSTAB-Verfahren, Start bei `x = 0`. Liefert die Lösung und Angaben zur Iteration.
+    pub fn solve_bicgstab(
+        &self,
+        b: &DynVector<T>,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        self.solve_pbicgstab(&iterative::Identity, b, opts)
+    }
+
+    /// Wie [`solve_bicgstab`](Self::solve_bicgstab), aber mit Vorkonditionierer `m`.
+    pub fn solve_pbicgstab<M: Preconditioner<T>>(
+        &self,
+        m: &M,
+        b: &DynVector<T>,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        let n = b.len();
+        let mut x = DynVector::zeros(n);
+        let mut work = vec![T::ZERO; 8 * n];
+        let res = iterative::pbicgstab(self, m, &b.data, &mut x.data, opts, &mut work)?;
+        Ok((x, res))
+    }
+
     /// Cholesky-Zerlegung; die Matrix muss quadratisch, symmetrisch und positiv definit sein.
     pub fn cholesky(&self) -> Result<DynCholesky<T>, LinalgError> {
         DynCholesky::new(self)

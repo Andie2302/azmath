@@ -16,6 +16,8 @@ pub enum LinalgError {
     NotPositiveDefinite,
     /// Das Iterationsverfahren hat die geforderte Genauigkeit in `max_iter` Schritten nicht erreicht.
     NoConvergence,
+    /// Ein iteratives Verfahren ist zusammengebrochen (Division durch 0, zum Beispiel bei BiCGSTAB).
+    Breakdown,
 }
 
 impl fmt::Display for LinalgError {
@@ -27,6 +29,7 @@ impl fmt::Display for LinalgError {
             LinalgError::NotSymmetric => "Matrix ist nicht symmetrisch",
             LinalgError::NotPositiveDefinite => "Matrix ist nicht positiv definit",
             LinalgError::NoConvergence => "Iteration ist nicht konvergiert",
+            LinalgError::Breakdown => "Iteration ist zusammengebrochen (Division durch 0)",
         })
     }
 }

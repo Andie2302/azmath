@@ -201,6 +201,30 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
         Ok((x, res))
     }
 
+    /// Löst `self · x = b` für beliebige reguläre (auch nichtsymmetrische) Matrizen mit dem
+    /// BiCGSTAB-Verfahren, Start bei `x = 0`. Liefert die Lösung und Angaben zur Iteration.
+    pub fn solve_bicgstab(
+        &self,
+        b: &Vector<T, N>,
+        opts: IterOptions<T>,
+    ) -> Result<(Vector<T, N>, IterResult<T>), LinalgError> {
+        self.solve_pbicgstab(&iterative::Identity, b, opts)
+    }
+
+    /// Wie [`solve_bicgstab`](Self::solve_bicgstab), aber mit Vorkonditionierer `m`.
+    pub fn solve_pbicgstab<M: Preconditioner<T>>(
+        &self,
+        m: &M,
+        b: &Vector<T, N>,
+        opts: IterOptions<T>,
+    ) -> Result<(Vector<T, N>, IterResult<T>), LinalgError> {
+        let mut x = Vector::<T, N>::zeros();
+        let mut work = [[T::ZERO; N]; 8];
+        let res =
+            iterative::pbicgstab(self, m, &b.data, &mut x.data, opts, work.as_flattened_mut())?;
+        Ok((x, res))
+    }
+
     /// Cholesky-Zerlegung für symmetrisch positiv definite Matrizen.
     pub fn cholesky(&self) -> Result<Cholesky<T, N>, LinalgError> {
         Cholesky::new(self)

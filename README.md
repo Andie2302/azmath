@@ -92,11 +92,16 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   `DynJacobi`, eigene über das Trait `Preconditioner`); bequem auch als `Matrix::solve_cg` und
   `solve_pcg`. Abbruch bei relativer Residuumsnorm `‖b − A·x‖ ≤ tol · ‖b‖`
   (`IterOptions`), sonst `LinalgError::NoConvergence`.
+- **BiCGSTAB** (`bicgstab`, `pbicgstab`, `Matrix::solve_bicgstab`): für beliebige, auch
+  **nichtsymmetrische** reguläre Systeme, ebenfalls matrixfrei (benötigt nur `A·x`, kein `Aᵀ·x`)
+  und mit Vorkonditionierer. Arbeitsspeicher: `8·n`. In seltenen Fällen bricht das Verfahren
+  zusammen (`LinalgError::Breakdown`). Bei sehr schlecht konditionierten Matrizen sagt das
+  Residuum mehr aus als der Fehler der Lösung selbst.
 - Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>`, `DynLu<T>`, `DynCholesky<T>` und
   `DynQr<T>` mit zur Laufzeit festgelegter Größe (gleiche Algorithmen, Dimensionsfehler als
   `LinalgError::DimensionMismatch`).
 - Fehler (`LinalgError`, `#[non_exhaustive]`): `Singular` (bei QR: Rangdefizit), `NotFinite`
-  (NaN/Unendlich im Eingang), `DimensionMismatch`, `NotSymmetric`, `NotPositiveDefinite`, `NoConvergence`.
+  (NaN/Unendlich im Eingang), `DimensionMismatch`, `NotSymmetric`, `NotPositiveDefinite`, `NoConvergence`, `Breakdown`.
 
 ```rust
 use azmath::linalg::{Matrix, Vector};
@@ -154,6 +159,7 @@ cargo run --example 06_linear_system --features alloc
 cargo run --example 07_least_squares
 cargo run --example 08_conjugate_gradient
 cargo run --example 09_roots
+cargo run --example 10_bicgstab
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -167,6 +173,7 @@ cargo run --example 09_roots
 | `07_least_squares`          | Ausgleichsgerade und Polynomfit mit QR, Cholesky       |
 | `08_conjugate_gradient`     | CG matrixfrei (Poisson) und Jacobi-Vorkonditionierer   |
 | `09_roots`                  | Nullstellen: Bisektion, Brent, Newton, Sekante, Kepler |
+| `10_bicgstab`               | BiCGSTAB für nichtsymmetrische Systeme                 |
 
 ## Tests
 

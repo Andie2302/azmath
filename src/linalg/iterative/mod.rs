@@ -1,5 +1,8 @@
 //! Iterative Löser für große lineare Gleichungssysteme.
 //!
+//! - [`cg`] / [`pcg`]: konjugierte Gradienten für symmetrisch positiv definite Systeme.
+//! - [`bicgstab`] / [`pbicgstab`]: für beliebige (auch nichtsymmetrische) reguläre Systeme.
+//!
 //! Die Verfahren arbeiten **matrixfrei** gegen ein [`LinearOperator`](super::LinearOperator) und
 //! brauchen keinen Allokator: Der Arbeitsspeicher wird als Slice übergeben. Bequeme Methoden
 //! (`Matrix::solve_cg`, mit `alloc` auch `DynMatrix::solve_cg`) kümmern sich selbst darum.
@@ -10,9 +13,11 @@
 //! strenge Toleranz unter Umständen nie (`NoConvergence`). Für verlässliche Ergebnisse `std` oder
 //! `libm` verwenden.
 
+mod bicgstab;
 mod cg;
 mod precond;
 
+pub use bicgstab::{bicgstab, pbicgstab};
 pub use cg::{cg, pcg};
 pub use precond::{Identity, Jacobi, Preconditioner};
 
