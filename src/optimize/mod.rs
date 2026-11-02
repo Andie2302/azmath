@@ -5,6 +5,8 @@
 //! | [`newton_system`] | `F(x) = 0` mit `n` Gleichungen, `n` Unbekannten | Newton mit Schrittweitensteuerung |
 //! | [`gauss_newton`] | `min ‖r(x)‖₂` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
 //! | [`levenberg_marquardt`] | `min ‖r(x)‖₂` | Levenberg-Marquardt, robust auch bei schlechtem Startwert und Rangmangel |
+//! | [`bfgs`], [`lbfgs`] | `min f(x)` mit Gradient | Quasi-Newton (dicht bzw. mit begrenztem Speicher), starke Wolfe-Schrittweite |
+//! | [`line_search_wolfe`] | Schrittweite entlang einer Abstiegsrichtung | starke Wolfe-Bedingungen |
 //!
 //! Zu jedem Verfahren gibt es eine Variante `*_fd`, die die Jacobi-Matrix selbst per
 //! Vorwärtsdifferenzen bestimmt ([`numerical_jacobian`]); eine analytische Jacobi-Matrix ist
@@ -53,15 +55,19 @@
 //! - Mit `micromath` (bewusst ungenau, die Normen brauchen `sqrt`) werden strenge Toleranzen
 //!   unter Umständen nie erreicht; für verlässliche Ergebnisse `std` oder `libm` verwenden.
 
+mod bfgs;
 mod gauss_newton;
 mod jacobian;
+mod linesearch;
 mod lm;
 
+pub use bfgs::{MinimizeResult, bfgs, bfgs_work_len, lbfgs, lbfgs_work_len};
 pub use gauss_newton::{
     gauss_newton, gauss_newton_fd, gauss_newton_work_len, newton_system, newton_system_fd,
     newton_work_len,
 };
 pub use jacobian::{numerical_jacobian, numerical_jacobian_work_len};
+pub use linesearch::{LineSearchError, LineSearchResult, WolfeOptions, line_search_wolfe};
 pub use lm::{levenberg_marquardt, levenberg_marquardt_fd, levenberg_marquardt_work_len};
 
 use core::fmt;

@@ -17,6 +17,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Lineare Algebra, direkt | LU (Pivot), Gauß-Elimination (`gauss_solve`, `rank`, `row_echelon`), Cholesky, QR (Householder), Dreieckslöser, Tridiagonal (Thomas, zyklisch), SVD, symmetrische Eigenwerte (Jacobi) |
 | Lineare Algebra, iterativ | CG, BiCGSTAB, GMRES(m), Jacobi-Vorkonditionierer, Potenzmethode, inverse Iteration |
 | Nullstellen (1D) | Bisektion, Brent, Newton, Sekante, Regula Falsi, Illinois |
+| Minimierung | BFGS, L-BFGS (Zweischleifen-Rekursion), starke Wolfe-Schrittweitensuche |
 | Nichtlinear (mehrdimensional) | Newton-System mit Schrittweitensteuerung (gedämpft), Gauß-Newton, Levenberg-Marquardt |
 | Integration | Trapez, Simpson, Gauß-Legendre, adaptives Gauß-Kronrod, Messdaten |
 | Interpolation | linear, kubische Splines (4 Randbedingungen), PCHIP, Lagrange |
@@ -58,8 +59,8 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
 | ✅ | **Regula Falsi** (+ Illinois-Variante) | S | – |
-| ⬜ | **Quasi-Newton: BFGS** (L-BFGS), **Broyden** (Jacobi-Update) | M | Linesearch, optional Autodiff |
-| ⚠️ | **Gedämpftes Newton** – grundlegend vorhanden (Schrittweiten-Halbierung); fehlen: Armijo/Wolfe-Linesearch, Trust-Region (Dogleg), Jacobi-Wiederverwendung | M | Autodiff (für exakte Jacobi) |
+| ⚠️ | **Quasi-Newton: BFGS** ✅ (L-BFGS ✅), **Broyden** (Jacobi-Update) ⬜ | M | Linesearch ✅, optional Autodiff |
+| ⚠️ | **Gedämpftes Newton** – grundlegend vorhanden (Schrittweiten-Halbierung); starke Wolfe-Linesearch ✅ (`line_search_wolfe`, für Minimierung); fehlen: Trust-Region (Dogleg), Jacobi-Wiederverwendung | M | Autodiff (für exakte Jacobi) |
 | ⬜ | **Polynom-Nullstellen**: Durand-Kerner, Aberth-Ehrlich, Jenkins-Traub, Begleitmatrix | M–L | `Complex`; Begleitmatrix zusätzlich nichtsymmetrische Eigenwerte |
 | ⬜ | Minimierer ohne Ableitung (Golden Section, Nelder-Mead) | S–M | – |
 
