@@ -48,12 +48,14 @@
 //! Ergebnisse `std` oder `libm` verwenden.
 
 mod adams;
+mod bdf;
 mod explicit;
 mod implicit;
 mod radau;
 mod rk45;
 
 pub use adams::{adams_bashforth_moulton, adams_work_len};
+pub use bdf::{bdf, bdf_fd, bdf_work_len};
 pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len};
 pub use implicit::{
     implicit_euler, implicit_euler_fd, implicit_trapezoid, implicit_trapezoid_fd, implicit_work_len,
