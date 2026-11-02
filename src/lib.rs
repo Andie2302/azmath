@@ -7,6 +7,11 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 /// Kern des Crates: das [`Real`]-Trait und seine Implementierungen.
 pub mod real;
 pub use real::*;
+
+pub mod linalg;

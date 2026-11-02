@@ -13,6 +13,7 @@ categories = ["mathematics", "no-std"]
 [features]
 default = ["std"]
 std = []
+alloc = []
 libm = ["dep:libm"]
 micromath = ["dep:micromath"]
 

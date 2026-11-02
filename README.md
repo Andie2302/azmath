@@ -13,6 +13,9 @@ Desktop wie auf Mikrocontrollern verwenden.
 | `libm`      | [`libm`]     |  ✅   |  ✅   | `no_std`, genau                                   |
 | `micromath` | [`micromath`]|  ✅   |  ❌   | `no_std`, schnell, aber nur eine Näherung         |
 
+Zusätzlich gibt es das Feature **`alloc`** (dynamisch große Matrizen und Vektoren, siehe
+[Lineare Algebra](#lineare-algebra)). Es ist unabhängig von den Backends und braucht nur einen Allokator.
+
 Sind mehrere Features aktiv, gilt die Priorität **`std` → `libm` → `micromath`**.
 Ohne jedes Feature stehen keine `Real`-Implementierungen zur Verfügung.
 
@@ -62,6 +65,31 @@ Standardimplementierung im Trait; mit `std` und `libm` werden `sinh`/`cosh`/`tan
 direkt an das Backend weitergereicht, mit `micromath` (das sie nicht anbietet) greift die
 Standardimplementierung über `exp`/`powf`.
 
+## Lineare Algebra
+
+Das Modul `azmath::linalg` enthält Vektoren, Matrizen und einen LU-Löser (mit Teilpivotisierung).
+Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
+
+- `Vector<T, N>` und `Matrix<T, R, C>`: feste Größe über Const Generics, liegen auf dem Stack, kein
+  Allokator nötig. Operatoren `+`, `-`, Negation, Skalar-, Matrix-Vektor- und Matrix-Matrix-Produkt.
+- `Matrix::solve`, `determinant`, `inverse` und `lu()` für quadratische Matrizen; eine
+  `LuDecomposition` löst beliebig viele rechte Seiten günstig.
+- Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>` und `DynLu<T>` mit zur Laufzeit
+  festgelegter Größe (gleicher Algorithmus, Dimensionsfehler als `LinalgError::DimensionMismatch`).
+- Fehler: `LinalgError::Singular`, `NotFinite` (NaN/Unendlich im Eingang) und `DimensionMismatch`.
+
+```rust
+use azmath::linalg::{Matrix, Vector};
+
+// 2x + y = 5,  x + 3y = 10
+let a = Matrix::new([[2.0f64, 1.0], [1.0, 3.0]]);
+let b = Vector::new([5.0, 10.0]);
+let x = a.solve(&b).unwrap(); // x = 1, y = 3
+```
+
+Der LU-Löser verwendet nur `+ - * /`, `abs` und `max`. Diese sind in allen Backends exakt, die
+Näherungen von `micromath` wirken sich hier also nicht aus.
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -70,6 +98,7 @@ Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `
 cargo run --example 01_generic_functions
 cargo run --example 03_f64_ops
 cargo run --example 04_backends --no-default-features --features libm
+cargo run --example 06_linear_system --features alloc
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -79,6 +108,7 @@ cargo run --example 04_backends --no-default-features --features libm
 | `03_f64_ops`                | Quadratische Gleichung, `exp`, `ln`, `powf` in `f64`|
 | `04_backends`               | Anzeige und Vergleich der Backends                  |
 | `05_convert`                | `from_f64` und Einheitenumrechnung                  |
+| `06_linear_system`          | LU-Löser, Determinante, Inverse (mit `alloc`: dynamisch) |
 
 ## Tests
 
@@ -88,6 +118,7 @@ Die Integrationstests liegen in [`tests/`](tests):
 cargo test                                              # std
 cargo test --no-default-features --features libm        # libm
 cargo test --no-default-features --features micromath   # micromath (nur f32)
+cargo test --features alloc                             # inkl. dynamische Matrizen
 ```
 
 Zusätzlich laufen die Doctests mit `cargo test --doc`. Die Continuous Integration

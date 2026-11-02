@@ -21,6 +21,9 @@ jobs:
           - { name: libm,           flags: "--no-default-features --features libm" }
           - { name: micromath,      flags: "--no-default-features --features micromath" }
           - { name: libm+micromath, flags: "--no-default-features --features libm,micromath" }
+          - { name: std+alloc,      flags: "--features alloc" }
+          - { name: libm+alloc,     flags: "--no-default-features --features libm,alloc" }
+          - { name: micromath+alloc, flags: "--no-default-features --features micromath,alloc" }
           - { name: all features,   flags: "--all-features" }
           - { name: no features,    flags: "--no-default-features" }
     steps:
@@ -39,7 +42,10 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
 
   msrv:
     name: MSRV 1.85
