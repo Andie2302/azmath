@@ -14,6 +14,7 @@
 //!   in `O(n)`, etwa für Splines und Differenzenverfahren.
 //! - [`eigen`] berechnet Eigenwerte und -vektoren (Jacobi, Potenzmethode) und die Singulärwertzerlegung.
 //! - Matrixnormen: `norm_frobenius`, `norm_1`, `norm_inf` und `norm_2` (größter Singulärwert), siehe `Matrix::norm_2`.
+//! - Äquilibrierung (Ruiz, Sinkhorn): `Matrix::equilibrate_ruiz`, `Matrix::equilibrate_sinkhorn`, Ergebnis [`Equilibrated`].
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -32,6 +33,7 @@
 
 mod cholesky;
 pub mod eigen;
+mod equilibrate;
 mod error;
 pub mod iterative;
 /// Interne Rechenkerne auf Slices (auch von `optimize` genutzt). Keine öffentliche API.
@@ -48,6 +50,7 @@ mod vector;
 mod dynamic;
 
 pub use cholesky::Cholesky;
+pub use equilibrate::{EquilibrateOptions, Equilibrated};
 pub use error::LinalgError;
 pub use lu::LuDecomposition;
 pub use matrix::Matrix;
@@ -60,3 +63,5 @@ pub use vector::Vector;
 
 #[cfg(feature = "alloc")]
 pub use dynamic::{DynCholesky, DynLu, DynMatrix, DynQr, DynVector};
+#[cfg(feature = "alloc")]
+pub use equilibrate::DynEquilibrated;
