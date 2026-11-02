@@ -25,3 +25,5 @@ pub mod optimize;
 pub mod ode;
 
 pub mod interp;
+
+pub mod multigrid;

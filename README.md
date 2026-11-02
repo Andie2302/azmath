@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.7", default-features = false, features = ["libm"] }
+azmath = { version = "0.8", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -324,6 +324,48 @@ drei konvergieren asymptotisch mit `h⁴` (bei groben Gittern kann not-a-knot we
 besser oder schlechter als die anderen sein). Ein Polynom durch viele gleichmäßige Punkte zeigt das
 Runge-Phänomen (Beispiel: 1/(1+25x²) mit 11 Punkten, Fehler 1,9 bei Spline 0,001).
 
+## Multigrid
+
+Das Modul `azmath::multigrid` löst die Poisson-Gleichung `−Δu = f` mit Dirichlet-Rand auf dem Einheitsintervall
+(1D) bzw. Einheitsquadrat (2D, 5-Punkte-Stern) mit **geometrischem Multigrid**: Rechenaufwand `O(N)` und eine
+von der Gittergröße **unabhängige** Konvergenzrate. Gemessen bei `−Δu = 1` mit Gauß-Seidel V(2,2) auf Gittern
+von `7×7` bis `127×127`: durchgehend 12 Zyklen bis `1e-12`, während CG von 9 auf 264 Iterationen wächst.
+
+| Funktion / Typ | Aufgabe |
+|---|---|
+| `solve_1d`, `solve_2d` | Löser bis zur relativen Residuumstoleranz (`SolveOptions`) |
+| `cycle_1d`, `cycle_2d` | ein einzelner V- oder W-Zyklus |
+| `MultigridPreconditioner` | symmetrischer Zyklus als Vorkonditionierer für `pcg`; konstant etwa 7 Iterationen |
+| `Poisson1d`, `Poisson2d` | der Operator als `LinearOperator` (für CG, Eigenwerte, …) |
+| `solve_1d_vec`, `solve_2d_vec` | wie die Löser, mit eigener Speicherverwaltung (`alloc`) |
+
+Bausteine: Glätter `GaussSeidel` (vorwärts vor, rückwärts nach der Grobgitterkorrektur, damit der Zyklus
+symmetrisch bleibt) oder `WeightedJacobi(ω)` (1D: `2/3`, 2D: `4/5`), Restriktion per Full Weighting, lineare bzw.
+bilineare Prolongation, exakte Lösung auf dem gröbsten Gitter, `CycleType::V` oder `W`
+(`MultigridOptions`). Die Gittergröße muss `n = 2ᵏ − 1` sein (`grid_levels`); der Arbeitsspeicher kommt als Slice
+(`work_len_1d`, `work_len_2d`, `const fn`). Fehler (`MultigridError`, `#[non_exhaustive]`): `InvalidGridSize`,
+`InvalidInput`, `NotFinite`, `NoConvergence`.
+
+```rust
+use azmath::multigrid::{solve_1d, work_len_1d, MultigridOptions, SolveOptions};
+
+// −u'' = π²·sin(πx) auf (0, 1) hat die Lösung sin(πx)
+const N: usize = 63;
+let h = 1.0 / (N as f64 + 1.0);
+let pi = core::f64::consts::PI;
+let f: [f64; N] = core::array::from_fn(|i| pi * pi * (pi * (i + 1) as f64 * h).sin());
+let mut u = [0.0; N];
+let mut work = [0.0; work_len_1d(N)];
+let r = solve_1d(&f, &mut u, N, MultigridOptions::default(), SolveOptions::default(), &mut work).unwrap();
+assert!(r.cycles <= 15 && (u[N / 2] - 1.0).abs() < 1e-3);
+```
+
+Hinweise: Das Verfahren ist auf den Poisson-Operator mit konstanten Koeffizienten zugeschnitten (kein
+algebraisches Multigrid, keine variablen Koeffizienten, keine anisotropen Gitter, keine anderen Randbedingungen).
+Die Diskretisierung selbst ist von zweiter Ordnung: der Fehler zur kontinuierlichen Lösung fällt mit `h²`
+(Faktor 4 beim Halbieren der Maschenweite), unabhängig davon, wie genau das Gleichungssystem gelöst wird.
+Als Vorkonditionierer muss `pre_smooth == post_smooth` gelten, sonst ist der Zyklus nicht symmetrisch.
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -343,6 +385,7 @@ cargo run --example 13_ode
 cargo run --example 14_gmres
 cargo run --example 15_interpolation
 cargo run --example 16_eigen_svd
+cargo run --release --example 17_multigrid
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -363,6 +406,7 @@ cargo run --example 16_eigen_svd
 | `14_gmres`                  | GMRES(m): schiefsymmetrisch, Neustart-Kosten, Vorkonditionierer |
 | `15_interpolation`          | Interpolation: Runge-Phänomen, Randbedingungen, PCHIP, Integral |
 | `16_eigen_svd`              | Eigenwerte (Jacobi, Potenzmethode), SVD, PCA, Rangmangel |
+| `17_multigrid`              | Multigrid: gitterunabhängige Konvergenz, Vorkonditionierer, O(h²) |
 
 ## Tests
 
