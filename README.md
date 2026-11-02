@@ -72,11 +72,18 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
 
 - `Vector<T, N>` und `Matrix<T, R, C>`: feste Größe über Const Generics, liegen auf dem Stack, kein
   Allokator nötig. Operatoren `+`, `-`, Negation, Skalar-, Matrix-Vektor- und Matrix-Matrix-Produkt.
-- `Matrix::solve`, `determinant`, `inverse` und `lu()` für quadratische Matrizen; eine
-  `LuDecomposition` löst beliebig viele rechte Seiten günstig.
-- Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>` und `DynLu<T>` mit zur Laufzeit
-  festgelegter Größe (gleicher Algorithmus, Dimensionsfehler als `LinalgError::DimensionMismatch`).
-- Fehler: `LinalgError::Singular`, `NotFinite` (NaN/Unendlich im Eingang) und `DimensionMismatch`.
+- **LU** (`Matrix::solve`, `determinant`, `inverse`, `lu()`): für beliebige quadratische Matrizen, mit
+  Teilpivotisierung. Eine `LuDecomposition` löst beliebig viele rechte Seiten günstig.
+- **Cholesky** (`Matrix::cholesky`, `solve_spd`): für symmetrisch positiv definite Matrizen,
+  schneller als LU. Symmetrie und positive Definitheit werden geprüft.
+- **QR** (`Matrix::qr`, `least_squares`): Householder-Verfahren für `M × N`-Matrizen mit `M ≥ N`.
+  Löst überbestimmte Systeme im Sinne der kleinsten Quadrate (Ausgleichsgeraden, Polynomfits)
+  und liefert `Q`, `R` und die Residuumsnorm.
+- Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>`, `DynLu<T>`, `DynCholesky<T>` und
+  `DynQr<T>` mit zur Laufzeit festgelegter Größe (gleiche Algorithmen, Dimensionsfehler als
+  `LinalgError::DimensionMismatch`).
+- Fehler (`LinalgError`, `#[non_exhaustive]`): `Singular` (bei QR: Rangdefizit), `NotFinite`
+  (NaN/Unendlich im Eingang), `DimensionMismatch`, `NotSymmetric`, `NotPositiveDefinite`.
 
 ```rust
 use azmath::linalg::{Matrix, Vector};
@@ -88,7 +95,9 @@ let x = a.solve(&b).unwrap(); // x = 1, y = 3
 ```
 
 Der LU-Löser verwendet nur `+ - * /`, `abs` und `max`. Diese sind in allen Backends exakt, die
-Näherungen von `micromath` wirken sich hier also nicht aus.
+Näherungen von `micromath` wirken sich hier also nicht aus. **Cholesky und QR benötigen dagegen
+`sqrt`**: mit `micromath` (bewusst schnell, aber ungenau) können die Ergebnisse deutlich abweichen
+(`sqrt(0)` ist dort z. B. nur ≈ 8e-20). Für genaue Werte `std` oder `libm` verwenden.
 
 ## Beispiele
 
@@ -99,6 +108,7 @@ cargo run --example 01_generic_functions
 cargo run --example 03_f64_ops
 cargo run --example 04_backends --no-default-features --features libm
 cargo run --example 06_linear_system --features alloc
+cargo run --example 07_least_squares
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -109,6 +119,7 @@ cargo run --example 06_linear_system --features alloc
 | `04_backends`               | Anzeige und Vergleich der Backends                  |
 | `05_convert`                | `from_f64` und Einheitenumrechnung                  |
 | `06_linear_system`          | LU-Löser, Determinante, Inverse (mit `alloc`: dynamisch) |
+| `07_least_squares`          | Ausgleichsgerade und Polynomfit mit QR, Cholesky       |
 
 ## Tests
 

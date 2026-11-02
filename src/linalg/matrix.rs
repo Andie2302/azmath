@@ -1,6 +1,6 @@
 use core::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
-use super::{LinalgError, LuDecomposition, Vector};
+use super::{Cholesky, LinalgError, LuDecomposition, QrDecomposition, Vector};
 use crate::Real;
 
 /// Matrix fester Größe mit `R` Zeilen und `C` Spalten (liegt auf dem Stack).
@@ -101,6 +101,16 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
         Ok(self.lu()?.solve(b))
     }
 
+    /// Cholesky-Zerlegung für symmetrisch positiv definite Matrizen.
+    pub fn cholesky(&self) -> Result<Cholesky<T, N>, LinalgError> {
+        Cholesky::new(self)
+    }
+
+    /// Löst `self · x = b` für symmetrisch positiv definite Matrizen (per Cholesky).
+    pub fn solve_spd(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        Ok(self.cholesky()?.solve(b))
+    }
+
     /// Determinante. Für singuläre Matrizen `0`, bei NaN/Unendlich NaN.
     pub fn determinant(&self) -> T {
         match self.lu() {
@@ -113,6 +123,18 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
     /// Inverse Matrix.
     pub fn inverse(&self) -> Result<Self, LinalgError> {
         Ok(self.lu()?.inverse())
+    }
+}
+
+impl<T: Real, const M: usize, const N: usize> Matrix<T, M, N> {
+    /// QR-Zerlegung (Householder); erfordert `M >= N` und vollen Spaltenrang.
+    pub fn qr(&self) -> Result<QrDecomposition<T, M, N>, LinalgError> {
+        QrDecomposition::new(self)
+    }
+
+    /// Kleinste-Quadrate-Lösung von `min ‖self · x − b‖₂` (per QR).
+    pub fn least_squares(&self, b: &Vector<T, M>) -> Result<Vector<T, N>, LinalgError> {
+        Ok(self.qr()?.solve(b))
     }
 }
 

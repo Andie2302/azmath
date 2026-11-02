@@ -6,6 +6,9 @@
 //!   festgelegter Größe hinzu.
 //! - [`LuDecomposition`] zerlegt quadratische Matrizen (mit Teilpivotisierung) und löst
 //!   damit Gleichungssysteme, berechnet Determinanten und Inverse.
+//! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
+//! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
+//!   Quadrate, etwa für Ausgleichsgeraden.
 //!
 //! ```
 //! # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -19,19 +22,23 @@
 //! # }
 //! ```
 
+mod cholesky;
 mod error;
 mod kernel;
 mod lu;
 mod matrix;
+mod qr;
 mod vector;
 
 #[cfg(feature = "alloc")]
 mod dynamic;
 
+pub use cholesky::Cholesky;
 pub use error::LinalgError;
 pub use lu::LuDecomposition;
 pub use matrix::Matrix;
+pub use qr::QrDecomposition;
 pub use vector::Vector;
 
 #[cfg(feature = "alloc")]
-pub use dynamic::{DynLu, DynMatrix, DynVector};
+pub use dynamic::{DynCholesky, DynLu, DynMatrix, DynQr, DynVector};

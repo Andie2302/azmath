@@ -105,3 +105,223 @@ pub(crate) fn lu_determinant<T: Real>(lu: &[T], n: usize, odd: bool) -> T {
     }
     det
 }
+
+// ============================================================================
+// Cholesky
+// ============================================================================
+
+/// Zerlegt die symmetrisch positiv definite `n x n`-Matrix `a` (zeilenweise) in-place in
+/// `A = L·Lᵀ`. `L` steht danach in der unteren Dreiecksmatrix, oberhalb der Diagonalen steht 0.
+pub(crate) fn cholesky_decompose<T: Real>(a: &mut [T], n: usize) -> Result<(), LinalgError> {
+    debug_assert_eq!(a.len(), n * n);
+    if n == 0 {
+        return Ok(());
+    }
+
+    let mut scale = T::ZERO;
+    let mut max_diag = T::ZERO;
+    for (idx, &v) in a.iter().enumerate() {
+        if v.is_nan() || v.is_infinite() {
+            return Err(LinalgError::NotFinite);
+        }
+        scale = scale.max(v.abs());
+        if idx % (n + 1) == 0 {
+            max_diag = max_diag.max(v.abs());
+        }
+    }
+
+    let nf = T::from_f64(n as f64);
+    let sym_tol = T::from_f64(8.0) * nf * T::EPSILON * scale;
+    for i in 0..n {
+        for j in 0..i {
+            if (a[i * n + j] - a[j * n + i]).abs() > sym_tol {
+                return Err(LinalgError::NotSymmetric);
+            }
+        }
+    }
+
+    let pd_tol = nf * T::EPSILON * max_diag;
+    for j in 0..n {
+        let mut s = a[j * n + j];
+        for k in 0..j {
+            s -= a[j * n + k] * a[j * n + k];
+        }
+        if s.is_nan() || s <= pd_tol {
+            return Err(LinalgError::NotPositiveDefinite);
+        }
+        let d = s.sqrt();
+        a[j * n + j] = d;
+        for i in (j + 1)..n {
+            let mut t = a[i * n + j];
+            for k in 0..j {
+                t -= a[i * n + k] * a[j * n + k];
+            }
+            a[i * n + j] = t / d;
+        }
+    }
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            a[i * n + j] = T::ZERO;
+        }
+    }
+    Ok(())
+}
+
+/// Löst `A·x = b` mit `A = L·Lᵀ` (Vorwärts-, dann Rückwärtssubstitution).
+pub(crate) fn cholesky_solve<T: Real>(l: &[T], n: usize, b: &[T], x: &mut [T]) {
+    debug_assert_eq!(l.len(), n * n);
+    for i in 0..n {
+        let mut s = b[i];
+        for j in 0..i {
+            s -= l[i * n + j] * x[j];
+        }
+        x[i] = s / l[i * n + i];
+    }
+    for i in (0..n).rev() {
+        let mut s = x[i];
+        for j in (i + 1)..n {
+            s -= l[j * n + i] * x[j];
+        }
+        x[i] = s / l[i * n + i];
+    }
+}
+
+/// Determinante aus `L`: Quadrat des Produkts der Diagonale.
+pub(crate) fn cholesky_determinant<T: Real>(l: &[T], n: usize) -> T {
+    let mut p = T::ONE;
+    for i in 0..n {
+        p *= l[i * n + i];
+    }
+    p * p
+}
+
+// ============================================================================
+// QR (Householder)
+// ============================================================================
+
+/// QR-Zerlegung der `m x n`-Matrix `a` (`m >= n`, zeilenweise) in-place mit Householder-Spiegelungen.
+///
+/// `R` steht auf und oberhalb der Diagonalen. Unterhalb der Diagonalen stehen die
+/// Householder-Vektoren `w` (mit `w[k] = 1` implizit), `tau[k]` die zugehörigen Faktoren:
+/// `H_k = I - tau[k]·w·wᵀ` und `Q = H_0·H_1·…·H_{n-1}`.
+///
+/// Fehler: [`LinalgError::Singular`] bei Rangdefizit (kleines oder fehlendes `R_kk`).
+pub(crate) fn qr_decompose<T: Real>(
+    a: &mut [T],
+    m: usize,
+    n: usize,
+    tau: &mut [T],
+) -> Result<(), LinalgError> {
+    debug_assert_eq!(a.len(), m * n);
+    debug_assert_eq!(tau.len(), n);
+    debug_assert!(m >= n);
+
+    for &v in a.iter() {
+        if v.is_nan() || v.is_infinite() {
+            return Err(LinalgError::NotFinite);
+        }
+    }
+
+    for k in 0..n {
+        let mut norm2 = T::ZERO;
+        for i in k..m {
+            norm2 += a[i * n + k] * a[i * n + k];
+        }
+        // Auf norm2 prüfen (exakte Arithmetik): sqrt(0) ist bei Näherungs-Backends nicht exakt 0.
+        if norm2 == T::ZERO {
+            tau[k] = T::ZERO;
+            continue;
+        }
+        let norm = norm2.sqrt();
+        let akk = a[k * n + k];
+        let alpha = if akk > T::ZERO { -norm } else { norm };
+        let v0 = akk - alpha;
+        let mut vn2 = v0 * v0;
+        for i in (k + 1)..m {
+            vn2 += a[i * n + k] * a[i * n + k];
+        }
+        let t = T::from_f64(2.0) * v0 * v0 / vn2;
+        tau[k] = t;
+        for i in (k + 1)..m {
+            a[i * n + k] /= v0;
+        }
+        for j in (k + 1)..n {
+            let mut s = a[k * n + j];
+            for i in (k + 1)..m {
+                s += a[i * n + k] * a[i * n + j];
+            }
+            s *= t;
+            a[k * n + j] -= s;
+            for i in (k + 1)..m {
+                a[i * n + j] -= s * a[i * n + k];
+            }
+        }
+        a[k * n + k] = alpha;
+    }
+
+    let mut rmax = T::ZERO;
+    for k in 0..n {
+        rmax = rmax.max(a[k * n + k].abs());
+    }
+    let tol = T::from_f64(m as f64) * T::EPSILON * rmax;
+    for k in 0..n {
+        let d = a[k * n + k].abs();
+        if d.is_nan() || d <= tol {
+            return Err(LinalgError::Singular);
+        }
+    }
+    Ok(())
+}
+
+/// Wendet eine Householder-Spiegelung `H_k` auf `b` an.
+fn apply_reflector<T: Real>(a: &[T], n: usize, m: usize, tau: &[T], k: usize, b: &mut [T]) {
+    if tau[k] == T::ZERO {
+        return;
+    }
+    let mut s = b[k];
+    for i in (k + 1)..m {
+        s += a[i * n + k] * b[i];
+    }
+    s *= tau[k];
+    b[k] -= s;
+    for i in (k + 1)..m {
+        b[i] -= s * a[i * n + k];
+    }
+}
+
+/// Berechnet `Qᵀ·b` in-place (`b` hat Länge `m`).
+pub(crate) fn qr_apply_qt<T: Real>(a: &[T], m: usize, n: usize, tau: &[T], b: &mut [T]) {
+    for k in 0..n {
+        apply_reflector(a, n, m, tau, k, b);
+    }
+}
+
+/// Berechnet `Q·b` in-place (`b` hat Länge `m`).
+pub(crate) fn qr_apply_q<T: Real>(a: &[T], m: usize, n: usize, tau: &[T], b: &mut [T]) {
+    for k in (0..n).rev() {
+        apply_reflector(a, n, m, tau, k, b);
+    }
+}
+
+/// Löst das Ausgleichsproblem `min ‖A·x − b‖₂`. `y` ist eine Kopie von `b` (Länge `m`) und
+/// enthält danach `Qᵀ·b`; `x` hat Länge `n`.
+pub(crate) fn qr_solve<T: Real>(a: &[T], m: usize, n: usize, tau: &[T], y: &mut [T], x: &mut [T]) {
+    qr_apply_qt(a, m, n, tau, y);
+    for i in (0..n).rev() {
+        let mut s = y[i];
+        for j in (i + 1)..n {
+            s -= a[i * n + j] * x[j];
+        }
+        x[i] = s / a[i * n + i];
+    }
+}
+
+/// Euklidische Norm des Residuums aus `Qᵀ·b` (Einträge `n..m`).
+pub(crate) fn qr_residual_norm<T: Real>(y: &[T], n: usize) -> T {
+    let mut s = T::ZERO;
+    for &v in &y[n..] {
+        s += v * v;
+    }
+    s.sqrt()
+}
