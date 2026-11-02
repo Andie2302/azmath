@@ -24,6 +24,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Orthonormalisierung | modifiziertes Gram-Schmidt (optional mit Reorthogonalisierung), `thin_q` aus Householder-QR, Polarzerlegung `A = U·P`, `nearest_orthogonal`/`nearest_rotation`, `orthogonality_error`; fest und dynamisch |
 | Äquilibrierung | Ruiz (∞-Norm) und Sinkhorn-Knopp, Zweierpotenzen als exakte Faktoren, `scale_rhs`/`recover_solution`; fest und dynamisch |
 | Matrixnormen | Frobenius (überlaufsicher), 1, ∞, 2-Norm über SVD; fest und dynamisch |
+| Geometrie | `Quaternion<T>` (Hamilton-Produkt, `rotate`, `slerp`/`nlerp`, `exp`/`ln`, Matrix-Umrechnung nach Shepperd), `exp_so3`/`log_so3`, Rodrigues, Euler Z-Y-X mit Gimbal-Lock-Erkennung |
 | Komplexe Zahlen | `Complex<T>`: Arithmetik (Smith-Division), Betrag/Argument, `sqrt`, `exp`, `ln`, `powi`/`powf`, `sin`/`cos`/`sinh`/`cosh` |
 | Autodiff | `Jet<T, N>` (Vorwärtsmodus, Stack), `VectorFn`, Jacobi-Adapter mit Strip-Mining, Hessematrix per geschachtelten Jets |
 | PDE | geometrisches Multigrid für Poisson (1D/2D), als Löser und als CG-Vorkonditionierer |
@@ -96,8 +97,8 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### G. Geometrie und Rotationen
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ⬜ | `Vec3`, `Mat3`, **Rotationsmatrizen (SO(3))**, **Quaternionen** (Einheitsquaternion, SLERP/NLERP), Achse-Winkel, Rodrigues, Exponential-/Logarithmus-Abbildung | M | `Real`, kleine feste Matrizen ✅ |
-| ⬜ | **Euler-Winkel-Umrechnung mit Gimbal-Lock-Behandlung** (die Winkel selbst vermeiden; nur Ein-/Ausgabe) | S | Quaternion |
+| ✅ | `Vec3`, `Mat3` (`Vector<T,3>`, `Matrix<T,3,3>`), **Rotationsmatrizen (SO(3))**, **Quaternionen** (Einheitsquaternion, SLERP/NLERP), Achse-Winkel, Rodrigues, Exponential-/Logarithmus-Abbildung | M | `Real`, kleine feste Matrizen ✅ |
+| ✅ | **Euler-Winkel-Umrechnung mit Gimbal-Lock-Behandlung** (Konvention Z-Y-X) (die Winkel selbst vermeiden; nur Ein-/Ausgabe) | S | Quaternion |
 | ⬜ | Dual-Quaternionen, SE(3), Transformationsketten | M | Quaternion |
 | ✅ | Re-Orthonormalisierung von Rotationsmatrizen (`Matrix::nearest_rotation`, `nearest_orthogonal`) | S | Polarzerlegung (SVD ✅) |
 
@@ -190,11 +191,12 @@ src/
   multigrid/        Multigrid (Poisson)
   complex/          Complex<T>
   autodiff/         Jet<T, N>, VectorFn, jacobian_ad, hessian_ad
+  geometry/         Quaternion, exp_so3/log_so3, Euler-Winkel (Z-Y-X)
 tests/              Integrationstests, Präfix = Modul
 examples/
 ```
 
-Geplante weitere **Module** (Namen vorläufig): `geometry` (Rotationen, Quaternionen), `opt` (LP, QP,
+Geplante weitere **Module** (Namen vorläufig): `opt` (LP, QP,
 MILP, NLP), `pde` (FDM, FEM, FVM, Navier-Stokes), `particles` (SPH), `iapws` (Wasser/Dampf), `sat` (DPLL, CDCL, SMT).
 
 **Konventionen:** Die Features (`std`, `libm`, `micromath`, `alloc`) gelten crateweit. Mathematische Kernmodule bleiben ohne
@@ -209,7 +211,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **0b** | **API-Entwurf** (Arbeitsspeicher-Muster, für Autodiff generische Funktionsschnittstelle): Entwurf und Prototyp liegen vor, [`docs/design/0001`](docs/design/0001-autodiff-und-arbeitsspeicher.md); **Entscheidung steht aus** | ⚠️ |
 | **0c** | `CHANGELOG`, Crate-Metadaten, `cargo publish --dry-run` | ⬜ |
 | **1** | ~~`Complex`~~ ✅, ~~Modul `autodiff` (**`Jet<T, N>`**)~~ ✅, ~~Matrixnormen~~ ✅, ~~Äquilibrierung (Ruiz/Sinkhorn)~~ ✅, ~~Orthonormalisierung (MGS/Householder)~~ ✅ | ✅ |
-| **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination | ⬜ |
+| **2** | Schnelle Gewinne: ~~Regula Falsi~~ ✅, ~~Rotationen/Quaternionen~~ ✅, ~~benannte Gauß-Elimination~~ ✅ | ✅ |
 | **3** | Nichtlinear ausbauen: BFGS/L-BFGS, Broyden, Linesearch/Trust-Region, **Polynom-Nullstellen** (Durand-Kerner, Aberth) | ⬜ |
 | **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | ⬜ |
 | **5** | Steife ODE: Adams-Bashforth, **BDF**, **Radau IIA**, **Rodas**, Ereignissuche | ⬜ |

@@ -15,6 +15,7 @@
 //! | [`multigrid`] | Multigrid für Poisson |
 //! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
 //! | [`complex`] | komplexe Zahlen `Complex<T>` |
+//! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
 
 #![no_std]
 #![warn(missing_docs)]
@@ -30,6 +31,7 @@ pub use real::*;
 
 pub mod autodiff;
 pub mod complex;
+pub mod geometry;
 pub mod integrate;
 pub mod interp;
 pub mod linalg;

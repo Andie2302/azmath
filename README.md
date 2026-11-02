@@ -21,6 +21,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::ode` | gewöhnliche Differentialgleichungen |
 | `azmath::multigrid` | Multigrid für Poisson |
 | `azmath::complex` | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie) |
+| `azmath::geometry` | Quaternionen, Rotationsmatrizen (Rodrigues, `exp_so3`/`log_so3`), `slerp`, Euler-Winkel mit Gimbal-Lock-Erkennung |
 | `azmath::autodiff` | Automatisches Differenzieren (`Jet`, exakte Jacobi-/Hessematrizen) |
 
 Tests liegen in `tests/`, Beispiele in `examples/`.
@@ -430,6 +431,7 @@ cargo run --release --example 17_multigrid
 | `16_eigen_svd`              | Eigenwerte (Jacobi, Potenzmethode), SVD, PCA, Rangmangel |
 | `17_multigrid`              | Multigrid: gitterunabhängige Konvergenz, Vorkonditionierer, O(h²) |
 | `18_autodiff`               | Autodiff: exakte Jacobi-Matrix für Levenberg-Marquardt, Hessematrix |
+| `19_rotations`              | Rotationen: Quaternionen, slerp, Euler-Winkel mit Gimbal Lock, Drift beheben |
 
 ## Tests
 
