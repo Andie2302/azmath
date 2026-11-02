@@ -71,4 +71,19 @@ impl<T: Real, const M: usize, const N: usize> QrDecomposition<T, M, N> {
         }
         q
     }
+
+    /// Das dünne `Q` (`M × N`, erste `N` Spalten der vollen orthogonalen Matrix); stabile Alternative zu
+    /// Gram-Schmidt.
+    pub fn thin_q(&self) -> Matrix<T, M, N> {
+        let mut q = Matrix::<T, M, N>::zeros();
+        for j in 0..N {
+            let mut col = [T::ZERO; M];
+            col[j] = T::ONE;
+            qr_apply_q(self.qr.data.as_flattened(), M, N, &self.tau, &mut col);
+            for (row, &v) in q.data.iter_mut().zip(col.iter()) {
+                row[j] = v;
+            }
+        }
+        q
+    }
 }

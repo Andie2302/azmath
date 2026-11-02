@@ -21,6 +21,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Integration | Trapez, Simpson, Gauß-Legendre, adaptives Gauß-Kronrod, Messdaten |
 | Interpolation | linear, kubische Splines (4 Randbedingungen), PCHIP, Lagrange |
 | ODE | Euler, RK4, Dormand-Prince (adaptiv), implizites Euler, implizite Trapezregel |
+| Orthonormalisierung | modifiziertes Gram-Schmidt (optional mit Reorthogonalisierung), `thin_q` aus Householder-QR, Polarzerlegung `A = U·P`, `nearest_orthogonal`/`nearest_rotation`, `orthogonality_error`; fest und dynamisch |
 | Äquilibrierung | Ruiz (∞-Norm) und Sinkhorn-Knopp, Zweierpotenzen als exakte Faktoren, `scale_rhs`/`recover_solution`; fest und dynamisch |
 | Matrixnormen | Frobenius (überlaufsicher), 1, ∞, 2-Norm über SVD; fest und dynamisch |
 | Komplexe Zahlen | `Complex<T>`: Arithmetik (Smith-Division), Betrag/Argument, `sqrt`, `exp`, `ln`, `powi`/`powf`, `sin`/`cos`/`sinh`/`cosh` |
@@ -37,7 +38,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **`Complex<T>`** (komplexe Zahlen, `azmath::complex`) | S–M | `Real` | Polynom-Nullstellen, nichtsymmetrische Eigenwerte, FFT |
 | ✅ | **Automatisches Differenzieren** (`azmath::autodiff`; `Jet<T,N>`, `VectorFn`, `jacobian_ad`, `hessian_ad`; `gradient_ad` noch offen): `Jet<T, N>` = Wert plus Gradient `[T; N]` auf dem Stack (Vorwärtsmodus, ohne Heap), `Dual<T>` als Sonderfall `N = 1`, geschachtelt für Hessians (Entwurf siehe Abschnitt 7) | M–L | `Real` | exakte Jacobi-/Gradientenmatrizen für `newton_system` und `levenberg_marquardt`, SQP/IPOPT, IAPWS-Ableitungen, Taylor-ODE |
 | ✅ | ~~**Matrixnormen** (Frobenius, 1, ∞, 2-Norm über SVD)~~ ✅ und ~~**Äquilibrierung**~~ ✅ (Zeilen-/Spaltenskalierung nach Ruiz bzw. Sinkhorn) | S–M | `linalg`, SVD ✅ | bessere Konditionierung, Fehlerabschätzung |
-| ⬜ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
+| ✅ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
 | ⬜ | `Real` ergänzen (`copysign`, `from_usize`, `fma`-Varianten …) | S | – | bei Bedarf |
 | ⬜ | Sparse-Formate (COO/CSR), Bandmatrizen | M | `alloc` | große Systeme, FEM, Innere-Punkte |
 
@@ -98,7 +99,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ⬜ | `Vec3`, `Mat3`, **Rotationsmatrizen (SO(3))**, **Quaternionen** (Einheitsquaternion, SLERP/NLERP), Achse-Winkel, Rodrigues, Exponential-/Logarithmus-Abbildung | M | `Real`, kleine feste Matrizen ✅ |
 | ⬜ | **Euler-Winkel-Umrechnung mit Gimbal-Lock-Behandlung** (die Winkel selbst vermeiden; nur Ein-/Ausgabe) | S | Quaternion |
 | ⬜ | Dual-Quaternionen, SE(3), Transformationsketten | M | Quaternion |
-| ⬜ | Re-Orthonormalisierung von Rotationsmatrizen | S | Polarzerlegung (SVD ✅) |
+| ✅ | Re-Orthonormalisierung von Rotationsmatrizen (`Matrix::nearest_rotation`, `nearest_orthogonal`) | S | Polarzerlegung (SVD ✅) |
 
 *Hinweis zum Gimbal Lock:* Er ist kein Rechenfehler, sondern eine Eigenschaft der Euler-Winkel-Darstellung (bei
 Neigung ±90° geht ein Freiheitsgrad verloren). Die Abhilfe ist, intern mit **Quaternionen oder Rotationsmatrizen** zu
@@ -207,7 +208,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **0a** | Aufteilung in Module (zuerst als Workspace, dann auf Wunsch wieder in **ein** Crate gefaltet; ohne API-Änderung) | ✅ |
 | **0b** | **API-Entwurf** (Arbeitsspeicher-Muster, für Autodiff generische Funktionsschnittstelle): Entwurf und Prototyp liegen vor, [`docs/design/0001`](docs/design/0001-autodiff-und-arbeitsspeicher.md); **Entscheidung steht aus** | ⚠️ |
 | **0c** | `CHANGELOG`, Crate-Metadaten, `cargo publish --dry-run` | ⬜ |
-| **1** | ~~`Complex`~~ ✅, ~~Modul `autodiff` (**`Jet<T, N>`**)~~ ✅, ~~Matrixnormen~~ ✅, ~~Äquilibrierung (Ruiz/Sinkhorn)~~ ✅, Orthonormalisierung (MGS/Householder) | ⬜ |
+| **1** | ~~`Complex`~~ ✅, ~~Modul `autodiff` (**`Jet<T, N>`**)~~ ✅, ~~Matrixnormen~~ ✅, ~~Äquilibrierung (Ruiz/Sinkhorn)~~ ✅, ~~Orthonormalisierung (MGS/Householder)~~ ✅ | ✅ |
 | **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination | ⬜ |
 | **3** | Nichtlinear ausbauen: BFGS/L-BFGS, Broyden, Linesearch/Trust-Region, **Polynom-Nullstellen** (Durand-Kerner, Aberth) | ⬜ |
 | **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | ⬜ |

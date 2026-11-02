@@ -15,6 +15,8 @@
 //! - [`eigen`] berechnet Eigenwerte und -vektoren (Jacobi, Potenzmethode) und die Singulärwertzerlegung.
 //! - Matrixnormen: `norm_frobenius`, `norm_1`, `norm_inf` und `norm_2` (größter Singulärwert), siehe `Matrix::norm_2`.
 //! - Äquilibrierung (Ruiz, Sinkhorn): `Matrix::equilibrate_ruiz`, `Matrix::equilibrate_sinkhorn`, Ergebnis [`Equilibrated`].
+//! - Orthonormalisierung und Polarzerlegung: `Matrix::orthonormalize_mgs`, `QrDecomposition::thin_q`, `Matrix::polar`,
+//!   `Matrix::nearest_rotation`.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -42,6 +44,7 @@ mod lu;
 mod matrix;
 mod norm;
 mod operator;
+mod orthogonal;
 mod qr;
 mod tridiagonal;
 mod vector;
@@ -55,6 +58,7 @@ pub use error::LinalgError;
 pub use lu::LuDecomposition;
 pub use matrix::Matrix;
 pub use operator::{FnOperator, LinearOperator};
+pub use orthogonal::{Orthonormalized, Polar};
 pub use qr::QrDecomposition;
 pub use tridiagonal::{
     cyclic_tridiagonal_work_len, solve_cyclic_tridiagonal, solve_tridiagonal, tridiagonal_work_len,
@@ -65,3 +69,5 @@ pub use vector::Vector;
 pub use dynamic::{DynCholesky, DynLu, DynMatrix, DynQr, DynVector};
 #[cfg(feature = "alloc")]
 pub use equilibrate::DynEquilibrated;
+#[cfg(feature = "alloc")]
+pub use orthogonal::{DynOrthonormalized, DynPolar};

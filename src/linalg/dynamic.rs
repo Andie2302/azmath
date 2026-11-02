@@ -595,6 +595,22 @@ impl<T: Real> DynQr<T> {
         }
         q
     }
+
+    /// Das dünne `Q` (`m × n`, erste `n` Spalten der vollen orthogonalen Matrix).
+    pub fn thin_q(&self) -> DynMatrix<T> {
+        let (m, n) = (self.m, self.n);
+        let mut q = DynMatrix::zeros(m, n);
+        let mut col = vec![T::ZERO; m];
+        for j in 0..n {
+            col.fill(T::ZERO);
+            col[j] = T::ONE;
+            qr_apply_q(&self.qr, m, n, &self.tau, &mut col);
+            for (i, &v) in col.iter().enumerate() {
+                q.data[i * n + j] = v;
+            }
+        }
+        q
+    }
 }
 
 impl<T: Real> super::LinearOperator<T> for DynMatrix<T> {
