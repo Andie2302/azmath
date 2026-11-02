@@ -8,13 +8,13 @@ pub const fn implicit_work_len(n: usize) -> usize {
     newton_work_len(n) + 3 * n
 }
 
-enum Jac<J> {
+pub(super) enum Jac<J> {
     Analytic(J),
     Numeric,
 }
 
 /// Platzhalter-Typ für `Jac::Numeric` (wird nie aufgerufen).
-type NoJacobian<T> = fn(T, &[T], &mut [T]);
+pub(super) type NoJacobian<T> = fn(T, &[T], &mut [T]);
 
 /// Gemeinsamer Kern des θ-Verfahrens: `yₙ₊₁ = yₙ + h·((1−θ)·f(tₙ, yₙ) + θ·f(tₙ₊₁, yₙ₊₁))`.
 /// `θ = 1`: implizites Euler-Verfahren, `θ = ½`: implizite Trapezregel.

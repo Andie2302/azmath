@@ -50,6 +50,7 @@
 mod adams;
 mod explicit;
 mod implicit;
+mod radau;
 mod rk45;
 
 pub use adams::{adams_bashforth_moulton, adams_work_len};
@@ -57,6 +58,7 @@ pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len};
 pub use implicit::{
     implicit_euler, implicit_euler_fd, implicit_trapezoid, implicit_trapezoid_fd, implicit_work_len,
 };
+pub use radau::{radau_work_len, radau5, radau5_fd};
 pub use rk45::{Rk45Options, Rk45Result, rk45, rk45_work_len};
 
 use core::fmt;
