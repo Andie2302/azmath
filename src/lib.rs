@@ -13,6 +13,7 @@
 //! | [`optimize`] | Newton, Gauß-Newton, Levenberg-Marquardt |
 //! | [`ode`] | gewöhnliche Differentialgleichungen |
 //! | [`multigrid`] | Multigrid für Poisson |
+//! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
 
 #![no_std]
 #![warn(missing_docs)]
@@ -26,6 +27,7 @@ extern crate alloc;
 pub mod real;
 pub use real::*;
 
+pub mod autodiff;
 pub mod integrate;
 pub mod interp;
 pub mod linalg;

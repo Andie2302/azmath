@@ -20,6 +20,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt |
 | `azmath::ode` | gewöhnliche Differentialgleichungen |
 | `azmath::multigrid` | Multigrid für Poisson |
+| `azmath::autodiff` | Automatisches Differenzieren (`Jet`, exakte Jacobi-/Hessematrizen) |
 
 Tests liegen in `tests/`, Beispiele in `examples/`.
 
@@ -425,6 +426,7 @@ cargo run --release --example 17_multigrid
 | `15_interpolation`          | Interpolation: Runge-Phänomen, Randbedingungen, PCHIP, Integral |
 | `16_eigen_svd`              | Eigenwerte (Jacobi, Potenzmethode), SVD, PCA, Rangmangel |
 | `17_multigrid`              | Multigrid: gitterunabhängige Konvergenz, Vorkonditionierer, O(h²) |
+| `18_autodiff`               | Autodiff: exakte Jacobi-Matrix für Levenberg-Marquardt, Hessematrix |
 
 ## Tests
 

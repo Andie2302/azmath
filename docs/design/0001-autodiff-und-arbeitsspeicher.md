@@ -1,6 +1,6 @@
 # Entwurf 0001: Autodiff-Schnittstelle und Arbeitsspeicher-Muster
 
-**Status:** Vorschlag, Entscheidung steht aus · **Phase:** 0b · **Prototyp:** [`design/spike-autodiff`](../../design/spike-autodiff)
+**Status:** umgesetzt als `azmath::autodiff` (D1–D4); D5/D6 gelten als Konvention · **Phase:** 0b · **Prototyp:** [`design/spike-autodiff`](../../design/spike-autodiff)
 
 ## 1. Fragen
 
