@@ -3,6 +3,7 @@
 //! | Funktion | Problem | Verfahren |
 //! |---|---|---|
 //! | [`newton_system`] | `F(x) = 0` mit `n` Gleichungen, `n` Unbekannten | Newton mit Schrittweitensteuerung |
+//! | [`dogleg`] | `F(x) = 0` | Vertrauensbereich (Powell-Dogleg), robust bei schlechtem Startwert |
 //! | [`broyden`] | `F(x) = 0` | Broyden (Rang-1-Update der inversen Jacobi-Matrix), nur eine Jacobi-Matrix am Start |
 //! | [`gauss_newton`] | `min ‖r(x)‖₂` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
 //! | [`levenberg_marquardt`] | `min ‖r(x)‖₂` | Levenberg-Marquardt, robust auch bei schlechtem Startwert und Rangmangel |
@@ -58,6 +59,7 @@
 
 mod bfgs;
 mod broyden;
+mod dogleg;
 mod gauss_newton;
 mod jacobian;
 mod linesearch;
@@ -65,6 +67,7 @@ mod lm;
 
 pub use bfgs::{MinimizeResult, bfgs, bfgs_work_len, lbfgs, lbfgs_work_len};
 pub use broyden::{broyden, broyden_fd, broyden_work_len};
+pub use dogleg::{dogleg, dogleg_fd, dogleg_work_len};
 pub use gauss_newton::{
     gauss_newton, gauss_newton_fd, gauss_newton_work_len, newton_system, newton_system_fd,
     newton_work_len,

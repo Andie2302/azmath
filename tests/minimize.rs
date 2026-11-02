@@ -464,3 +464,138 @@ mod broyden_tests {
         assert!(broyden_fd(none, &mut z, OptimizeOptions::default(), &mut w1).is_err());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Dogleg (Vertrauensbereich)
+// ---------------------------------------------------------------------------
+
+mod dogleg_tests {
+    use azmath::optimize::{
+        OptimizeError, OptimizeOptions, Termination, dogleg, dogleg_fd, dogleg_work_len,
+        newton_system, newton_work_len,
+    };
+
+    #[test]
+    fn converges_where_plain_newton_diverges() {
+        // arctan(x) = 0: ab |x| ≈ 1,39 springt das reine Newton-Verfahren immer weiter weg
+        let f = |x: &[f64], out: &mut [f64]| out[0] = x[0].atan();
+        let jac = |x: &[f64], j: &mut [f64]| j[0] = 1.0 / (1.0 + x[0] * x[0]);
+        for start in [2.0, 10.0, -50.0] {
+            let mut x = [start];
+            let mut work = [0.0; dogleg_work_len(1)];
+            let r = dogleg(f, jac, &mut x, OptimizeOptions::default(), &mut work).unwrap();
+            assert!(x[0].abs() < 1e-7, "Start {start}: {x:?}");
+            assert!(r.residual_norm < 1e-7);
+        }
+    }
+
+    #[test]
+    fn solves_circle_and_line_from_far_away() {
+        let f = |x: &[f64], out: &mut [f64]| {
+            out[0] = x[0] * x[0] + x[1] * x[1] - 4.0;
+            out[1] = x[1] - x[0];
+        };
+        let jac =
+            |x: &[f64], j: &mut [f64]| j.copy_from_slice(&[2.0 * x[0], 2.0 * x[1], -1.0, 1.0]);
+        let mut x = [30.0, -20.0];
+        let mut work = [0.0; dogleg_work_len(2)];
+        dogleg(f, jac, &mut x, OptimizeOptions::default(), &mut work).unwrap();
+        // eine der beiden Lösungen ±(√2, √2)
+        assert!(
+            (x[0].abs() - 2f64.sqrt()).abs() < 1e-7 && (x[0] - x[1]).abs() < 1e-7,
+            "{x:?}"
+        );
+        let mut y = [30.0, -20.0];
+        dogleg_fd(f, &mut y, OptimizeOptions::default(), &mut work).unwrap();
+        assert!((y[0].abs() - 2f64.sqrt()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn matches_newton_on_a_ten_dimensional_system() {
+        let n = 10;
+        let f = |x: &[f64], out: &mut [f64]| {
+            let s: f64 = x.iter().map(|v| v.sin()).sum();
+            for i in 0..n {
+                out[i] = x[i] + 0.1 * s - 1.0;
+            }
+        };
+        let jac = |x: &[f64], j: &mut [f64]| {
+            for i in 0..n {
+                for k in 0..n {
+                    j[i * n + k] = 0.1 * x[k].cos() + if i == k { 1.0 } else { 0.0 };
+                }
+            }
+        };
+        let mut xd = [0.0; 10];
+        let mut wd = [0.0; dogleg_work_len(10)];
+        dogleg(f, jac, &mut xd, OptimizeOptions::default(), &mut wd).unwrap();
+        let mut xn = [0.0; 10];
+        let mut wn = [0.0; newton_work_len(10)];
+        newton_system(f, jac, &mut xn, OptimizeOptions::default(), &mut wn).unwrap();
+        for i in 0..n {
+            assert!((xd[i] - xn[i]).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn rosenbrock_system_from_a_bad_start() {
+        let f = |x: &[f64], out: &mut [f64]| {
+            out[0] = 10.0 * (x[1] - x[0] * x[0]);
+            out[1] = 1.0 - x[0];
+        };
+        let jac = |x: &[f64], j: &mut [f64]| j.copy_from_slice(&[-20.0 * x[0], 10.0, -1.0, 0.0]);
+        let mut x = [-5.0, 8.0];
+        let mut work = [0.0; dogleg_work_len(2)];
+        dogleg(f, jac, &mut x, OptimizeOptions::default(), &mut work).unwrap();
+        assert!(
+            (x[0] - 1.0).abs() < 1e-8 && (x[1] - 1.0).abs() < 1e-8,
+            "{x:?}"
+        );
+    }
+
+    #[test]
+    fn singular_jacobian_falls_back_to_the_cauchy_step() {
+        // x² − 1 = 0 bei x = 0: J = 0, stationärer Punkt ohne Nullstelle
+        let f = |x: &[f64], out: &mut [f64]| out[0] = x[0] * x[0] - 1.0;
+        let jac = |x: &[f64], j: &mut [f64]| j[0] = 2.0 * x[0];
+        let mut x = [0.0];
+        let mut work = [0.0; dogleg_work_len(1)];
+        let r = dogleg(f, jac, &mut x, OptimizeOptions::default(), &mut work).unwrap();
+        assert_eq!(r.termination, Termination::Gradient);
+        assert!((r.residual_norm - 1.0).abs() < 1e-15);
+        // fast singulär, aber nicht null: x = 1e-3 findet die Lösung
+        let mut y = [1e-3];
+        dogleg(f, jac, &mut y, OptimizeOptions::default(), &mut work).unwrap();
+        assert!((y[0] - 1.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn errors_and_edge_cases() {
+        let f = |x: &[f64], out: &mut [f64]| out[0] = x[0] - 3.0;
+        let mut work = [0.0; dogleg_work_len(1)];
+        let mut x = [3.0];
+        let r = dogleg_fd(f, &mut x, OptimizeOptions::default(), &mut work).unwrap();
+        assert_eq!((r.iterations, r.termination), (0, Termination::Residual));
+        let mut empty: [f64; 0] = [];
+        assert_eq!(
+            dogleg_fd(f, &mut empty, OptimizeOptions::default(), &mut work),
+            Err(OptimizeError::InvalidInput)
+        );
+        let mut short = [0.0; 2];
+        let mut x = [0.0];
+        assert_eq!(
+            dogleg_fd(f, &mut x, OptimizeOptions::default(), &mut short),
+            Err(OptimizeError::InvalidInput)
+        );
+        let mut bad = [f64::NAN];
+        assert_eq!(
+            dogleg_fd(f, &mut bad, OptimizeOptions::default(), &mut work),
+            Err(OptimizeError::NotFinite)
+        );
+        // keine Lösung: x² + 1 = 0
+        let none = |x: &[f64], out: &mut [f64]| out[0] = x[0] * x[0] + 1.0;
+        let mut z = [1.0];
+        let r = dogleg_fd(none, &mut z, OptimizeOptions::default(), &mut work);
+        assert!(r.is_err() || r.unwrap().residual_norm > 0.5);
+    }
+}
