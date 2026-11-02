@@ -3,6 +3,8 @@
 //! | Funktion / Typ | Problem |
 //! |---|---|
 //! | [`Matrix::symmetric_eigen`](crate::linalg::Matrix::symmetric_eigen) | **alle** Eigenwerte und -vektoren einer symmetrischen Matrix (Jacobi) |
+//! | [`lanczos`], [`lanczos_ritz`] | extreme Eigenwerte großer symmetrischer Operatoren (Krylov-Raum, Ritz-Werte) |
+//! | [`arnoldi`] | Arnoldi-Zerlegung `A·V = V·H` für beliebige Operatoren (Ritz-Werte folgen mit dem nichtsymmetrischen Eigenlöser) |
 //! | [`Matrix::svd`](crate::linalg::Matrix::svd) | Singulärwertzerlegung `A = U·Σ·Vᵀ`; Rang, Konditionszahl, Pseudoinverse, Lösung bei Rangmangel |
 //! | [`power_iteration`] | betragsgrößter Eigenwert, **matrixfrei** (nur `A·x`) |
 //! | [`inverse_iteration`] | Eigenwert nahe einem Wert (`shift`) |
@@ -21,6 +23,7 @@
 
 mod jacobi;
 mod kernel;
+mod lanczos;
 mod power;
 mod svd;
 
@@ -28,6 +31,9 @@ mod svd;
 mod dynamic;
 
 pub use jacobi::SymmetricEigen;
+pub use lanczos::{
+    arnoldi, arnoldi_work_len, lanczos, lanczos_ritz, lanczos_ritz_work_len, lanczos_work_len,
+};
 pub use power::{EigenResult, inverse_iteration, power_iteration, power_iteration_work_len};
 pub use svd::Svd;
 
