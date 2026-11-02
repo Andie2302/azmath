@@ -1,5 +1,5 @@
 //! Tests für generischen Code über `T: Real` (Zusammenspiel mehrerer Methoden).
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 mod common;
 
@@ -67,12 +67,11 @@ fn pythagorean_identity_f32() {
         let x = i as f32 * 0.4;
         let s = x.sin();
         let c = x.cos();
-        // sin² + cos² = 1 (gilt auch näherungsweise für micromath)
+        // sin² + cos² = 1
         close32(s * s + c * c, 1.0);
     }
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 mod f64_tests {
     use super::*;
     use common::assert_close_f64 as close64;

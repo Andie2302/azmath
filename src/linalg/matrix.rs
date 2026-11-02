@@ -1,5 +1,6 @@
 use core::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
+use super::kernel::{check_diagonal, triangular_solve};
 use super::{Cholesky, LinalgError, LuDecomposition, QrDecomposition, Vector};
 use crate::Real;
 
@@ -99,6 +100,77 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
     /// Löst `self · x = b`.
     pub fn solve(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
         Ok(self.lu()?.solve(b))
+    }
+
+    /// Dreieckslöser ohne Diagonalprüfung (Kern für alle `solve_*`-Varianten).
+    fn triangular(
+        &self,
+        b: &Vector<T, N>,
+        upper: bool,
+        transpose: bool,
+        unit: bool,
+    ) -> Vector<T, N> {
+        let mut x = *b;
+        triangular_solve(
+            self.data.as_flattened(),
+            N,
+            upper,
+            transpose,
+            unit,
+            &mut x.data,
+        );
+        x
+    }
+
+    /// Wie `triangular`, prüft vorher aber, dass keine Diagonale 0 oder NaN ist.
+    fn triangular_checked(
+        &self,
+        b: &Vector<T, N>,
+        upper: bool,
+        transpose: bool,
+    ) -> Result<Vector<T, N>, LinalgError> {
+        check_diagonal(self.data.as_flattened(), N)?;
+        Ok(self.triangular(b, upper, transpose, false))
+    }
+
+    /// Löst `L·x = b` für die untere Dreiecksmatrix `self` (Vorwärtssubstitution).
+    ///
+    /// Die Einträge oberhalb der Diagonalen werden ignoriert. Fehler:
+    /// [`LinalgError::Singular`], wenn ein Diagonalelement 0 oder NaN ist.
+    pub fn solve_lower(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        self.triangular_checked(b, false, false)
+    }
+
+    /// Löst `U·x = b` für die obere Dreiecksmatrix `self` (Rückwärtssubstitution).
+    ///
+    /// Die Einträge unterhalb der Diagonalen werden ignoriert. Fehler:
+    /// [`LinalgError::Singular`], wenn ein Diagonalelement 0 oder NaN ist.
+    pub fn solve_upper(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        self.triangular_checked(b, true, false)
+    }
+
+    /// Wie [`solve_lower`](Self::solve_lower), aber mit Einheitsdiagonale: die Diagonale von
+    /// `self` wird nicht gelesen und als 1 angenommen (wie bei `L` der LU-Zerlegung).
+    pub fn solve_lower_unit(&self, b: &Vector<T, N>) -> Vector<T, N> {
+        // Mit Einheitsdiagonale ist das System immer lösbar.
+        self.triangular(b, false, false, true)
+    }
+
+    /// Wie [`solve_upper`](Self::solve_upper), aber mit Einheitsdiagonale.
+    pub fn solve_upper_unit(&self, b: &Vector<T, N>) -> Vector<T, N> {
+        self.triangular(b, true, false, true)
+    }
+
+    /// Löst `Lᵀ·x = b`, wobei `self` die untere Dreiecksmatrix `L` ist (ohne `L` zu transponieren).
+    ///
+    /// Das ist der zweite Schritt eines Cholesky-Lösers.
+    pub fn solve_lower_transposed(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        self.triangular_checked(b, false, true)
+    }
+
+    /// Löst `Uᵀ·x = b`, wobei `self` die obere Dreiecksmatrix `U` ist (ohne `U` zu transponieren).
+    pub fn solve_upper_transposed(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        self.triangular_checked(b, true, true)
     }
 
     /// Cholesky-Zerlegung für symmetrisch positiv definite Matrizen.

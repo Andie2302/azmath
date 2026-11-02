@@ -76,6 +76,12 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   Teilpivotisierung. Eine `LuDecomposition` löst beliebig viele rechte Seiten günstig.
 - **Cholesky** (`Matrix::cholesky`, `solve_spd`): für symmetrisch positiv definite Matrizen,
   schneller als LU. Symmetrie und positive Definitheit werden geprüft.
+- **Dreieckslöser** (`solve_lower`, `solve_upper`, jeweils auch als `_unit`- und
+  `_transposed`-Variante): Vorwärts- und Rückwärtssubstitution als öffentlicher Baustein. Das jeweils
+  andere Dreieck wird ignoriert. Die `_unit`-Varianten nehmen eine Einheitsdiagonale an (wie `L` bei
+  LU), die `_transposed`-Varianten lösen `Lᵀ·x = b` bzw. `Uᵀ·x = b`, ohne die Matrix zu
+  transponieren (so löst man etwa Cholesky in zwei Schritten). Ein Diagonalelement 0 oder NaN
+  ergibt `LinalgError::Singular`.
 - **QR** (`Matrix::qr`, `least_squares`): Householder-Verfahren für `M × N`-Matrizen mit `M ≥ N`.
   Löst überbestimmte Systeme im Sinne der kleinsten Quadrate (Ausgleichsgeraden, Polynomfits)
   und liefert `Q`, `R` und die Residuumsnorm.
@@ -128,13 +134,19 @@ Die Integrationstests liegen in [`tests/`](tests):
 ```bash
 cargo test                                              # std
 cargo test --no-default-features --features libm        # libm
-cargo test --no-default-features --features micromath   # micromath (nur f32)
 cargo test --features alloc                             # inkl. dynamische Matrizen
 ```
 
-Zusätzlich laufen die Doctests mit `cargo test --doc`. Die Continuous Integration
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) prüft alle Feature-Kombinationen,
-`cargo fmt` und `cargo clippy`.
+Zusätzlich laufen die Doctests mit `cargo test --doc`.
+
+**Die Tests laufen nur mit den genauen Backends `std` und `libm`.** `micromath` rechnet bewusst
+mit Bit-Tricks und ist ungenau; Fehler akkumulieren sich in längeren Rechnungen, sodass Ergebnisse
+dort nur zufällig stimmen und keine sinnvollen Zahlenwerte geprüft werden können. Mit
+`micromath` allein werden Bibliothek, Beispiele und Tests daher nur **gebaut**, nicht ausgeführt.
+
+Die Continuous Integration ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) baut alle
+Feature-Kombinationen, testet sie (außer `micromath` allein) und prüft `cargo fmt`,
+`cargo clippy` und `cargo doc`.
 
 ## Hinweise
 
@@ -142,8 +154,7 @@ Zusätzlich laufen die Doctests mit `cargo test --doc`. Die Continuous Integrati
   mit Bit-Tricks und liefert Näherungen mit Fehlern im Prozentbereich. Das Crate verbessert diese
   Ergebnisse absichtlich nicht; wer genaue Werte braucht, nimmt `std` oder `libm`.
 
-- Beispiel: `sqrt(0.7)` ergibt mit `micromath` ≈ 0.85 statt 0.8367; die Tests verwenden dafür eine
-  größere Toleranz.
+- Beispiel: `sqrt(0.7)` ergibt mit `micromath` ≈ 0.85 statt 0.8367.
 - `micromath` 2.1.0 bricht bei `ln` negativer Werte in Debug-Builds mit einem
   Integer-Überlauf ab (Upstream-Verhalten).
 - Edition 2024, benötigt eine entsprechend aktuelle Rust-Version.

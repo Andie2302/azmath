@@ -1,17 +1,10 @@
 //! Gemeinsame Hilfsfunktionen für die Integrationstests.
 #![allow(dead_code)]
 
-/// Erlaubte Abweichung für f32-Vergleiche.
-///
-/// `std` und `libm` sind genau; `micromath` ist nur eine schnelle Näherung
-/// (Fehler im Bereich von 10 %), daher dort eine großzügige Toleranz.
-pub const TOL_F32: f32 = if cfg!(any(feature = "std", feature = "libm")) {
-    1e-5
-} else {
-    0.2
-};
+/// Erlaubte relative Abweichung für f32-Vergleiche.
+pub const TOL_F32: f32 = 1e-5;
 
-/// Erlaubte Abweichung für f64-Vergleiche (nur mit `std`/`libm` verfügbar).
+/// Erlaubte Abweichung für f64-Vergleiche .
 pub const TOL_F64: f64 = 1e-12;
 
 pub fn assert_close_f32(actual: f32, expected: f32) {

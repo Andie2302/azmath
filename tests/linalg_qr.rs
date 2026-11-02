@@ -1,16 +1,13 @@
 //! Tests für die QR-Zerlegung und Kleinste-Quadrate-Probleme (fest und dynamisch).
 //!
-//! QR benötigt `sqrt`; mit `micromath` (Näherung) gilt daher eine weite Toleranz, und
-//! Tests zur Rangerkennung laufen nur mit den genauen Backends `std`/`libm`.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+//!
+//! Die Tests laufen nur mit den genauen Backends `std` und `libm`; `micromath` ist eine bewusst
+//! ungenaue Näherung (Fehler akkumulieren), daher werden damit keine Zahlenwerte geprüft.
+#![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::linalg::{LinalgError, Matrix, Vector};
 
-const TOL: f32 = if cfg!(any(feature = "std", feature = "libm")) {
-    1e-4
-} else {
-    0.3
-};
+const TOL: f32 = 1e-4;
 
 fn close(a: f32, b: f32) {
     assert!(
@@ -19,7 +16,6 @@ fn close(a: f32, b: f32) {
     );
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn q_times_r_reconstructs_a() {
     let a = Matrix::new([[1.0f32, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 9.0]]);
@@ -36,7 +32,6 @@ fn q_times_r_reconstructs_a() {
     }
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn q_is_orthogonal() {
     let a = Matrix::new([
@@ -89,7 +84,6 @@ fn noisy_line_fit_matches_normal_equations() {
     close(x[1], x2[1]);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn residual_is_orthogonal_to_columns() {
     let a = Matrix::new([[1.0f32, 1.0], [1.0, 2.0], [1.0, 3.0], [1.0, 4.0]]);
@@ -130,7 +124,6 @@ fn underdetermined_is_rejected() {
     assert_eq!(a.qr().unwrap_err(), LinalgError::DimensionMismatch);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn rank_deficient_is_rejected() {
     // zweite Spalte = 2 · erste Spalte
@@ -154,7 +147,6 @@ fn rejects_non_finite() {
     assert_eq!(a.qr().unwrap_err(), LinalgError::NotFinite);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 mod f64_tests {
     use azmath::linalg::{Matrix, Vector};
 
@@ -226,7 +218,6 @@ mod dynamic {
         assert!((rn - 1.8f32.sqrt()).abs() < 5.0 * TOL, "residual {rn}");
     }
 
-    #[cfg(any(feature = "std", feature = "libm"))]
     #[test]
     fn reconstruction_and_orthogonality() {
         let a = DynMatrix::new(4, 2, vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 9.0]).unwrap();

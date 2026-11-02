@@ -6,6 +6,65 @@
 use super::LinalgError;
 use crate::Real;
 
+/// Löst in-place ein Dreieckssystem; `x` enthält beim Aufruf die rechte Seite `b`.
+///
+/// - `upper`: `a` wird als obere (`true`) bzw. untere (`false`) Dreiecksmatrix `T` gelesen,
+///   das jeweils andere Dreieck wird ignoriert.
+/// - `transpose`: gelöst wird `Tᵀ·x = b` statt `T·x = b`.
+/// - `unit`: Die Diagonale gilt als 1 und wird nicht gelesen.
+///
+/// Die Diagonale wird nicht auf 0 geprüft (siehe [`check_diagonal`]).
+pub(crate) fn triangular_solve<T: Real>(
+    a: &[T],
+    n: usize,
+    upper: bool,
+    transpose: bool,
+    unit: bool,
+    x: &mut [T],
+) {
+    debug_assert_eq!(a.len(), n * n);
+    debug_assert_eq!(x.len(), n);
+    // Element (i, j) der effektiven Matrix E = T bzw. Tᵀ
+    let at = |i: usize, j: usize| {
+        if transpose {
+            a[j * n + i]
+        } else {
+            a[i * n + j]
+        }
+    };
+
+    if upper == transpose {
+        // E ist untere Dreiecksmatrix: Vorwärtssubstitution
+        for i in 0..n {
+            let mut s = x[i];
+            for j in 0..i {
+                s -= at(i, j) * x[j];
+            }
+            x[i] = if unit { s } else { s / at(i, i) };
+        }
+    } else {
+        // E ist obere Dreiecksmatrix: Rückwärtssubstitution
+        for i in (0..n).rev() {
+            let mut s = x[i];
+            for j in (i + 1)..n {
+                s -= at(i, j) * x[j];
+            }
+            x[i] = if unit { s } else { s / at(i, i) };
+        }
+    }
+}
+
+/// Prüft, dass keine Diagonale 0 oder NaN ist (sonst ist das Dreieckssystem nicht eindeutig lösbar).
+pub(crate) fn check_diagonal<T: Real>(a: &[T], n: usize) -> Result<(), LinalgError> {
+    for i in 0..n {
+        let d = a[i * n + i];
+        if d == T::ZERO || d.is_nan() {
+            return Err(LinalgError::Singular);
+        }
+    }
+    Ok(())
+}
+
 /// Zerlegt die `n x n`-Matrix `a` (zeilenweise) in-place in `P·A = L·U`.
 ///
 /// `L` (Einheitsdiagonale, nicht gespeichert) steht unterhalb, `U` auf und oberhalb der
@@ -79,22 +138,8 @@ pub(crate) fn lu_solve<T: Real>(lu: &[T], n: usize, perm: &[usize], b: &[T], x: 
     for i in 0..n {
         x[i] = b[perm[i]];
     }
-    // Vorwärtssubstitution (L hat Einheitsdiagonale).
-    for i in 0..n {
-        let mut s = x[i];
-        for j in 0..i {
-            s -= lu[i * n + j] * x[j];
-        }
-        x[i] = s;
-    }
-    // Rückwärtssubstitution.
-    for i in (0..n).rev() {
-        let mut s = x[i];
-        for j in (i + 1)..n {
-            s -= lu[i * n + j] * x[j];
-        }
-        x[i] = s / lu[i * n + i];
-    }
+    triangular_solve(lu, n, false, false, true, x); // L hat Einheitsdiagonale
+    triangular_solve(lu, n, true, false, false, x); // U
 }
 
 /// Determinante aus der Zerlegung: Produkt der Diagonale mit Vorzeichen der Permutation.
@@ -171,20 +216,9 @@ pub(crate) fn cholesky_decompose<T: Real>(a: &mut [T], n: usize) -> Result<(), L
 /// Löst `A·x = b` mit `A = L·Lᵀ` (Vorwärts-, dann Rückwärtssubstitution).
 pub(crate) fn cholesky_solve<T: Real>(l: &[T], n: usize, b: &[T], x: &mut [T]) {
     debug_assert_eq!(l.len(), n * n);
-    for i in 0..n {
-        let mut s = b[i];
-        for j in 0..i {
-            s -= l[i * n + j] * x[j];
-        }
-        x[i] = s / l[i * n + i];
-    }
-    for i in (0..n).rev() {
-        let mut s = x[i];
-        for j in (i + 1)..n {
-            s -= l[j * n + i] * x[j];
-        }
-        x[i] = s / l[i * n + i];
-    }
+    x.copy_from_slice(b);
+    triangular_solve(l, n, false, false, false, x); // L·y = b
+    triangular_solve(l, n, false, true, false, x); // Lᵀ·x = y
 }
 
 /// Determinante aus `L`: Quadrat des Produkts der Diagonale.

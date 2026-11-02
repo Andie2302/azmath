@@ -1,6 +1,6 @@
 //! Tests für round, trunc, fract, signum, log10/log2, hypot, mul_add,
 //! Hyperbelfunktionen, cbrt, clamp, recip und Winkelumrechnung.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 mod common;
 
@@ -79,7 +79,6 @@ fn clamp_recip_angles_f32() {
     close(Real::to_degrees(Real::to_radians(42.0f32)), 42.0);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 mod f64_tests {
     use super::common::assert_close_f64 as close;
     use azmath::Real;

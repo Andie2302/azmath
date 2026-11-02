@@ -1,5 +1,5 @@
 //! Tests für die Backend-abhängigen Funktionen (sqrt, trig, exp, ln, pow, floor, ceil).
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 mod common;
 
@@ -41,9 +41,6 @@ fn exp_and_ln_f32() {
     close(Real::exp(1.0f32), E);
     close(Real::ln(1.0f32), 0.0);
     close(Real::ln(E), 1.0);
-    // micromath 2.1.0 läuft bei ln(negativ) in Debug-Builds in einen
-    // Integer-Überlauf (Upstream-Bug), daher nur mit genauen Backends testen.
-    #[cfg(any(feature = "std", feature = "libm"))]
     assert!(Real::ln(-1.0f32).is_nan());
     // exp und ln sind Umkehrfunktionen
     close(Real::ln(Real::exp(2.0f32)), 2.0);
@@ -70,7 +67,6 @@ fn rounding_f32() {
     close(Real::ceil(3.0f32), 3.0);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 mod f64_tests {
     use super::common::assert_close_f64 as close;
     use azmath::Real;

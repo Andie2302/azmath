@@ -1,18 +1,14 @@
 //! Tests für die Cholesky-Zerlegung (fest und dynamisch).
 //!
-//! Cholesky benötigt `sqrt`. Mit `micromath` (bewusst schnelle Näherung) sind die Zahlenwerte so
-//! ungenau, dass Löser-, Determinanten- und Inversen-Tests nur mit `std`/`libm` laufen; Fehlerfälle
-//! und Struktur werden in allen Backends geprüft.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+//!
+//! Die Tests laufen nur mit den genauen Backends `std` und `libm`; `micromath` ist eine bewusst
+//! ungenaue Näherung (Fehler akkumulieren), daher werden damit keine Zahlenwerte geprüft.
+#![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::linalg::{LinalgError, Matrix, Vector};
 
-/// Relative Toleranz: genaue Backends vs. `micromath`.
-const TOL: f32 = if cfg!(any(feature = "std", feature = "libm")) {
-    1e-4
-} else {
-    0.3
-};
+/// Relative Toleranz für f32-Vergleiche.
+const TOL: f32 = 1e-4;
 
 fn close(a: f32, b: f32) {
     assert!(
@@ -54,7 +50,6 @@ fn l_times_l_transpose_reconstructs_a() {
     }
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn solve_spd_system() {
     let a = example();
@@ -66,7 +61,6 @@ fn solve_spd_system() {
     }
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn determinant_and_inverse() {
     let a = example();
@@ -133,7 +127,6 @@ fn one_by_one_and_empty() {
     assert!(Matrix::<f32, 0, 0>::zeros().cholesky().is_ok());
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn hilbert_5x5_f64() {
     // Hilbert-Matrizen sind SPD, aber schlecht konditioniert
@@ -151,7 +144,6 @@ mod dynamic {
     use alloc::vec;
     use azmath::linalg::{DynMatrix, DynVector, LinalgError};
 
-    #[cfg(any(feature = "std", feature = "libm"))]
     use super::close;
 
     fn example() -> DynMatrix<f32> {
@@ -163,7 +155,6 @@ mod dynamic {
         .unwrap()
     }
 
-    #[cfg(any(feature = "std", feature = "libm"))]
     #[test]
     fn factor_solve_det_inverse() {
         let a = example();

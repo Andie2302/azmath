@@ -6,6 +6,8 @@
 //!   festgelegter Größe hinzu.
 //! - [`LuDecomposition`] zerlegt quadratische Matrizen (mit Teilpivotisierung) und löst
 //!   damit Gleichungssysteme, berechnet Determinanten und Inverse.
+//! - Dreieckssysteme löst man direkt mit [`Matrix::solve_lower`] und [`Matrix::solve_upper`]
+//!   (sowie den `_unit`- und `_transposed`-Varianten); sie sind die Bausteine der Zerlegungen.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.

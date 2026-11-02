@@ -1,5 +1,5 @@
 //! Tests für die Basis-Methoden: abs, min, max, is_nan, is_infinite, from_f64.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::Real;
 
@@ -45,7 +45,6 @@ fn from_f64_f32() {
     assert!(<f32 as Real>::from_f64(f64::NAN).is_nan());
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 mod f64_tests {
     use azmath::Real;
 

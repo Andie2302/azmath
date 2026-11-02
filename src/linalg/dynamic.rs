@@ -6,8 +6,9 @@ use core::ops::{Index, IndexMut};
 
 use super::LinalgError;
 use super::kernel::{
-    cholesky_decompose, cholesky_determinant, cholesky_solve, lu_decompose, lu_determinant,
-    lu_solve, qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm, qr_solve,
+    check_diagonal, cholesky_decompose, cholesky_determinant, cholesky_solve, lu_decompose,
+    lu_determinant, lu_solve, qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm, qr_solve,
+    triangular_solve,
 };
 use crate::Real;
 
@@ -186,6 +187,62 @@ impl<T: Real> DynMatrix<T> {
     /// Löst `self · x = b`.
     pub fn solve(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
         self.lu()?.solve(b)
+    }
+
+    fn solve_triangular(
+        &self,
+        b: &DynVector<T>,
+        upper: bool,
+        transpose: bool,
+        unit: bool,
+    ) -> Result<DynVector<T>, LinalgError> {
+        if self.rows != self.cols || b.len() != self.rows {
+            return Err(LinalgError::DimensionMismatch);
+        }
+        if !unit {
+            check_diagonal(&self.data, self.rows)?;
+        }
+        let mut x = b.clone();
+        triangular_solve(&self.data, self.rows, upper, transpose, unit, &mut x.data);
+        Ok(x)
+    }
+
+    /// Löst `L·x = b` für die untere Dreiecksmatrix `self` (Vorwärtssubstitution).
+    ///
+    /// Die Einträge oberhalb der Diagonalen werden ignoriert. Fehler:
+    /// [`LinalgError::DimensionMismatch`] (nicht quadratisch oder falsche Länge von `b`),
+    /// [`LinalgError::Singular`] (Diagonalelement 0 oder NaN).
+    pub fn solve_lower(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
+        self.solve_triangular(b, false, false, false)
+    }
+
+    /// Löst `U·x = b` für die obere Dreiecksmatrix `self` (Rückwärtssubstitution).
+    ///
+    /// Die Einträge unterhalb der Diagonalen werden ignoriert; Fehler wie bei
+    /// [`solve_lower`](Self::solve_lower).
+    pub fn solve_upper(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
+        self.solve_triangular(b, true, false, false)
+    }
+
+    /// Wie [`solve_lower`](Self::solve_lower), aber mit Einheitsdiagonale (Diagonale wird
+    /// nicht gelesen und als 1 angenommen).
+    pub fn solve_lower_unit(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
+        self.solve_triangular(b, false, false, true)
+    }
+
+    /// Wie [`solve_upper`](Self::solve_upper), aber mit Einheitsdiagonale.
+    pub fn solve_upper_unit(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
+        self.solve_triangular(b, true, false, true)
+    }
+
+    /// Löst `Lᵀ·x = b`, wobei `self` die untere Dreiecksmatrix `L` ist (ohne `L` zu transponieren).
+    pub fn solve_lower_transposed(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
+        self.solve_triangular(b, false, true, false)
+    }
+
+    /// Löst `Uᵀ·x = b`, wobei `self` die obere Dreiecksmatrix `U` ist (ohne `U` zu transponieren).
+    pub fn solve_upper_transposed(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
+        self.solve_triangular(b, true, true, false)
     }
 
     /// Cholesky-Zerlegung; die Matrix muss quadratisch, symmetrisch und positiv definit sein.

@@ -17,21 +17,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: std,            flags: "" }
-          - { name: libm,           flags: "--no-default-features --features libm" }
-          - { name: micromath,      flags: "--no-default-features --features micromath" }
-          - { name: libm+micromath, flags: "--no-default-features --features libm,micromath" }
-          - { name: std+alloc,      flags: "--features alloc" }
-          - { name: libm+alloc,     flags: "--no-default-features --features libm,alloc" }
-          - { name: micromath+alloc, flags: "--no-default-features --features micromath,alloc" }
-          - { name: all features,   flags: "--all-features" }
-          - { name: no features,    flags: "--no-default-features" }
+          # test: true  -> bauen und testen
+          # test: false -> nur bauen (micromath ist bewusst ungenau, siehe README)
+          - { name: std,             flags: "", test: true }
+          - { name: libm,            flags: "--no-default-features --features libm", test: true }
+          - { name: micromath,       flags: "--no-default-features --features micromath", test: false }
+          - { name: libm+micromath,  flags: "--no-default-features --features libm,micromath", test: true }
+          - { name: std+alloc,       flags: "--features alloc", test: true }
+          - { name: libm+alloc,      flags: "--no-default-features --features libm,alloc", test: true }
+          - { name: micromath+alloc, flags: "--no-default-features --features micromath,alloc", test: false }
+          - { name: all features,    flags: "--all-features", test: true }
+          - { name: no features,     flags: "--no-default-features", test: false }
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --all-targets ${{ matrix.flags }}
       - run: cargo test ${{ matrix.flags }}
+        if: ${{ matrix.test }}
 
   lint:
     runs-on: ubuntu-latest

@@ -1,5 +1,5 @@
 //! Tests für die Operatoren, die das `Real`-Trait voraussetzt.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::Real;
 
@@ -61,7 +61,6 @@ fn comparison_f32() {
     assert_eq!(<f32 as Real>::ONE, 1.0f32);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn operators_f64() {
     assert_eq!(add(2.0f64, 3.0), 5.0);

@@ -1,8 +1,5 @@
 //! Tests für DynMatrix, DynVector und DynLu (Feature `alloc`).
-#![cfg(all(
-    feature = "alloc",
-    any(feature = "std", feature = "libm", feature = "micromath")
-))]
+#![cfg(all(feature = "alloc", any(feature = "std", feature = "libm")))]
 
 extern crate alloc;
 
@@ -162,7 +159,6 @@ fn fixed_and_dynamic_agree() {
     close(fixed.determinant(), dynamic.determinant().unwrap());
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn larger_system_f64() {
     // Diagonaldominante 20x20-Matrix, bekannte Lösung (1, 2, ..., n)

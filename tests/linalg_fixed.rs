@@ -1,5 +1,5 @@
 //! Tests für Vector, Matrix und LuDecomposition fester Größe.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::linalg::{LinalgError, LuDecomposition, Matrix, Vector};
 
@@ -37,12 +37,7 @@ fn vector_basics() {
 fn vector_norm() {
     let v = Vector::new([3.0f32, 4.0]);
     assert_eq!(v.norm_squared(), 25.0);
-    // sqrt hängt vom Backend ab (micromath ist nur eine Näherung)
-    let tol = if cfg!(any(feature = "std", feature = "libm")) {
-        1e-5
-    } else {
-        0.2
-    };
+    let tol = 1e-5;
     assert!((v.norm() - 5.0).abs() <= tol);
 }
 
@@ -209,7 +204,6 @@ fn error_display() {
     assert!(!LinalgError::DimensionMismatch.to_string().is_empty());
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 mod f64_tests {
     use azmath::linalg::{Matrix, Vector};
 

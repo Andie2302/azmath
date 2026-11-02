@@ -1,5 +1,5 @@
 //! Tests für die Konstanten des `Real`-Traits.
-#![cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
+#![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::Real;
 
@@ -12,7 +12,6 @@ fn f32_constants() {
     assert_eq!(<f32 as Real>::EPSILON, f32::EPSILON);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn f64_constants() {
     assert_eq!(<f64 as Real>::ZERO, 0.0);
@@ -40,7 +39,6 @@ fn f32_special_values() {
     assert!(<f32 as Real>::MIN_POSITIVE > <f32 as Real>::ZERO);
 }
 
-#[cfg(any(feature = "std", feature = "libm"))]
 #[test]
 fn f64_special_values() {
     assert!(<f64 as Real>::NAN.is_nan());
