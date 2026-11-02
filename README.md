@@ -440,6 +440,12 @@ Feature-Kombinationen, testet sie (außer `micromath` allein) und prüft `cargo 
   Integer-Überlauf ab (Upstream-Verhalten).
 - Edition 2024, benötigt eine entsprechend aktuelle Rust-Version.
 
+## Roadmap
+
+Was bereits umgesetzt ist, was noch fehlt (Optimierung, steife ODE, FEM/FVM/SPH, Navier-Stokes, Autodiff, Rotationen,
+Polynom-Nullstellen, SAT/SMT u. a.), wovon es abhängt und wie das Projekt in mehrere Crates aufgeteilt werden könnte,
+steht in [`ROADMAP.md`](ROADMAP.md).
+
 ## Lizenz
 
 Dieses Projekt steht wahlweise unter einer der folgenden Lizenzen:
