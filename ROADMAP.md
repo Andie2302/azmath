@@ -14,7 +14,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Bereich | Fertig |
 |---|---|
 | Grundlage | `Real` für `f32`/`f64` mit den Backends `std`, `libm`, `micromath`; `no_std`, optional `alloc` |
-| Lineare Algebra, direkt | LU (Pivot), Cholesky, QR (Householder), Dreieckslöser, Tridiagonal (Thomas, zyklisch), SVD, symmetrische Eigenwerte (Jacobi) |
+| Lineare Algebra, direkt | LU (Pivot), Gauß-Elimination (`gauss_solve`, `rank`, `row_echelon`), Cholesky, QR (Householder), Dreieckslöser, Tridiagonal (Thomas, zyklisch), SVD, symmetrische Eigenwerte (Jacobi) |
 | Lineare Algebra, iterativ | CG, BiCGSTAB, GMRES(m), Jacobi-Vorkonditionierer, Potenzmethode, inverse Iteration |
 | Nullstellen (1D) | Bisektion, Brent, Newton, Sekante, Regula Falsi, Illinois |
 | Nichtlinear (mehrdimensional) | Newton-System mit Schrittweitensteuerung (gedämpft), Gauß-Newton, Levenberg-Marquardt |
@@ -45,7 +45,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### B. Lineare Algebra – Lücken
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ⚠️ | **Gauß-Elimination** (als benannte Funktion; steckt in LU) | S | LU ✅ |
+| ✅ | **Gauß-Elimination** (`gauss_solve`, `rank`, `row_echelon`) | S | LU ✅ |
 | ⬜ | Banded-LU/-Cholesky | M | Bandformat |
 | ⬜ | Links-Vorkonditionierer, ILU/IC, SSOR | M | Sparse |
 | ⬜ | Iterative Verfeinerung, Konditionsschätzer, QR mit Spaltenpivot, LDLᵀ | S–M | – |

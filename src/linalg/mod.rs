@@ -17,6 +17,7 @@
 //! - Äquilibrierung (Ruiz, Sinkhorn): `Matrix::equilibrate_ruiz`, `Matrix::equilibrate_sinkhorn`, Ergebnis [`Equilibrated`].
 //! - Orthonormalisierung und Polarzerlegung: `Matrix::orthonormalize_mgs`, `QrDecomposition::thin_q`, `Matrix::polar`,
 //!   `Matrix::nearest_rotation`.
+//! - Gauß-Elimination als benannte Funktionen: `Matrix::gauss_solve`, `Matrix::rank`, `Matrix::row_echelon`.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -37,6 +38,7 @@ mod cholesky;
 pub mod eigen;
 mod equilibrate;
 mod error;
+mod gauss;
 pub mod iterative;
 /// Interne Rechenkerne auf Slices (auch von `optimize` genutzt). Keine öffentliche API.
 pub(crate) mod kernel;
@@ -55,6 +57,7 @@ mod dynamic;
 pub use cholesky::Cholesky;
 pub use equilibrate::{EquilibrateOptions, Equilibrated};
 pub use error::LinalgError;
+pub use gauss::RowEchelon;
 pub use lu::LuDecomposition;
 pub use matrix::Matrix;
 pub use operator::{FnOperator, LinearOperator};
@@ -69,5 +72,7 @@ pub use vector::Vector;
 pub use dynamic::{DynCholesky, DynLu, DynMatrix, DynQr, DynVector};
 #[cfg(feature = "alloc")]
 pub use equilibrate::DynEquilibrated;
+#[cfg(feature = "alloc")]
+pub use gauss::DynRowEchelon;
 #[cfg(feature = "alloc")]
 pub use orthogonal::{DynOrthonormalized, DynPolar};
