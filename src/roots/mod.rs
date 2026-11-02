@@ -8,6 +8,7 @@
 //! | [`illinois`] | Intervall mit Vorzeichenwechsel | Regula Falsi ohne Stagnation, Ordnung ≈ 1,44 |
 //! | [`newton`] | Ableitung, Startwert | quadratisch konvergent, kann divergieren |
 //! | [`secant`] | zwei Startwerte | ohne Ableitung, überlinear konvergent |
+//! | [`aberth`], [`durand_kerner`] | Polynom-Koeffizienten | **alle** komplexen Nullstellen gleichzeitig |
 //!
 //! Alle Verfahren sind generisch über [`Real`] und brauchen keinen Allokator. Die Funktionen
 //! werden als Closures `FnMut(T) -> T` übergeben.
@@ -35,11 +36,16 @@ mod bisection;
 mod brent;
 mod falsi;
 mod newton;
+mod polynomial;
 
 pub use bisection::bisection;
 pub use brent::brent;
 pub use falsi::{illinois, regula_falsi};
 pub use newton::{newton, secant};
+pub use polynomial::{
+    PolyRootsResult, aberth, aberth_complex, durand_kerner, durand_kerner_complex, polyval,
+    polyval_complex,
+};
 
 use core::fmt;
 
@@ -98,6 +104,8 @@ pub enum RootError {
     NotFinite,
     /// Die Ableitung (Newton) bzw. der Differenzenquotient (Sekante) ist 0.
     ZeroDerivative,
+    /// Ungültige Eingabe (Nullpolynom, Ausgabepuffer zu kurz).
+    InvalidInput,
 }
 
 impl fmt::Display for RootError {
@@ -107,6 +115,7 @@ impl fmt::Display for RootError {
             RootError::NoConvergence => "Iteration ist nicht konvergiert",
             RootError::NotFinite => "NaN oder unendlicher Wert aufgetreten",
             RootError::ZeroDerivative => "Ableitung bzw. Differenzenquotient ist 0",
+            RootError::InvalidInput => "ungültige Eingabe (Nullpolynom oder Ausgabepuffer zu kurz)",
         })
     }
 }

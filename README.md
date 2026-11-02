@@ -171,6 +171,7 @@ Allokator.
 | `bisection` | Intervall mit Vorzeichenwechsel | langsam, aber absolut sicher |
 | `regula_falsi` | Intervall mit Vorzeichenwechsel | Einschluss, aber oft einseitig langsam |
 | `illinois` | Intervall mit Vorzeichenwechsel | Regula Falsi ohne Stagnation, Ordnung ≈ 1,44 |
+| `aberth`, `durand_kerner` | Polynom-Koeffizienten (reell oder komplex) | **alle** komplexen Nullstellen gleichzeitig |
 | `newton` | Funktion, Ableitung, Startwert | quadratisch konvergent, kann divergieren |
 | `secant` | zwei Startwerte | ohne Ableitung, überlinear konvergent |
 
