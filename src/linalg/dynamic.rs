@@ -308,6 +308,32 @@ impl<T: Real> DynMatrix<T> {
         Ok((x, res))
     }
 
+    /// Löst `self · x = b` für beliebige reguläre Matrizen mit GMRES(`restart`), Start bei `x = 0`.
+    /// Liefert die Lösung und Angaben zur Iteration. Siehe [`iterative::gmres`].
+    pub fn solve_gmres(
+        &self,
+        b: &DynVector<T>,
+        restart: usize,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        self.solve_pgmres(&iterative::Identity, b, restart, opts)
+    }
+
+    /// Wie [`solve_gmres`](Self::solve_gmres), aber mit Rechts-Vorkonditionierer `m`.
+    pub fn solve_pgmres<M: Preconditioner<T>>(
+        &self,
+        m: &M,
+        b: &DynVector<T>,
+        restart: usize,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        let n = b.len();
+        let mut x = DynVector::zeros(n);
+        let mut work = vec![T::ZERO; iterative::gmres_work_len(n, restart)];
+        let res = iterative::pgmres(self, m, &b.data, &mut x.data, restart, opts, &mut work)?;
+        Ok((x, res))
+    }
+
     /// Cholesky-Zerlegung; die Matrix muss quadratisch, symmetrisch und positiv definit sein.
     pub fn cholesky(&self) -> Result<DynCholesky<T>, LinalgError> {
         DynCholesky::new(self)

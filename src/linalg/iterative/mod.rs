@@ -2,6 +2,8 @@
 //!
 //! - [`cg`] / [`pcg`]: konjugierte Gradienten für symmetrisch positiv definite Systeme.
 //! - [`bicgstab`] / [`pbicgstab`]: für beliebige (auch nichtsymmetrische) reguläre Systeme.
+//! - [`gmres`] / [`pgmres`]: GMRES(m) für beliebige reguläre Systeme; monoton und ohne Zusammenbruch,
+//!   auch bei symmetrisch indefiniten und schiefsymmetrischen Matrizen. Braucht `m + 1` Basisvektoren.
 //!
 //! Die Verfahren arbeiten **matrixfrei** gegen ein [`LinearOperator`](super::LinearOperator) und
 //! brauchen keinen Allokator: Der Arbeitsspeicher wird als Slice übergeben. Bequeme Methoden
@@ -15,10 +17,12 @@
 
 mod bicgstab;
 mod cg;
+mod gmres;
 mod precond;
 
 pub use bicgstab::{bicgstab, pbicgstab};
 pub use cg::{cg, pcg};
+pub use gmres::{gmres, gmres_work_len, pgmres};
 pub use precond::{Identity, Jacobi, Preconditioner};
 
 #[cfg(feature = "alloc")]

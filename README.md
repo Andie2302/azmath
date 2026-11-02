@@ -97,6 +97,15 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   und mit Vorkonditionierer. Arbeitsspeicher: `8·n`. In seltenen Fällen bricht das Verfahren
   zusammen (`LinalgError::Breakdown`). Bei sehr schlecht konditionierten Matrizen sagt das
   Residuum mehr aus als der Fehler der Lösung selbst.
+- **GMRES(m)** (`gmres`, `pgmres`, `gmres_work_len`, mit `alloc` auch `DynMatrix::solve_gmres`): für
+  beliebige reguläre Systeme, **monoton und ohne Zusammenbruch**, auch bei symmetrisch indefiniten
+  und schiefsymmetrischen Matrizen, bei denen CG (`NotPositiveDefinite`) und BiCGSTAB (`Breakdown`)
+  versagen. Matrixfrei, eine Anwendung von `A` pro Iteration, mit **Rechts-Vorkonditionierer**
+  (wirkt auf die Spalten, Jacobi hilft also gegen ungleichmäßige Spaltenskalierung). Es speichert
+  `restart + 1` Basisvektoren; ein kleines `restart` spart Speicher, kostet aber Iterationen (bei der
+  1D-Konvektions-Diffusion mit `n = 100`: volles GMRES 100 Anwendungen von `A`, GMRES(20) etwa 500,
+  BiCGSTAB 214). Der Arbeitsspeicher kommt als Slice (`gmres_work_len(n, restart)` als `const fn`),
+  für feste `Matrix`-Typen gibt es daher keine Komfortmethode.
 - Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>`, `DynLu<T>`, `DynCholesky<T>` und
   `DynQr<T>` mit zur Laufzeit festgelegter Größe (gleiche Algorithmen, Dimensionsfehler als
   `LinalgError::DimensionMismatch`).
@@ -282,6 +291,7 @@ cargo run --example 10_bicgstab
 cargo run --example 11_integrate
 cargo run --example 12_curve_fit
 cargo run --example 13_ode
+cargo run --example 14_gmres
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -299,6 +309,7 @@ cargo run --example 13_ode
 | `11_integrate`              | Integration: feste Regeln, adaptiv, Messdaten          |
 | `12_curve_fit`              | Kurvenanpassung (LM, Gauß-Newton) und Newton-System    |
 | `13_ode`                    | ODE: RK45, RK4, Euler, steifes Problem mit implizitem Euler |
+| `14_gmres`                  | GMRES(m): schiefsymmetrisch, Neustart-Kosten, Vorkonditionierer |
 
 ## Tests
 
