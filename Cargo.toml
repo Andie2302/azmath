@@ -28,6 +28,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "README.md"
+exclude = ["design/", "docs/", ".github/"]
 keywords = ["math", "no_std", "float", "numerics", "embedded"]
 categories = ["mathematics", "no-std"]
 

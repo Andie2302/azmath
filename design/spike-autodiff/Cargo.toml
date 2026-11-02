@@ -1,0 +1,14 @@
+# Wegwerf-Prototyp für den API-Entwurf (siehe docs/design/0001-autodiff-und-arbeitsspeicher.md).
+# Bewusst NICHT Teil des Workspaces (eigener, leerer [workspace]-Abschnitt) und nicht in der CI.
+[package]
+name = "spike-autodiff"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+azmath-core = { path = "../../crates/azmath-core" }
+azmath-linalg = { path = "../../crates/azmath-linalg" }
+azmath-optimize = { path = "../../crates/azmath-optimize" }

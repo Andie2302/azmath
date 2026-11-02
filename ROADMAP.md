@@ -144,8 +144,10 @@ rechnen und Euler-Winkel nur für Ein-/Ausgabe zu verwenden.
 ### Die wichtigsten Abhängigkeiten in Worten
 
 1. **Autodiff ist der zentrale Hebel.** BFGS, SQP, IPOPT, BDF/Rodas (Jacobi), Newton und die IAPWS-Eigenschaften
-   brauchen alle Ableitungen. Mit `Dual<T>`/`Jet` bekommen sie diese exakt statt über Differenzen (`_fd`-Varianten,
-   Genauigkeit ~`√ε`).
+   brauchen alle Ableitungen. Mit `Jet` bekommen sie diese exakt statt über Differenzen (`_fd`-Varianten, Genauigkeit ~`√ε`).
+   Der größte Gewinn liegt bei **zweiten Ableitungen** (Hessematrix) und bei Verfahren, die Ableitungen als Ergebnis brauchen; bei
+   gut konditionierten Problemen ändert eine exakte Jacobi-Matrix die Iterationszahl kaum (gemessen in
+   [Entwurf 0001](docs/design/0001-autodiff-und-arbeitsspeicher.md)).
 2. **Ein API-Entwurf muss vorher entschieden werden (🔶).** Unsere Löser nehmen Closures `FnMut(&[T], &mut [T])`, die für
    *einen* Zahlentyp `T` geschrieben sind. Autodiff ruft die Funktion aber mit `Dual<T>` auf. Dafür braucht es eine
    Funktion, die über den Zahlentyp generisch ist, etwa
@@ -210,7 +212,7 @@ zusätzlich jedes Crate einzeln, damit eine fehlende Abhängigkeit nicht durch v
 | Phase | Inhalt | Stand |
 |---|---|---|
 | **0a** | Workspace-Aufteilung (mechanisch, ohne API-Änderung) | ✅ |
-| **0b** | **API-Entwurf** als Dokument: Arbeitsspeicher-Muster (Scratch/Context) und für Autodiff generische Funktionsschnittstelle (Abschnitt 7) | ⬜ als Nächstes |
+| **0b** | **API-Entwurf** (Arbeitsspeicher-Muster, für Autodiff generische Funktionsschnittstelle): Entwurf und Prototyp liegen vor, [`docs/design/0001`](docs/design/0001-autodiff-und-arbeitsspeicher.md); **Entscheidung steht aus** | ⚠️ |
 | **0c** | `CHANGELOG`, Metadaten je Crate (README, Beschreibung), `cargo publish --dry-run` | ⬜ |
 | **1** | `Complex`, `azmath-autodiff` (**`Jet<T, N>`**), Matrixnormen, Äquilibrierung (Ruiz/Sinkhorn), Orthonormalisierung (MGS/Householder) | ⬜ |
 | **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination | ⬜ |
@@ -257,31 +259,18 @@ Gradient `≠ 0`) sind Nullteiler, denn `(0, d)·(0, d') = (0, 0)`. Daraus folgt
 - Als Skalar von Verfahren wie `newton_system` muss `Jet` die komplette `Real`-Oberfläche erfüllen (`sqrt`, `sin`, `exp`, `powf`,
   `powi`, `atan2`, … mit Kettenregel).
 
-### 7.2 Funktionsschnittstelle für Autodiff
+### 7.2 und 7.3 Funktionsschnittstelle für Autodiff und Arbeitsspeicher-Muster
 
-Unsere Löser nehmen heute Closures `FnMut(&[T], &mut [T])` für **einen** Zahlentyp. Für Autodiff muss dieselbe Funktion mit
-`T` *und* `Jet<T, N>` aufrufbar sein. Kandidat:
+Beide Fragen sind inzwischen mit einem **kompilierten Prototyp** untersucht und in
+[`docs/design/0001-autodiff-und-arbeitsspeicher.md`](docs/design/0001-autodiff-und-arbeitsspeicher.md) beschrieben.
+Kurzfassung der Ergebnisse:
 
-```rust
-pub trait VectorFn<T: Real> {
-    fn eval<S: Real>(&self, x: &[S], out: &mut [S]); // für S = T und S = Jet<T, N>
-}
-```
-
-Die bisherigen Closure-Schnittstellen (`jacobian` selbst angeben oder `*_fd`) bleiben bestehen; neue `*_ad`-Varianten nehmen das
-Trait. Zu klären: Wie reicht man `N` (Anzahl der Unbekannten) durch, wenn die Größe erst zur Laufzeit bekannt ist
-(`Jet` hat feste Größe `N` zur Compile-Zeit)? Vorschlag: für feste `N` direkt, für dynamische Größen in Blöcken bzw.
-Spalte für Spalte (`N = 1`, ein Aufruf je Unbekannter).
-
-### 7.3 Arbeitsspeicher-Muster (Scratch/Workspace)
-
-Heute: `work: &mut [T]` plus `*_work_len(…)` als `const fn`, damit Arrays passen. Das ist einfach und allokatorfrei, aber
-Längenfehler werden erst zur Laufzeit gemeldet und die Aufteilung des Slices steckt in jedem Löser. Kandidaten:
-
-1. **Beibehalten** (Slice + `const fn`-Länge): kleinster Aufwand, bewährt.
-2. **Typisierter Workspace** pro Löser, z. B. `LmWorkspace::new(m, n, &mut buf)?` prüft die Länge einmal und teilt den Puffer in
-   benannte Teile; ein Löser nimmt `&mut LmWorkspace`. Vorteil: Längenprüfung zentral, Wiederverwendung über mehrere Aufrufe.
-3. **Const-generischer Besitz** `Scratch<T, const LEN: usize>`: in `no_std` bequem, aber `LEN` lässt sich auf stabilem Rust nicht
-   aus `M`, `N` berechnen.
-
-Entscheidung steht aus; sie muss **vor** `*_ad`-Varianten, BFGS, SQP und BDF fallen, weil all diese Löser sie benutzen werden.
+- `Jet<T, N>` erfüllt `Real` ohne Änderung am Trait.
+- Ein Trait `VectorFn` (ohne Typparameter, generische Methode `eval<S: Real>`) plus **Adapter** (`jacobian_ad`) versorgt die
+  **unveränderten** Löser mit Ableitungen; neue `*_ad`-Löservarianten sind nicht nötig.
+- Laufzeitgrößen ohne Heap gehen über Strip-Mining (`⌈n/K⌉` Auswertungen). Der Jet-Puffer hat einen anderen Elementtyp als
+  `work: &mut [T]`.
+- Exakte Jacobi-Matrizen ändern die Iterationszahl bei gut konditionierten Problemen **nicht**; der echte Gewinn sind zweite
+  Ableitungen (Hessematrix: Fehler 0 gegenüber 3·10⁻⁶).
+- Ein typisierter Workspace ist ein reiner Aufsatz auf die Slice-Schnittstelle und kann jederzeit ohne Breaking Change
+  ergänzt werden. Empfehlung: Slice mit `const fn`-Länge als Grundmuster, Zustandsobjekte für zustandsbehaftete Verfahren.
