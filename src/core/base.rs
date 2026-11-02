@@ -1,6 +1,22 @@
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-/// Universeller Trait für alle Fließkommatypen (f32, f64) in einer no_std Umgebung.
+/// Universeller Trait für alle Fließkommatypen (`f32`, `f64`) in einer `no_std`-Umgebung.
+///
+/// Die Funktionen werden je nach aktivem Feature an ein Backend weitergeleitet
+/// (Priorität: `std` → `libm` → `micromath`).
+///
+/// ```
+/// # #[cfg(any(feature = "std", feature = "libm"))] {
+/// use azmath::Real;
+///
+/// fn hypotenuse<T: Real>(a: T, b: T) -> T {
+///     (a * a + b * b).sqrt()
+/// }
+///
+/// assert_eq!(hypotenuse(3.0f32, 4.0f32), 5.0);
+/// assert_eq!(hypotenuse(3.0f64, 4.0f64), 5.0);
+/// # }
+/// ```
 pub trait Real:
     Copy
     + Clone
@@ -17,37 +33,130 @@ pub trait Real:
     + DivAssign
     + Sized
 {
-    // Konstanten
+    // ---- Konstanten ----
+
+    /// Die Zahl 0.
     const ZERO: Self;
+    /// Die Zahl 1.
     const ONE: Self;
+    /// Die Kreiszahl π.
     const PI: Self;
+    /// Die Eulersche Zahl e.
     const E: Self;
+    /// Der Abstand von 1.0 zur nächstgrößeren darstellbaren Zahl.
     const EPSILON: Self;
 
-    // Basis-Methoden (direkt in core verfügbar oder bitweise lösbar)
+    // ---- Basis-Methoden (ohne Backend) ----
+
+    /// Betrag (löscht das Vorzeichenbit).
     fn abs(self) -> Self;
+    /// `true`, wenn der Wert NaN ist.
     fn is_nan(self) -> bool;
+    /// `true`, wenn der Wert positiv oder negativ unendlich ist.
     fn is_infinite(self) -> bool;
+    /// Das Minimum; ist ein Wert NaN, wird der andere zurückgegeben.
     fn min(self, other: Self) -> Self;
+    /// Das Maximum; ist ein Wert NaN, wird der andere zurückgegeben.
     fn max(self, other: Self) -> Self;
+    /// Vorzeichen: `1.0` für positive, `-1.0` für negative Werte (inkl. `±0.0`); NaN bleibt NaN.
+    fn signum(self) -> Self;
 
-    // Transzendentale & höhere Methoden (Backend-abhängig)
+    // ---- Transzendentale & höhere Methoden (Backend-abhängig) ----
+
+    /// Quadratwurzel.
     fn sqrt(self) -> Self;
+    /// Sinus (Bogenmaß).
     fn sin(self) -> Self;
+    /// Kosinus (Bogenmaß).
     fn cos(self) -> Self;
+    /// Tangens (Bogenmaß).
     fn tan(self) -> Self;
+    /// Arkussinus.
     fn asin(self) -> Self;
+    /// Arkuskosinus.
     fn acos(self) -> Self;
+    /// Arkustangens.
     fn atan(self) -> Self;
+    /// Vierquadranten-Arkustangens von `self / other`.
     fn atan2(self, other: Self) -> Self;
+    /// e hoch `self`.
     fn exp(self) -> Self;
+    /// Natürlicher Logarithmus.
     fn ln(self) -> Self;
+    /// Logarithmus zur Basis 10.
+    fn log10(self) -> Self;
+    /// Logarithmus zur Basis 2.
+    fn log2(self) -> Self;
+    /// `self` hoch `n` (Fließkomma-Exponent).
     fn powf(self, n: Self) -> Self;
+    /// `self` hoch `n` (ganzzahliger Exponent).
     fn powi(self, n: i32) -> Self;
+    /// Größte ganze Zahl, die nicht größer als `self` ist.
     fn floor(self) -> Self;
+    /// Kleinste ganze Zahl, die nicht kleiner als `self` ist.
     fn ceil(self) -> Self;
+    /// Rundet zur nächsten ganzen Zahl; Hälften werden von 0 weg gerundet.
+    fn round(self) -> Self;
+    /// Schneidet die Nachkommastellen ab (Rundung Richtung 0).
+    fn trunc(self) -> Self;
+    /// Länge der Hypotenuse `sqrt(self² + other²)`.
+    fn hypot(self, other: Self) -> Self;
+    /// Fused multiply-add: `self * a + b`.
+    fn mul_add(self, a: Self, b: Self) -> Self;
 
-    /// Konvertierung von f64-Literalen für generische Formeln
+    // ---- Abgeleitete Methoden (mit Standardimplementierung) ----
+
+    /// Hyperbelsinus.
+    fn sinh(self) -> Self {
+        (self.exp() - (-self).exp()) / Self::from_f64(2.0)
+    }
+
+    /// Hyperbelkosinus.
+    fn cosh(self) -> Self {
+        (self.exp() + (-self).exp()) / Self::from_f64(2.0)
+    }
+
+    /// Hyperbeltangens.
+    fn tanh(self) -> Self {
+        let a = (self + self).exp();
+        (a - Self::ONE) / (a + Self::ONE)
+    }
+
+    /// Kubikwurzel (auch für negative Werte).
+    fn cbrt(self) -> Self {
+        if self == Self::ZERO || self.is_nan() || self.is_infinite() {
+            return self;
+        }
+        let r = self.abs().powf(Self::ONE / Self::from_f64(3.0));
+        if self < Self::ZERO { -r } else { r }
+    }
+
+    /// Nachkommaanteil: `self - self.trunc()`.
+    fn fract(self) -> Self {
+        self - self.trunc()
+    }
+
+    /// Kehrwert `1 / self`.
+    fn recip(self) -> Self {
+        Self::ONE / self
+    }
+
+    /// Begrenzt `self` auf den Bereich `[lo, hi]`.
+    fn clamp(self, lo: Self, hi: Self) -> Self {
+        self.max(lo).min(hi)
+    }
+
+    /// Wandelt Grad in Bogenmaß um.
+    fn to_radians(self) -> Self {
+        self * Self::PI / Self::from_f64(180.0)
+    }
+
+    /// Wandelt Bogenmaß in Grad um.
+    fn to_degrees(self) -> Self {
+        self * Self::from_f64(180.0) / Self::PI
+    }
+
+    /// Konvertierung von f64-Literalen für generische Formeln.
     fn from_f64(v: f64) -> Self;
 }
 
@@ -317,6 +426,167 @@ impl Real for f32 {
             micromath::F32Ext::ceil(self)
         }
     }
+
+    #[inline(always)]
+    fn signum(self) -> Self {
+        if self.is_nan() {
+            self
+        } else {
+            f32::from_bits(0x3f80_0000_u32 | (self.to_bits() & 0x8000_0000))
+        }
+    }
+
+    #[inline(always)]
+    fn round(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::round(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::roundf(self)
+        }
+        #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
+        {
+            micromath::F32Ext::round(self)
+        }
+    }
+
+    #[inline(always)]
+    fn trunc(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::trunc(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::truncf(self)
+        }
+        #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
+        {
+            micromath::F32Ext::trunc(self)
+        }
+    }
+
+    #[inline(always)]
+    fn log10(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::log10(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::log10f(self)
+        }
+        #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
+        {
+            micromath::F32Ext::log10(self)
+        }
+    }
+
+    #[inline(always)]
+    fn log2(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::log2(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::log2f(self)
+        }
+        #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
+        {
+            micromath::F32Ext::log2(self)
+        }
+    }
+
+    #[inline(always)]
+    fn hypot(self, other: Self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::hypot(self, other)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::hypotf(self, other)
+        }
+        #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
+        {
+            micromath::F32Ext::hypot(self, other)
+        }
+    }
+
+    #[inline(always)]
+    fn mul_add(self, a: Self, b: Self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::mul_add(self, a, b)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::fmaf(self, a, b)
+        }
+        #[cfg(all(not(feature = "std"), not(feature = "libm"), feature = "micromath"))]
+        {
+            micromath::F32Ext::mul_add(self, a, b)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn sinh(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::sinh(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::sinhf(self)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn cosh(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::cosh(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::coshf(self)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn tanh(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::tanh(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::tanhf(self)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn cbrt(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f32::cbrt(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::cbrtf(self)
+        }
+    }
 }
 
 // ============================================================================
@@ -526,6 +796,143 @@ impl Real for f64 {
         #[cfg(all(not(feature = "std"), feature = "libm"))]
         {
             libm::ceil(self)
+        }
+    }
+
+    #[inline(always)]
+    fn signum(self) -> Self {
+        if self.is_nan() {
+            self
+        } else {
+            f64::from_bits(0x3ff0_0000_0000_0000_u64 | (self.to_bits() & 0x8000_0000_0000_0000))
+        }
+    }
+
+    #[inline(always)]
+    fn round(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::round(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::round(self)
+        }
+    }
+
+    #[inline(always)]
+    fn trunc(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::trunc(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::trunc(self)
+        }
+    }
+
+    #[inline(always)]
+    fn log10(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::log10(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::log10(self)
+        }
+    }
+
+    #[inline(always)]
+    fn log2(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::log2(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::log2(self)
+        }
+    }
+
+    #[inline(always)]
+    fn hypot(self, other: Self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::hypot(self, other)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::hypot(self, other)
+        }
+    }
+
+    #[inline(always)]
+    fn mul_add(self, a: Self, b: Self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::mul_add(self, a, b)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::fma(self, a, b)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn sinh(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::sinh(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::sinh(self)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn cosh(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::cosh(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::cosh(self)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn tanh(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::tanh(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::tanh(self)
+        }
+    }
+
+    // Ohne std/libm greift die Standardimplementierung des Traits.
+    #[cfg(any(feature = "std", feature = "libm"))]
+    #[inline(always)]
+    fn cbrt(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            std::primitive::f64::cbrt(self)
+        }
+        #[cfg(all(not(feature = "std"), feature = "libm"))]
+        {
+            libm::cbrt(self)
         }
     }
 }

@@ -50,10 +50,17 @@ fn main() {
 
 - **Konstanten:** `ZERO`, `ONE`, `PI`, `E`, `EPSILON`
 - **Operatoren:** `+ - * /`, Negation und die zugehörigen Zuweisungsoperatoren, Vergleiche
-- **Basis:** `abs`, `min`, `max`, `is_nan`, `is_infinite`
-- **Höhere Funktionen:** `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`,
-  `exp`, `ln`, `powf`, `powi`, `floor`, `ceil`
+- **Basis:** `abs`, `signum`, `min`, `max`, `clamp`, `is_nan`, `is_infinite`, `recip`
+- **Höhere Funktionen:** `sqrt`, `cbrt`, `hypot`, `mul_add`, `sin`, `cos`, `tan`, `asin`, `acos`,
+  `atan`, `atan2`, `sinh`, `cosh`, `tanh`, `exp`, `ln`, `log10`, `log2`, `powf`, `powi`
+- **Rundung:** `floor`, `ceil`, `round`, `trunc`, `fract`
+- **Winkel:** `to_radians`, `to_degrees`
 - **Konvertierung:** `from_f64` für Literale in generischen Formeln
+
+`sinh`, `cosh`, `tanh`, `cbrt`, `fract`, `recip`, `clamp` und die Winkelumrechnung haben eine
+Standardimplementierung im Trait; mit `std` und `libm` werden `sinh`/`cosh`/`tanh`/`cbrt`
+direkt an das Backend weitergereicht, mit `micromath` (das sie nicht anbietet) greift die
+Standardimplementierung über `exp`/`powf`.
 
 ## Beispiele
 
@@ -83,6 +90,10 @@ cargo test --no-default-features --features libm        # libm
 cargo test --no-default-features --features micromath   # micromath (nur f32)
 ```
 
+Zusätzlich laufen die Doctests mit `cargo test --doc`. Die Continuous Integration
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) prüft alle Feature-Kombinationen,
+`cargo fmt` und `cargo clippy`.
+
 ## Hinweise
 
 - `micromath` liefert Näherungen mit Fehlern im Prozentbereich (z. B. `sqrt(0.7)` ≈ 0.85
@@ -90,3 +101,12 @@ cargo test --no-default-features --features micromath   # micromath (nur f32)
 - `micromath` 2.1.0 bricht bei `ln` negativer Werte in Debug-Builds mit einem
   Integer-Überlauf ab (Upstream-Verhalten).
 - Edition 2024, benötigt eine entsprechend aktuelle Rust-Version.
+
+## Lizenz
+
+Dieses Projekt steht wahlweise unter einer der folgenden Lizenzen:
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT-Lizenz](LICENSE-MIT)
+
+nach Wahl der Nutzenden.
