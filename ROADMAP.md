@@ -19,6 +19,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Nullstellen (1D) | Bisektion, Brent, Newton, Sekante, Regula Falsi, Illinois; Polynome: Aberth-Ehrlich, Durand-Kerner (komplex) |
 | Nichtlineare Systeme (Vertrauensbereich) | Powell-Dogleg (Newton-/Cauchy-Schritt), robust bei schlechtem Startwert und singulärer Jacobi-Matrix |
 | Nichtlineare Systeme (quasi-Newton) | Broyden (inverse Rang-1-Updates, Jacobi-Matrix nur am Start) |
+| Nichtsymmetrische Eigenwerte | `Matrix::eigenvalues` (Balancieren, Hessenberg, QR mit Doppelshift), `hessenberg_form`, Polynom-Nullstellen über die Begleitmatrix |
 | Minimierung | BFGS, L-BFGS (Zweischleifen-Rekursion), starke Wolfe-Schrittweitensuche |
 | Nichtlinear (mehrdimensional) | Newton-System mit Schrittweitensteuerung (gedämpft), Gauß-Newton, Levenberg-Marquardt |
 | Integration | Trapez, Simpson, Gauß-Legendre, adaptives Gauß-Kronrod, Messdaten |
@@ -54,7 +55,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | Banded-LU/-Cholesky (`BandLu`, `BandCholesky`) | M | Bandformat |
 | ✅ | Links-Vorkonditionierer (`pgmres_left`), ILU(0), IC(0), SSOR (ungetestet) | M | Sparse |
 | ⬜ | Iterative Verfeinerung, Konditionsschätzer, QR mit Spaltenpivot, LDLᵀ | S–M | – |
-| ⬜ | Eigenwerte **nichtsymmetrisch** (Hessenberg + QR-Algorithmus, Schur), verallgemeinert | L | `Complex` |
+| ⚠️ | Eigenwerte **nichtsymmetrisch**: Balancieren, Hessenberg, QR mit Doppelshift ✅ (nur Eigenwerte); Schur-Vektoren, Eigenvektoren, verallgemeinert ⬜ | L | `Complex` |
 | ⚠️ | Lanczos ✅ (Ritz-Werte), Arnoldi-Zerlegung ✅ (ungetestet); Ritz-Werte aus Arnoldi folgen mit dem nichtsymmetrischen Eigenlöser | M | Sparse/`LinearOperator` ✅ |
 | ⬜ | Algebraisches Multigrid (AMG) | XL | Sparse |
 
@@ -64,7 +65,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **Regula Falsi** (+ Illinois-Variante) | S | – |
 | ✅ | **Quasi-Newton: BFGS**, **L-BFGS**, **Broyden** (Jacobi-Update) | M | Linesearch ✅, optional Autodiff |
 | ⚠️ | **Gedämpftes Newton** – grundlegend vorhanden (Schrittweiten-Halbierung); starke Wolfe-Linesearch ✅ (`line_search_wolfe`, für Minimierung); Trust-Region ✅ (`dogleg`, Powell, für Gleichungssysteme); fehlen: Trust-Region für Minimierung, Jacobi-Wiederverwendung | M | Autodiff (für exakte Jacobi) |
-| ⚠️ | **Polynom-Nullstellen**: Durand-Kerner ✅, Aberth-Ehrlich ✅, Jenkins-Traub ⬜, Begleitmatrix ⬜ | M–L | `Complex`; Begleitmatrix zusätzlich nichtsymmetrische Eigenwerte |
+| ⚠️ | **Polynom-Nullstellen**: Durand-Kerner ✅, Aberth-Ehrlich ✅, Begleitmatrix ✅, Jenkins-Traub ⬜ | M–L | `Complex`; Begleitmatrix zusätzlich nichtsymmetrische Eigenwerte |
 | ⬜ | Minimierer ohne Ableitung (Golden Section, Nelder-Mead) | S–M | – |
 
 ### D. Differentialgleichungen

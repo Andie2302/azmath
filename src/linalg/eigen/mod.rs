@@ -3,6 +3,7 @@
 //! | Funktion / Typ | Problem |
 //! |---|---|
 //! | [`Matrix::symmetric_eigen`](crate::linalg::Matrix::symmetric_eigen) | **alle** Eigenwerte und -vektoren einer symmetrischen Matrix (Jacobi) |
+//! | [`Matrix::eigenvalues`](crate::linalg::Matrix::eigenvalues) | **alle** (auch komplexe) Eigenwerte einer beliebigen reellen Matrix (Balancieren, Hessenberg, QR mit Doppelshift) |
 //! | [`lanczos`], [`lanczos_ritz`] | extreme Eigenwerte großer symmetrischer Operatoren (Krylov-Raum, Ritz-Werte) |
 //! | [`arnoldi`] | Arnoldi-Zerlegung `A·V = V·H` für beliebige Operatoren (Ritz-Werte folgen mit dem nichtsymmetrischen Eigenlöser) |
 //! | [`Matrix::svd`](crate::linalg::Matrix::svd) | Singulärwertzerlegung `A = U·Σ·Vᵀ`; Rang, Konditionszahl, Pseudoinverse, Lösung bei Rangmangel |
@@ -15,8 +16,8 @@
 //! Mit dem Feature `alloc` gibt es die dynamischen Gegenstücke [`DynSymmetricEigen`] und [`DynSvd`]
 //! (Methoden direkt auf `DynMatrix`).
 //!
-//! Nicht enthalten sind bisher das vollständige Eigenwertproblem für **nichtsymmetrische** Matrizen
-//! (QR-Algorithmus, komplexe Eigenwerte) und Teilspektren großer Matrizen (Lanczos, Arnoldi).
+//! Für **nichtsymmetrische** Matrizen liefert `Matrix::eigenvalues` alle Eigenwerte (nur Werte, noch keine
+//! Eigenvektoren oder Schur-Vektoren).
 //!
 //! Hinweis zu `micromath`: Die Verfahren nutzen `sqrt`; mit der bewusst ungenauen Näherung werden
 //! die Ergebnisse entsprechend ungenau. Für verlässliche Werte `std` oder `libm` verwenden.
@@ -24,6 +25,7 @@
 mod jacobi;
 mod kernel;
 mod lanczos;
+mod nonsym;
 mod power;
 mod svd;
 
@@ -34,6 +36,7 @@ pub use jacobi::SymmetricEigen;
 pub use lanczos::{
     arnoldi, arnoldi_work_len, lanczos, lanczos_ritz, lanczos_ritz_work_len, lanczos_work_len,
 };
+pub(crate) use nonsym::eigenvalues_in_place;
 pub use power::{EigenResult, inverse_iteration, power_iteration, power_iteration_work_len};
 pub use svd::Svd;
 

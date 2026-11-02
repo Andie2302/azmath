@@ -9,6 +9,7 @@
 //! | [`newton`] | Ableitung, Startwert | quadratisch konvergent, kann divergieren |
 //! | [`secant`] | zwei Startwerte | ohne Ableitung, überlinear konvergent |
 //! | [`aberth`], [`durand_kerner`] | Polynom-Koeffizienten | **alle** komplexen Nullstellen gleichzeitig |
+//! | [`companion_roots`] | Polynom-Koeffizienten | alle Nullstellen als Eigenwerte der Begleitmatrix (QR-Algorithmus) |
 //!
 //! Alle Verfahren sind generisch über [`Real`] und brauchen keinen Allokator. Die Funktionen
 //! werden als Closures `FnMut(T) -> T` übergeben.
@@ -34,12 +35,14 @@
 
 mod bisection;
 mod brent;
+mod companion;
 mod falsi;
 mod newton;
 mod polynomial;
 
 pub use bisection::bisection;
 pub use brent::brent;
+pub use companion::{companion_roots, companion_work_len};
 pub use falsi::{illinois, regula_falsi};
 pub use newton::{newton, secant};
 pub use polynomial::{
