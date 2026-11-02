@@ -8,6 +8,8 @@
 //!   damit Gleichungssysteme, berechnet Determinanten und Inverse.
 //! - Dreieckssysteme löst man direkt mit [`Matrix::solve_lower`] und [`Matrix::solve_upper`]
 //!   (sowie den `_unit`- und `_transposed`-Varianten); sie sind die Bausteine der Zerlegungen.
+//! - [`iterative`] enthält matrixfreie iterative Löser (CG) für große Systeme, die gegen ein
+//!   [`LinearOperator`] arbeiten.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -26,9 +28,11 @@
 
 mod cholesky;
 mod error;
+pub mod iterative;
 mod kernel;
 mod lu;
 mod matrix;
+mod operator;
 mod qr;
 mod vector;
 
@@ -39,6 +43,7 @@ pub use cholesky::Cholesky;
 pub use error::LinalgError;
 pub use lu::LuDecomposition;
 pub use matrix::Matrix;
+pub use operator::{FnOperator, LinearOperator};
 pub use qr::QrDecomposition;
 pub use vector::Vector;
 

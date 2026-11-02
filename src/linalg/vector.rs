@@ -24,6 +24,21 @@ impl<T: Real, const N: usize> Vector<T, N> {
         &self.data
     }
 
+    /// Die Elemente als Slice (zum Beispiel für die Slice-API der iterativen Löser).
+    pub fn as_slice(&self) -> &[T] {
+        &self.data
+    }
+
+    /// Die Elemente als veränderlicher Slice.
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+
+    /// Gibt das zugrunde liegende Array zurück.
+    pub fn into_array(self) -> [T; N] {
+        self.data
+    }
+
     /// Anzahl der Elemente.
     pub const fn len(&self) -> usize {
         N
@@ -60,6 +75,13 @@ impl<T: Real, const N: usize> Vector<T, N> {
             m = m.max(v.abs());
         }
         m
+    }
+
+    /// `self += alpha · x` (in-place, ohne Zwischenvektor).
+    pub fn axpy(&mut self, alpha: T, x: &Self) {
+        for i in 0..N {
+            self.data[i] += alpha * x.data[i];
+        }
     }
 
     /// Multipliziert jedes Element mit `s`.

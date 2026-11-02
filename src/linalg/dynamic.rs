@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use core::ops::{Index, IndexMut};
 
 use super::LinalgError;
+use super::iterative::{self, IterOptions, IterResult, Preconditioner};
 use super::kernel::{
     check_diagonal, cholesky_decompose, cholesky_determinant, cholesky_solve, lu_decompose,
     lu_determinant, lu_solve, qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm, qr_solve,
@@ -61,6 +62,17 @@ impl<T: Real> DynVector<T> {
     /// Größter Betrag aller Elemente (Maximumnorm).
     pub fn max_abs(&self) -> T {
         self.data.iter().fold(T::ZERO, |m, v| m.max(v.abs()))
+    }
+
+    /// `self += alpha · x` (in-place); Fehler bei unterschiedlicher Länge.
+    pub fn axpy(&mut self, alpha: T, x: &Self) -> Result<(), LinalgError> {
+        if self.len() != x.len() {
+            return Err(LinalgError::DimensionMismatch);
+        }
+        for (a, b) in self.data.iter_mut().zip(&x.data) {
+            *a += alpha * *b;
+        }
+        Ok(())
     }
 }
 
@@ -243,6 +255,33 @@ impl<T: Real> DynMatrix<T> {
     /// Löst `Uᵀ·x = b`, wobei `self` die obere Dreiecksmatrix `U` ist (ohne `U` zu transponieren).
     pub fn solve_upper_transposed(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
         self.solve_triangular(b, true, true, false)
+    }
+
+    /// Löst `self · x = b` für symmetrisch positiv definite Matrizen mit dem CG-Verfahren,
+    /// Start bei `x = 0`. Liefert die Lösung und Angaben zur Iteration.
+    ///
+    /// Fehler zusätzlich zu denen von [`iterative::cg`]: [`LinalgError::DimensionMismatch`].
+    pub fn solve_cg(
+        &self,
+        b: &DynVector<T>,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        self.solve_pcg(&iterative::Identity, b, opts)
+    }
+
+    /// Wie [`solve_cg`](Self::solve_cg), aber mit Vorkonditionierer `m`
+    /// (zum Beispiel [`iterative::DynJacobi`]).
+    pub fn solve_pcg<M: Preconditioner<T>>(
+        &self,
+        m: &M,
+        b: &DynVector<T>,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        let n = b.len();
+        let mut x = DynVector::zeros(n);
+        let mut work = vec![T::ZERO; 4 * n];
+        let res = iterative::pcg(self, m, &b.data, &mut x.data, opts, &mut work)?;
+        Ok((x, res))
     }
 
     /// Cholesky-Zerlegung; die Matrix muss quadratisch, symmetrisch und positiv definit sein.
@@ -505,5 +544,24 @@ impl<T: Real> DynQr<T> {
             }
         }
         q
+    }
+}
+
+impl<T: Real> super::LinearOperator<T> for DynMatrix<T> {
+    fn rows(&self) -> usize {
+        self.rows
+    }
+    fn cols(&self) -> usize {
+        self.cols
+    }
+    fn apply(&self, x: &[T], y: &mut [T]) {
+        for (i, yi) in y.iter_mut().enumerate().take(self.rows) {
+            let row = &self.data[i * self.cols..(i + 1) * self.cols];
+            let mut s = T::ZERO;
+            for (a, xj) in row.iter().zip(x) {
+                s += *a * *xj;
+            }
+            *yi = s;
+        }
     }
 }

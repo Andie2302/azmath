@@ -85,11 +85,18 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
 - **QR** (`Matrix::qr`, `least_squares`): Householder-Verfahren für `M × N`-Matrizen mit `M ≥ N`.
   Löst überbestimmte Systeme im Sinne der kleinsten Quadrate (Ausgleichsgeraden, Polynomfits)
   und liefert `Q`, `R` und die Residuumsnorm.
+- **Iterative Löser** (`azmath::linalg::iterative`): CG (`cg`, `pcg`) für große symmetrisch positiv
+  definite Systeme, **matrixfrei** über das Trait `LinearOperator` (dichte `Matrix`/`DynMatrix`,
+  eigene Stencils oder beliebige Closures über `FnOperator`). Der Arbeitsspeicher wird als Slice
+  übergeben, daher läuft das ohne Allokator. Optional mit Vorkonditionierer (`Jacobi`,
+  `DynJacobi`, eigene über das Trait `Preconditioner`); bequem auch als `Matrix::solve_cg` und
+  `solve_pcg`. Abbruch bei relativer Residuumsnorm `‖b − A·x‖ ≤ tol · ‖b‖`
+  (`IterOptions`), sonst `LinalgError::NoConvergence`.
 - Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>`, `DynLu<T>`, `DynCholesky<T>` und
   `DynQr<T>` mit zur Laufzeit festgelegter Größe (gleiche Algorithmen, Dimensionsfehler als
   `LinalgError::DimensionMismatch`).
 - Fehler (`LinalgError`, `#[non_exhaustive]`): `Singular` (bei QR: Rangdefizit), `NotFinite`
-  (NaN/Unendlich im Eingang), `DimensionMismatch`, `NotSymmetric`, `NotPositiveDefinite`.
+  (NaN/Unendlich im Eingang), `DimensionMismatch`, `NotSymmetric`, `NotPositiveDefinite`, `NoConvergence`.
 
 ```rust
 use azmath::linalg::{Matrix, Vector};
@@ -115,6 +122,7 @@ cargo run --example 03_f64_ops
 cargo run --example 04_backends --no-default-features --features libm
 cargo run --example 06_linear_system --features alloc
 cargo run --example 07_least_squares
+cargo run --example 08_conjugate_gradient
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -126,6 +134,7 @@ cargo run --example 07_least_squares
 | `05_convert`                | `from_f64` und Einheitenumrechnung                  |
 | `06_linear_system`          | LU-Löser, Determinante, Inverse (mit `alloc`: dynamisch) |
 | `07_least_squares`          | Ausgleichsgerade und Polynomfit mit QR, Cholesky       |
+| `08_conjugate_gradient`     | CG matrixfrei (Poisson) und Jacobi-Vorkonditionierer   |
 
 ## Tests
 

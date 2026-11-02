@@ -1,5 +1,6 @@
 use core::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
+use super::iterative::{self, IterOptions, IterResult, Preconditioner};
 use super::kernel::{check_diagonal, triangular_solve};
 use super::{Cholesky, LinalgError, LuDecomposition, QrDecomposition, Vector};
 use crate::Real;
@@ -171,6 +172,33 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
     /// Löst `Uᵀ·x = b`, wobei `self` die obere Dreiecksmatrix `U` ist (ohne `U` zu transponieren).
     pub fn solve_upper_transposed(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
         self.triangular_checked(b, true, true)
+    }
+
+    /// Löst `self · x = b` für symmetrisch positiv definite Matrizen mit dem CG-Verfahren,
+    /// Start bei `x = 0`. Liefert die Lösung und Angaben zur Iteration.
+    ///
+    /// Für kleine dichte Systeme ist [`solve_spd`](Self::solve_spd) (Cholesky) meist besser;
+    /// CG lohnt sich vor allem matrixfrei über [`iterative::cg`] für große Systeme.
+    pub fn solve_cg(
+        &self,
+        b: &Vector<T, N>,
+        opts: IterOptions<T>,
+    ) -> Result<(Vector<T, N>, IterResult<T>), LinalgError> {
+        self.solve_pcg(&iterative::Identity, b, opts)
+    }
+
+    /// Wie [`solve_cg`](Self::solve_cg), aber mit Vorkonditionierer `m`
+    /// (zum Beispiel [`iterative::Jacobi`]).
+    pub fn solve_pcg<M: Preconditioner<T>>(
+        &self,
+        m: &M,
+        b: &Vector<T, N>,
+        opts: IterOptions<T>,
+    ) -> Result<(Vector<T, N>, IterResult<T>), LinalgError> {
+        let mut x = Vector::<T, N>::zeros();
+        let mut work = [[T::ZERO; N]; 4];
+        let res = iterative::pcg(self, m, &b.data, &mut x.data, opts, work.as_flattened_mut())?;
+        Ok((x, res))
     }
 
     /// Cholesky-Zerlegung für symmetrisch positiv definite Matrizen.
