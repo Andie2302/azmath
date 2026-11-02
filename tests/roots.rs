@@ -4,7 +4,9 @@
 #![cfg(any(feature = "std", feature = "libm"))]
 
 use azmath::Real;
-use azmath::roots::{RootError, RootOptions, bisection, brent, newton, secant};
+use azmath::roots::{
+    RootError, RootOptions, bisection, brent, illinois, newton, regula_falsi, secant,
+};
 
 const SQRT_2: f64 = core::f64::consts::SQRT_2;
 const DOTTIE: f64 = 0.739_085_133_215_160_7; // Lösung von cos(x) = x
@@ -197,7 +199,7 @@ fn steep_function_and_large_magnitudes() {
 
 #[test]
 fn pole_is_reported_through_large_f_value() {
-    // 1/x wechselt bei 0 das Vorzeichen, hat dort aber eine Polstelle statt einer Nullstelle
+    // 1/(x−0,3) wechselt bei 0,3 das Vorzeichen, hat dort aber eine Polstelle statt einer Nullstelle
     let r = bisection(|x: f64| 1.0 / x, -1.0, 2.0, opts()).unwrap();
     assert!(r.f_value.abs() > 1e6, "f_value = {}", r.f_value);
 }
@@ -260,4 +262,98 @@ fn error_display() {
     ] {
         assert!(!e.to_string().is_empty());
     }
+}
+
+// ---------------------------------------------------------------------------
+// Regula Falsi und Illinois
+// ---------------------------------------------------------------------------
+
+#[test]
+fn false_position_methods_find_known_roots() {
+    for use_illinois in [false, true] {
+        let method = |f: fn(f64) -> f64, a: f64, b: f64, o: RootOptions<f64>| {
+            if use_illinois {
+                illinois(f, a, b, o)
+            } else {
+                regula_falsi(f, a, b, o)
+            }
+        };
+        close(method(sq2, 0.0, 2.0, opts()).unwrap().root, SQRT_2, 1e-12);
+        close(method(sq2, 2.0, 0.0, opts()).unwrap().root, SQRT_2, 1e-12);
+        close(
+            method(cos_minus_x, 0.0, 1.0, opts()).unwrap().root,
+            DOTTIE,
+            1e-12,
+        );
+        close(
+            method(|x: f64| x * x * x - 2.0, 0.0, 2.0, opts())
+                .unwrap()
+                .root,
+            2f64.cbrt(),
+            1e-12,
+        );
+    }
+}
+
+#[test]
+fn false_position_endpoint_roots_and_errors() {
+    for use_illinois in [false, true] {
+        let method = |f: fn(f64) -> f64, a: f64, b: f64, o: RootOptions<f64>| {
+            if use_illinois {
+                illinois(f, a, b, o)
+            } else {
+                regula_falsi(f, a, b, o)
+            }
+        };
+        let r = method(|x: f64| x - 3.0, 3.0, 5.0, opts()).unwrap();
+        assert_eq!((r.iterations, r.root), (0, 3.0));
+        let r = method(|x: f64| x, -1.0, 0.0, opts()).unwrap();
+        assert_eq!((r.iterations, r.root), (0, 0.0));
+        assert_eq!(method(sq2, 2.0, 3.0, opts()), Err(RootError::NotBracketed));
+        assert_eq!(
+            method(|_: f64| f64::NAN, 0.0, 1.0, opts()),
+            Err(RootError::NotFinite)
+        );
+        assert_eq!(
+            method(sq2, 0.0, f64::INFINITY, opts()),
+            Err(RootError::NotFinite)
+        );
+        let few = RootOptions::new(1e-15, 2);
+        assert_eq!(method(sq2, 0.0, 2.0, few), Err(RootError::NoConvergence));
+    }
+}
+
+#[test]
+fn false_position_with_a_pole_returns_a_sign_change() {
+    // 1/(x−0,3) wechselt bei 0,3 das Vorzeichen, ohne Nullstelle: f_value zeigt es
+    let r = illinois(|x: f64| 1.0 / (x - 0.3), -1.0, 2.0, opts()).unwrap();
+    assert!(r.f_value.abs() > 1e6);
+}
+
+#[test]
+fn illinois_beats_regula_falsi_on_a_convex_function() {
+    // x^10 − 1 auf [0, 1.3]: das linke Ende bleibt bei Regula Falsi lange stehen
+    let f = |x: f64| x.powi(10) - 1.0;
+    let rf = regula_falsi(f, 0.0, 1.3, RootOptions::new(1e-12, 5000)).unwrap();
+    let il = illinois(f, 0.0, 1.3, RootOptions::new(1e-12, 5000)).unwrap();
+    let bi = bisection(f, 0.0, 1.3, RootOptions::new(1e-12, 5000)).unwrap();
+    close(rf.root, 1.0, 1e-9);
+    close(il.root, 1.0, 1e-11);
+    println!(
+        "RF {} / Illinois {} / Bisektion {}",
+        rf.iterations, il.iterations, bi.iterations
+    );
+    assert!(
+        il.iterations * 2 < rf.iterations,
+        "Illinois {} gegen RF {}",
+        il.iterations,
+        rf.iterations
+    );
+    assert!(il.iterations <= bi.iterations);
+}
+
+#[test]
+fn false_position_works_for_f32() {
+    let r = illinois(|x: f32| x * x - 2.0, 0.0, 2.0, RootOptions::default()).unwrap();
+    assert!((r.root - core::f32::consts::SQRT_2).abs() < 1e-5);
 }

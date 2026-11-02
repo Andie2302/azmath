@@ -168,6 +168,8 @@ Allokator.
 |---|---|---|
 | `brent` | Intervall mit Vorzeichenwechsel | schnell **und** sicher, die erste Wahl |
 | `bisection` | Intervall mit Vorzeichenwechsel | langsam, aber absolut sicher |
+| `regula_falsi` | Intervall mit Vorzeichenwechsel | Einschluss, aber oft einseitig langsam |
+| `illinois` | Intervall mit Vorzeichenwechsel | Regula Falsi ohne Stagnation, Ordnung ≈ 1,44 |
 | `newton` | Funktion, Ableitung, Startwert | quadratisch konvergent, kann divergieren |
 | `secant` | zwei Startwerte | ohne Ableitung, überlinear konvergent |
 
