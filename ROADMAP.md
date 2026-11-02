@@ -70,11 +70,11 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### D. Differentialgleichungen
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ✅ | **Adams-Bashforth-Moulton** (Ordnung 1–4, PECE, feste Schrittweite; ungetestet) | M | RK-Anlaufrechnung ✅ |
-| ⚠️ | **BDF** Ordnung 1–5 mit Radau-Anlauf, feste Schrittweite ✅ (ungetestet); variable Ordnung/Schrittweite ⬜ | L | Newton ✅ (ode → optimize), Autodiff nützlich |
-| ⚠️ | **Radau IIA** (3 Stufen, Ordnung 5, feste Schrittweite) ✅ (ungetestet); Schrittweitensteuerung ⬜ | L | Newton, lineare Systeme mit Blockstruktur |
-| ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅ (ungetestet); RODAS (Ordnung 4) ⬜ | L | Jacobi (Autodiff), LU |
-| ⚠️ | Hermite-Dichte Ausgabe und Ereignissuche für RK4 ✅ (`rk4_event`, ungetestet); für `rk45` ⬜ | M | `rk45` ✅, Nullstellen ✅ |
+| ✅ | **Adams-Bashforth-Moulton** (Ordnung 1–4, PECE, feste Schrittweite) | M | RK-Anlaufrechnung ✅ |
+| ⚠️ | **BDF** Ordnung 1–5 mit Radau-Anlauf, feste Schrittweite ✅; variable Ordnung/Schrittweite ⬜ | L | Newton ✅ (ode → optimize), Autodiff nützlich |
+| ⚠️ | **Radau IIA** (3 Stufen, Ordnung 5, feste Schrittweite) ✅; Schrittweitensteuerung ⬜ | L | Newton, lineare Systeme mit Blockstruktur |
+| ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅; RODAS (Ordnung 4) ⬜ | L | Jacobi (Autodiff), LU |
+| ⚠️ | Hermite-Dichte Ausgabe und Ereignissuche für RK4 ✅ (`rk4_event`); für `rk45` ⬜ | M | `rk45` ✅, Nullstellen ✅ |
 | ⬜ | Taylor-Reihen-Verfahren hoher Ordnung | M–L | `Jet` |
 | ⬜ | DAE-Löser, Rand­wertprobleme (Schießverfahren) | L | BDF/Radau, Newton |
 
@@ -218,7 +218,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **2** | Schnelle Gewinne: ~~Regula Falsi~~ ✅, ~~Rotationen/Quaternionen~~ ✅, ~~benannte Gauß-Elimination~~ ✅ | ✅ |
 | **3** | Nichtlinear ausbauen: ~~BFGS/L-BFGS~~ ✅, ~~Broyden~~ ✅, ~~Linesearch~~ ✅, ~~Trust-Region (Dogleg)~~ ✅, ~~**Polynom-Nullstellen** (Durand-Kerner, Aberth)~~ ✅ | ✅ |
 | **4** | Sparse/Band ✅, Links-Vorkonditionierer/ILU ✅, Lanczos/Arnoldi ✅ (Teile ohne Tests) | ✅ |
-| **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) – Tests geschrieben, nicht ausgeführt | ⚠️ |
+| **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) | ⚠️ |
 | **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus), Begleitmatrix, Jenkins-Traub | ⬜ |
 | **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
 | **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |
