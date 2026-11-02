@@ -20,6 +20,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt |
 | `azmath::ode` | gewöhnliche Differentialgleichungen |
 | `azmath::multigrid` | Multigrid für Poisson |
+| `azmath::complex` | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie) |
 | `azmath::autodiff` | Automatisches Differenzieren (`Jet`, exakte Jacobi-/Hessematrizen) |
 
 Tests liegen in `tests/`, Beispiele in `examples/`.

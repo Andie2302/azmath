@@ -14,6 +14,7 @@
 //! | [`ode`] | gewöhnliche Differentialgleichungen |
 //! | [`multigrid`] | Multigrid für Poisson |
 //! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
+//! | [`complex`] | komplexe Zahlen `Complex<T>` |
 
 #![no_std]
 #![warn(missing_docs)]
@@ -28,6 +29,7 @@ pub mod real;
 pub use real::*;
 
 pub mod autodiff;
+pub mod complex;
 pub mod integrate;
 pub mod interp;
 pub mod linalg;

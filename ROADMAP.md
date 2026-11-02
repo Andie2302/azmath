@@ -21,6 +21,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Integration | Trapez, Simpson, Gauß-Legendre, adaptives Gauß-Kronrod, Messdaten |
 | Interpolation | linear, kubische Splines (4 Randbedingungen), PCHIP, Lagrange |
 | ODE | Euler, RK4, Dormand-Prince (adaptiv), implizites Euler, implizite Trapezregel |
+| Komplexe Zahlen | `Complex<T>`: Arithmetik (Smith-Division), Betrag/Argument, `sqrt`, `exp`, `ln`, `powi`/`powf`, `sin`/`cos`/`sinh`/`cosh` |
 | Autodiff | `Jet<T, N>` (Vorwärtsmodus, Stack), `VectorFn`, Jacobi-Adapter mit Strip-Mining, Hessematrix per geschachtelten Jets |
 | PDE | geometrisches Multigrid für Poisson (1D/2D), als Löser und als CG-Vorkonditionierer |
 
@@ -31,7 +32,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### A. Grundbausteine
 | | Eintrag | Aufwand | Hängt ab von | Ermöglicht |
 |---|---|---|---|---|
-| ⬜ | **`Complex<T>`** (komplexe Zahlen) | S–M | `Real` | Polynom-Nullstellen, nichtsymmetrische Eigenwerte, FFT |
+| ✅ | **`Complex<T>`** (komplexe Zahlen, `azmath::complex`) | S–M | `Real` | Polynom-Nullstellen, nichtsymmetrische Eigenwerte, FFT |
 | ✅ | **Automatisches Differenzieren** (`azmath::autodiff`; `Jet<T,N>`, `VectorFn`, `jacobian_ad`, `hessian_ad`; `gradient_ad` noch offen): `Jet<T, N>` = Wert plus Gradient `[T; N]` auf dem Stack (Vorwärtsmodus, ohne Heap), `Dual<T>` als Sonderfall `N = 1`, geschachtelt für Hessians (Entwurf siehe Abschnitt 7) | M–L | `Real` | exakte Jacobi-/Gradientenmatrizen für `newton_system` und `levenberg_marquardt`, SQP/IPOPT, IAPWS-Ableitungen, Taylor-ODE |
 | ⬜ | **Matrixnormen** (Frobenius, 1, ∞, 2-Norm über SVD) und **Äquilibrierung** (Zeilen-/Spaltenskalierung nach Ruiz bzw. Sinkhorn) | S–M | `linalg`, SVD ✅ | bessere Konditionierung, Fehlerabschätzung |
 | ⬜ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
@@ -184,6 +185,7 @@ src/
   optimize/         Newton, Gauß-Newton, Levenberg-Marquardt
   ode/              Anfangswertprobleme
   multigrid/        Multigrid (Poisson)
+  complex/          Complex<T>
   autodiff/         Jet<T, N>, VectorFn, jacobian_ad, hessian_ad
 tests/              Integrationstests, Präfix = Modul
 examples/
@@ -203,7 +205,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **0a** | Aufteilung in Module (zuerst als Workspace, dann auf Wunsch wieder in **ein** Crate gefaltet; ohne API-Änderung) | ✅ |
 | **0b** | **API-Entwurf** (Arbeitsspeicher-Muster, für Autodiff generische Funktionsschnittstelle): Entwurf und Prototyp liegen vor, [`docs/design/0001`](docs/design/0001-autodiff-und-arbeitsspeicher.md); **Entscheidung steht aus** | ⚠️ |
 | **0c** | `CHANGELOG`, Crate-Metadaten, `cargo publish --dry-run` | ⬜ |
-| **1** | `Complex`, ~~Modul `autodiff` (**`Jet<T, N>`**)~~ ✅, Matrixnormen, Äquilibrierung (Ruiz/Sinkhorn), Orthonormalisierung (MGS/Householder) | ⬜ |
+| **1** | ~~`Complex`~~ ✅, ~~Modul `autodiff` (**`Jet<T, N>`**)~~ ✅, Matrixnormen, Äquilibrierung (Ruiz/Sinkhorn), Orthonormalisierung (MGS/Householder) | ⬜ |
 | **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination | ⬜ |
 | **3** | Nichtlinear ausbauen: BFGS/L-BFGS, Broyden, Linesearch/Trust-Region, **Polynom-Nullstellen** (Durand-Kerner, Aberth) | ⬜ |
 | **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | ⬜ |
