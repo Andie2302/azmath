@@ -236,3 +236,68 @@ where
         // Neustart: oben wird das wahre Residuum neu berechnet und geprüft.
     }
 }
+
+/// Arbeitsspeicher für [`pgmres_left`]: [`gmres_work_len`] plus `2·n`.
+pub const fn pgmres_left_work_len(n: usize, restart: usize) -> usize {
+    gmres_work_len(n, restart) + 2 * n
+}
+
+/// Der Operator `M⁻¹·A` mit Zwischenspeicher für das Produkt `A·x`.
+struct LeftPreconditioned<'a, T, A: ?Sized, M: ?Sized> {
+    a: &'a A,
+    m: &'a M,
+    tmp: core::cell::RefCell<&'a mut [T]>,
+}
+
+impl<T: Real, A: LinearOperator<T> + ?Sized, M: Preconditioner<T> + ?Sized> LinearOperator<T>
+    for LeftPreconditioned<'_, T, A, M>
+{
+    fn rows(&self) -> usize {
+        self.a.rows()
+    }
+    fn cols(&self) -> usize {
+        self.a.cols()
+    }
+    fn apply(&self, x: &[T], y: &mut [T]) {
+        let mut tmp = self.tmp.borrow_mut();
+        self.a.apply(x, &mut tmp[..]);
+        self.m.apply(&tmp[..], y);
+    }
+}
+
+/// GMRES(m) mit **Links-Vorkonditionierer**: löst `M⁻¹·A·x = M⁻¹·b`.
+///
+/// Anders als bei [`pgmres`] (rechts) bezieht sich das Residuum auf das **vorkonditionierte** System: `residual_norm`
+/// und die Toleranz `opts.tol` gelten für `‖M⁻¹(b − A·x)‖` relativ zu `‖M⁻¹b‖`. Ein Links-Vorkonditionierer wirkt auf
+/// die *Zeilen* von `A` und kann deshalb eine Zeilenskalierung beseitigen, die ein Rechts-Vorkonditionierer
+/// (z. B. Jacobi) nicht erreicht.
+///
+/// `work`: mindestens [`pgmres_left_work_len`]`(n, restart)` Elemente. Fehler wie bei [`gmres`].
+pub fn pgmres_left<T, A, M>(
+    a: &A,
+    m: &M,
+    b: &[T],
+    x: &mut [T],
+    restart: usize,
+    opts: IterOptions<T>,
+    work: &mut [T],
+) -> Result<IterResult<T>, LinalgError>
+where
+    T: Real,
+    A: LinearOperator<T> + ?Sized,
+    M: Preconditioner<T> + ?Sized,
+{
+    let n = b.len();
+    if work.len() < pgmres_left_work_len(n, restart) {
+        return Err(LinalgError::DimensionMismatch);
+    }
+    let (tmp, rest) = work.split_at_mut(n);
+    let (b_hat, rest) = rest.split_at_mut(n);
+    m.apply(b, b_hat);
+    let op = LeftPreconditioned {
+        a,
+        m,
+        tmp: core::cell::RefCell::new(tmp),
+    };
+    gmres(&op, b_hat, x, restart, opts, rest)
+}

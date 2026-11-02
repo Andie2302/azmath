@@ -22,7 +22,7 @@ mod precond;
 
 pub use bicgstab::{bicgstab, pbicgstab};
 pub use cg::{cg, pcg};
-pub use gmres::{gmres, gmres_work_len, pgmres};
+pub use gmres::{gmres, gmres_work_len, pgmres, pgmres_left, pgmres_left_work_len};
 pub use precond::{Identity, Jacobi, Preconditioner};
 
 #[cfg(feature = "alloc")]
