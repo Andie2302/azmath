@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.2", default-features = false, features = ["libm"] }
+azmath = { version = "0.3", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -147,6 +147,41 @@ assert!((r.root - 0.7390851332151607).abs() < 1e-14);
 Hinweis: Funktionen wie `cos` in der Closure am besten als `Real::cos(x)` aufrufen. Bei einem
 `f64` würde `x.cos()` sonst die Methode der Standardbibliothek statt des gewählten Backends nehmen.
 
+## Numerische Integration
+
+Das Modul `azmath::integrate` berechnet `∫ₐᵇ f(x) dx`. Die Funktion wird als Closure übergeben,
+alle Verfahren sind generisch über `Real` und brauchen keinen Allokator.
+
+| Funktion | Art | Eigenschaft |
+|---|---|---|
+| `adaptive` | adaptiv | Gauß-Kronrod (G7/K15) mit Fehlerschätzung, die erste Wahl |
+| `gauss_legendre` | feste Regel | 1 bis 5 Punkte pro Teilintervall, exakt bis Grad `2k−1` |
+| `simpson` | feste Regel | exakt bis Grad 3, Fehler ∝ h⁴ |
+| `trapezoid` | feste Regel | exakt für Geraden, Fehler ∝ h² |
+| `trapezoid_samples`, `simpson_samples`, `trapezoid_xy` | Messdaten | Integral aus Stützwerten (gleichmäßig bzw. beliebig verteilt) |
+
+`adaptive` teilt jeweils das Intervall mit dem größten Fehler, bis die Gesamtabweichung unter
+`max(abs_tol, rel_tol · |I|)` liegt (`IntegrateOptions`, Standard: `ε` und `ε^0,75`). Es wertet die
+Funktion nicht an den Intervallenden aus, daher sind Randsingularitäten wie `√x`, `ln x` oder `1/√x`
+bei 0 erlaubt. Das Ergebnis (`IntegralResult`) enthält Wert, Fehlerschätzung und Anzahl der
+Auswertungen; Fehler (`IntegrateError`, `#[non_exhaustive]`): `InvalidInput`, `NotFinite`,
+`NoConvergence`.
+
+```rust
+use azmath::integrate::{adaptive, IntegrateOptions};
+use azmath::Real;
+
+// ∫₀^π sin(x) dx = 2
+let r = adaptive(|x: f64| Real::sin(x), 0.0, core::f64::consts::PI, IntegrateOptions::default())
+    .unwrap();
+assert!((r.value - 2.0).abs() < 1e-13);
+```
+
+Grenzen: Unendliche Integrationsgrenzen werden noch nicht unterstützt. Die Fehlerschätzung ist
+bei glatten Funktionen vorsichtig, bei Randsingularitäten nur ein Richtwert. Singularitäten im
+Inneren des Intervalls begrenzen die erreichbare Genauigkeit; dann das Intervall an der
+Singularität teilen.
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -160,6 +195,7 @@ cargo run --example 07_least_squares
 cargo run --example 08_conjugate_gradient
 cargo run --example 09_roots
 cargo run --example 10_bicgstab
+cargo run --example 11_integrate
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -174,6 +210,7 @@ cargo run --example 10_bicgstab
 | `08_conjugate_gradient`     | CG matrixfrei (Poisson) und Jacobi-Vorkonditionierer   |
 | `09_roots`                  | Nullstellen: Bisektion, Brent, Newton, Sekante, Kepler |
 | `10_bicgstab`               | BiCGSTAB für nichtsymmetrische Systeme                 |
+| `11_integrate`              | Integration: feste Regeln, adaptiv, Messdaten          |
 
 ## Tests
 
