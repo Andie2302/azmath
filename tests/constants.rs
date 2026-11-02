@@ -30,6 +30,7 @@ fn epsilon_is_positive_and_small() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn f32_special_values() {
     assert!(<f32 as Real>::NAN.is_nan());
     assert_eq!(<f32 as Real>::INFINITY, f32::INFINITY);
