@@ -48,7 +48,7 @@ fn main() {
 
 ## Das Trait `Real`
 
-- **Konstanten:** `ZERO`, `ONE`, `PI`, `E`, `EPSILON`
+- **Konstanten:** `ZERO`, `ONE`, `PI`, `E`, `EPSILON`, `NAN`, `INFINITY`, `NEG_INFINITY`, `MIN_POSITIVE`
 - **Operatoren:** `+ - * /`, Negation und die zugehörigen Zuweisungsoperatoren, Vergleiche
 - **Basis:** `abs`, `signum`, `min`, `max`, `clamp`, `is_nan`, `is_infinite`, `recip`
 - **Höhere Funktionen:** `sqrt`, `cbrt`, `hypot`, `mul_add`, `sin`, `cos`, `tan`, `asin`, `acos`,
@@ -96,8 +96,12 @@ Zusätzlich laufen die Doctests mit `cargo test --doc`. Die Continuous Integrati
 
 ## Hinweise
 
-- `micromath` liefert Näherungen mit Fehlern im Prozentbereich (z. B. `sqrt(0.7)` ≈ 0.85
-  statt 0.8367); die Tests verwenden dafür eine größere Toleranz.
+- **`micromath` ist eine bewusste Entscheidung für Geschwindigkeit vor Genauigkeit.** Es arbeitet
+  mit Bit-Tricks und liefert Näherungen mit Fehlern im Prozentbereich. Das Crate verbessert diese
+  Ergebnisse absichtlich nicht; wer genaue Werte braucht, nimmt `std` oder `libm`.
+
+- Beispiel: `sqrt(0.7)` ergibt mit `micromath` ≈ 0.85 statt 0.8367; die Tests verwenden dafür eine
+  größere Toleranz.
 - `micromath` 2.1.0 bricht bei `ln` negativer Werte in Debug-Builds mit einem
   Integer-Überlauf ab (Upstream-Verhalten).
 - Edition 2024, benötigt eine entsprechend aktuelle Rust-Version.

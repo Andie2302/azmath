@@ -8,5 +8,5 @@
 extern crate std;
 
 /// Kern des Crates: das [`Real`]-Trait und seine Implementierungen.
-pub mod core;
-pub use core::*;
+pub mod real;
+pub use real::*;

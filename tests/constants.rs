@@ -28,3 +28,22 @@ fn epsilon_is_positive_and_small() {
     assert!(<f32 as Real>::EPSILON > 0.0);
     assert!(<f32 as Real>::EPSILON < 1e-5);
 }
+
+#[test]
+fn f32_special_values() {
+    assert!(<f32 as Real>::NAN.is_nan());
+    assert_eq!(<f32 as Real>::INFINITY, f32::INFINITY);
+    assert_eq!(<f32 as Real>::NEG_INFINITY, f32::NEG_INFINITY);
+    assert_eq!(<f32 as Real>::MIN_POSITIVE, f32::MIN_POSITIVE);
+    assert!(<f32 as Real>::INFINITY.is_infinite());
+    assert!(<f32 as Real>::MIN_POSITIVE > <f32 as Real>::ZERO);
+}
+
+#[cfg(any(feature = "std", feature = "libm"))]
+#[test]
+fn f64_special_values() {
+    assert!(<f64 as Real>::NAN.is_nan());
+    assert_eq!(<f64 as Real>::INFINITY, f64::INFINITY);
+    assert_eq!(<f64 as Real>::NEG_INFINITY, f64::NEG_INFINITY);
+    assert_eq!(<f64 as Real>::MIN_POSITIVE, f64::MIN_POSITIVE);
+}
