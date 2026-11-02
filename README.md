@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.5", default-features = false, features = ["libm"] }
+azmath = { version = "0.6", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -97,6 +97,9 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   und mit Vorkonditionierer. Arbeitsspeicher: `8·n`. In seltenen Fällen bricht das Verfahren
   zusammen (`LinalgError::Breakdown`). Bei sehr schlecht konditionierten Matrizen sagt das
   Residuum mehr aus als der Fehler der Lösung selbst.
+- **Tridiagonal** (`solve_tridiagonal`, `solve_cyclic_tridiagonal`): Thomas-Algorithmus in `O(n)`, auch
+  mit zyklischen Ecken (Sherman-Morrison); stabil für diagonaldominante bzw. symmetrisch positiv
+  definite Matrizen, sonst besser LU. Grundlage der Splines.
 - **GMRES(m)** (`gmres`, `pgmres`, `gmres_work_len`, mit `alloc` auch `DynMatrix::solve_gmres`): für
   beliebige reguläre Systeme, **monoton und ohne Zusammenbruch**, auch bei symmetrisch indefiniten
   und schiefsymmetrischen Matrizen, bei denen CG (`NotPositiveDefinite`) und BiCGSTAB (`Breakdown`)
@@ -275,6 +278,43 @@ dort sind die impliziten Verfahren im Vorteil. Die Trapezregel dämpft steife Ei
 schwach (sie schwingt nach), das implizite Euler-Verfahren dagegen sofort. Nicht enthalten sind
 bisher Verfahren höherer Ordnung für steife Probleme (BDF, Radau) und Ereignissuche.
 
+## Interpolation
+
+Das Modul `azmath::interp` verbindet Stützwerte `(xᵢ, yᵢ)` (mit **streng aufsteigendem** `x`) durch
+Funktionen. Alle Verfahren arbeiten auf Slices ohne Allokator: `CubicSpline` und `Pchip` **leihen** sich
+die Daten und legen ihre Koeffizienten in einem übergebenen Slice ab; mit `alloc` gibt es die
+besitzenden Varianten `CubicSplineBuf` und `PchipBuf`.
+
+| Typ / Funktion | Eigenschaft |
+|---|---|
+| `linear`, `locate` | stückweise linear, die sicherste Wahl; `locate` findet das Teilintervall (binäre Suche) |
+| `CubicSpline` | zweimal stetig differenzierbar; Randbedingungen `Natural`, `Clamped`, `NotAKnot`, `Periodic` |
+| `Pchip` | stückweise kubisch und **monoton** (kein Überschwingen), nur einmal stetig differenzierbar |
+| `lagrange` | ein Polynom durch alle Punkte (Neville); nur für wenige, gut verteilte Punkte |
+
+Splines liefern `value`, `derivative`, `second_derivative` und das exakte `integral`. Außerhalb der
+Stützstellen wird extrapoliert (das letzte Polynom fortgesetzt; `contains` prüft den Bereich). Fehler
+(`InterpError`, `#[non_exhaustive]`): `InvalidInput`, `NotIncreasing`, `NotFinite`, `NotPeriodic`,
+`Singular`.
+
+```rust
+use azmath::interp::{cubic_spline_work_len, BoundaryCondition, CubicSpline};
+
+let x = [0.0f64, 1.0, 2.0, 3.0, 4.0];
+let y = [0.0f64, 1.0, 4.0, 9.0, 16.0]; // y = x²
+let (mut m, mut work) = ([0.0f64; 5], [0.0f64; cubic_spline_work_len(5)]);
+let s = CubicSpline::new(&x, &y, BoundaryCondition::NotAKnot, &mut m, &mut work).unwrap();
+assert!((s.value(2.5) - 6.25).abs() < 1e-12);
+assert!((s.integral(0.0, 4.0) - 64.0 / 3.0).abs() < 1e-12);
+```
+
+Hinweise: Mit der Randbedingung hängt die Genauigkeit am Rand zusammen. Not-a-knot reproduziert
+Polynome bis Grad 3 und ist ein guter Standard, wenn man den Rand nicht kennt. Eingespannt ist am
+genauesten, wenn die Steigungen bekannt sind; natürlich passt, wenn die Krümmung am Rand 0 ist. Alle
+drei konvergieren asymptotisch mit `h⁴` (bei groben Gittern kann not-a-knot wegen des Randfehlers
+besser oder schlechter als die anderen sein). Ein Polynom durch viele gleichmäßige Punkte zeigt das
+Runge-Phänomen (Beispiel: 1/(1+25x²) mit 11 Punkten, Fehler 1,9 bei Spline 0,001).
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -292,6 +332,7 @@ cargo run --example 11_integrate
 cargo run --example 12_curve_fit
 cargo run --example 13_ode
 cargo run --example 14_gmres
+cargo run --example 15_interpolation
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -310,6 +351,7 @@ cargo run --example 14_gmres
 | `12_curve_fit`              | Kurvenanpassung (LM, Gauß-Newton) und Newton-System    |
 | `13_ode`                    | ODE: RK45, RK4, Euler, steifes Problem mit implizitem Euler |
 | `14_gmres`                  | GMRES(m): schiefsymmetrisch, Neustart-Kosten, Vorkonditionierer |
+| `15_interpolation`          | Interpolation: Runge-Phänomen, Randbedingungen, PCHIP, Integral |
 
 ## Tests
 

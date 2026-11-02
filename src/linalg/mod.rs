@@ -10,6 +10,8 @@
 //!   (sowie den `_unit`- und `_transposed`-Varianten); sie sind die Bausteine der Zerlegungen.
 //! - [`iterative`] enthält matrixfreie iterative Löser (CG) für große Systeme, die gegen ein
 //!   [`LinearOperator`] arbeiten.
+//! - [`solve_tridiagonal`] und [`solve_cyclic_tridiagonal`] lösen tridiagonale Systeme (Thomas-Algorithmus)
+//!   in `O(n)`, etwa für Splines und Differenzenverfahren.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -34,6 +36,7 @@ mod lu;
 mod matrix;
 mod operator;
 mod qr;
+mod tridiagonal;
 mod vector;
 
 #[cfg(feature = "alloc")]
@@ -45,6 +48,9 @@ pub use lu::LuDecomposition;
 pub use matrix::Matrix;
 pub use operator::{FnOperator, LinearOperator};
 pub use qr::QrDecomposition;
+pub use tridiagonal::{
+    cyclic_tridiagonal_work_len, solve_cyclic_tridiagonal, solve_tridiagonal, tridiagonal_work_len,
+};
 pub use vector::Vector;
 
 #[cfg(feature = "alloc")]

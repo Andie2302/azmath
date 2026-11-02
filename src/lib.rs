@@ -23,3 +23,5 @@ pub mod integrate;
 pub mod optimize;
 
 pub mod ode;
+
+pub mod interp;
