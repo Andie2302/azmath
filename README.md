@@ -5,26 +5,23 @@ Mathematische Funktionen (`sqrt`, `sin`, `exp`, …) werden je nach Feature-Flag
 Backend weitergeleitet. So lässt sich numerischer Code einmal generisch schreiben und auf
 Desktop wie auf Mikrocontrollern verwenden.
 
-## Aufbau: Fassade und Teil-Crates
+## Aufbau
 
-`azmath` ist eine **Fassade** über mehrere kleine Crates in einem Cargo-Workspace. Wer alles will, nimmt `azmath`
-(die Pfade `azmath::Real`, `azmath::linalg`, … bleiben unverändert); wer nur einen Teil braucht, bindet das Teil-Crate
-einzeln ein und zieht dadurch nur dessen Abhängigkeiten.
+Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate ist `#![no_std]`; die Features
+(`std`, `libm`, `micromath`, `alloc`) gelten für alle Module gemeinsam.
 
-| Crate | Pfad in der Fassade | Inhalt | hängt ab von |
-|---|---|---|---|
-| `azmath-core` | `azmath::Real` | `Real`-Trait, Backends (`std`, `libm`, `micromath`) | – |
-| `azmath-linalg` | `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal | core |
-| `azmath-roots` | `azmath::roots` | Nullstellen in einer Veränderlichen | core |
-| `azmath-integrate` | `azmath::integrate` | numerische Integration | core |
-| `azmath-interp` | `azmath::interp` | Interpolation, Splines | core, linalg |
-| `azmath-optimize` | `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt | core, linalg |
-| `azmath-ode` | `azmath::ode` | gewöhnliche Differentialgleichungen | core, optimize |
-| `azmath-multigrid` | `azmath::multigrid` | Multigrid für Poisson | core, linalg |
+| Modul | Inhalt |
+|---|---|
+| `azmath::Real` | `Real`-Trait, Backends (`std`, `libm`, `micromath`) |
+| `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal |
+| `azmath::roots` | Nullstellen in einer Veränderlichen |
+| `azmath::integrate` | numerische Integration |
+| `azmath::interp` | Interpolation, Splines |
+| `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt |
+| `azmath::ode` | gewöhnliche Differentialgleichungen |
+| `azmath::multigrid` | Multigrid für Poisson |
 
-Alle Crates sind `#![no_std]` und kennen dieselben Features (`std`, `libm`, `micromath`, `alloc`), die an die
-Abhängigkeiten weitergereicht werden. Die Tests liegen bei den jeweiligen Crates (`cargo test --workspace`), die Beispiele
-bei der Fassade.
+Tests liegen in `tests/`, Beispiele in `examples/`.
 
 ## Features / Backends
 
@@ -431,16 +428,16 @@ cargo run --release --example 17_multigrid
 
 ## Tests
 
-Die Integrationstests liegen bei den jeweiligen Crates (`crates/azmath-*/tests`):
+Die Integrationstests liegen in `tests/` (Präfix = Modul):
 
 ```bash
-cargo test --workspace                                  # std, alle Crates
-cargo test --workspace --no-default-features --features libm        # libm
-cargo test --workspace --features alloc                 # inkl. dynamische Matrizen
-cargo test -p azmath-linalg                             # nur ein Crate
+cargo test                                              # std
+cargo test --no-default-features --features libm       # libm
+cargo test --features alloc                            # inkl. dynamische Matrizen
+cargo test --test linalg_qr                            # nur eine Testdatei
 ```
 
-Die Doctests laufen mit `cargo test --workspace --doc`.
+Die Doctests laufen mit `cargo test --doc`.
 
 **Die Tests laufen nur mit den genauen Backends `std` und `libm`.** `micromath` rechnet bewusst
 mit Bit-Tricks und ist ungenau; Fehler akkumulieren sich in längeren Rechnungen, sodass Ergebnisse
@@ -465,7 +462,7 @@ Feature-Kombinationen, testet sie (außer `micromath` allein) und prüft `cargo 
 ## Roadmap
 
 Was bereits umgesetzt ist, was noch fehlt (Optimierung, steife ODE, FEM/FVM/SPH, Navier-Stokes, Autodiff, Rotationen,
-Polynom-Nullstellen, SAT/SMT u. a.), wovon es abhängt und wie das Projekt in mehrere Crates aufgeteilt werden könnte,
+Polynom-Nullstellen, SAT/SMT u. a.), wovon es abhängt und wie das Projekt gegliedert werden soll,
 steht in [`ROADMAP.md`](ROADMAP.md).
 
 ## Lizenz

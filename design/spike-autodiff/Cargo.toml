@@ -9,6 +9,4 @@ publish = false
 [workspace]
 
 [dependencies]
-azmath-core = { path = "../../crates/azmath-core" }
-azmath-linalg = { path = "../../crates/azmath-linalg" }
-azmath-optimize = { path = "../../crates/azmath-optimize" }
+azmath = { path = "../..", default-features = true }

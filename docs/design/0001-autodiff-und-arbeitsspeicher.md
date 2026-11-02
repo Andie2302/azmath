@@ -16,7 +16,7 @@ Rahmen aus den Entscheidungen: Basis-Crates bleiben `#![no_std]` **ohne** Alloka
 ## 2. Methode
 
 Statt Varianten nur zu beschreiben, wurde ein Wegwerf-Prototyp gebaut und gegen die **echten, unveränderten** Crates
-getestet (`design/spike-autodiff`, 10 Tests, bestehen alle). Er liegt bewusst außerhalb des Workspaces.
+getestet (`design/spike-autodiff`, 10 Tests, bestehen alle). Er liegt bewusst außerhalb des Pakets `azmath`.
 
 ## 3. Ergebnisse (alle im Prototyp geprüft)
 
@@ -157,7 +157,7 @@ nach 3.8 nachträglich bekommen; es wäre aber ein größerer Umbau.
 
 ## 6. Folgen für die Umsetzung (Phase 1)
 
-1. Neues Crate `azmath-autodiff` mit `Jet<T, N>` (aus dem Prototyp), `VectorFn`, `vector_fn!`, `jacobian_ad`, `gradient_ad`,
+1. Neues Modul `azmath::autodiff` (`src/autodiff/`) mit `Jet<T, N>` (aus dem Prototyp), `VectorFn`, `vector_fn!`, `jacobian_ad`, `gradient_ad`,
    `hessian_ad`, `ad_scratch_len`.
 2. Kein Eingriff in `azmath-optimize`/`azmath-ode`; Beispiele und Tests zeigen die Adapter mit den vorhandenen Lösern.
 3. `PartialEq`-Semantik und `is_nan`-Regel in der Doku festhalten (3.1).

@@ -2,7 +2,7 @@
 //! schnittstelle und ein Adapter, der bestehende Löser mit exakten Ableitungen versorgt.
 #![no_std]
 
-use azmath_core::Real;
+use azmath::Real;
 use core::cmp::Ordering;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -410,7 +410,7 @@ pub struct LmWorkspace<'a, T: Real> {
 
 impl<'a, T: Real> LmWorkspace<'a, T> {
     pub fn new(m: usize, n: usize, buf: &'a mut [T]) -> Result<Self, WorkspaceTooShort> {
-        let needed = azmath_optimize::levenberg_marquardt_work_len(m, n);
+        let needed = azmath::optimize::levenberg_marquardt_work_len(m, n);
         if buf.len() < needed {
             return Err(WorkspaceTooShort {
                 needed,
@@ -425,9 +425,9 @@ impl<'a, T: Real> LmWorkspace<'a, T> {
         residual: impl FnMut(&[T], &mut [T]),
         jacobian: impl FnMut(&[T], &mut [T]),
         x: &mut [T],
-        opts: azmath_optimize::OptimizeOptions<T>,
-    ) -> Result<azmath_optimize::OptimizeResult<T>, azmath_optimize::OptimizeError> {
-        azmath_optimize::levenberg_marquardt(residual, jacobian, x, self.m, opts, self.buf)
+        opts: azmath::optimize::OptimizeOptions<T>,
+    ) -> Result<azmath::optimize::OptimizeResult<T>, azmath::optimize::OptimizeError> {
+        azmath::optimize::levenberg_marquardt(residual, jacobian, x, self.m, opts, self.buf)
     }
 }
 
@@ -437,7 +437,7 @@ macro_rules! vector_fn {
     ($name:ident, |$x:ident, $out:ident| $body:block) => {
         struct $name;
         impl $crate::VectorFn for $name {
-            fn eval<S: azmath_core::Real>(&self, $x: &[S], $out: &mut [S]) $body
+            fn eval<S: azmath::Real>(&self, $x: &[S], $out: &mut [S]) $body
         }
     };
 }

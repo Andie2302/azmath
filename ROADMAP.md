@@ -1,7 +1,7 @@
 # Roadmap und ToDo-Liste
 
 Dieses Dokument hält fest, was **fertig** ist, was **noch fehlt**, was wovon **abhängt** und wie die Bibliothek
-langfristig in **Crates** aufgeteilt werden kann. Es ist eine lebende Liste: Ideen kommen jederzeit dazu.
+langfristig in **Modulen** gegliedert wird. Es ist eine lebende Liste: Ideen kommen jederzeit dazu.
 
 Legende: ✅ fertig · ⚠️ teilweise · ⬜ offen · 🔶 Entscheidung nötig
 Aufwand (grob, relativ zu den bisherigen Schritten): **S** = klein (wie die Nullstellensuche), **M** = mittel (wie
@@ -9,7 +9,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 
 ---
 
-## 1. Stand heute (Version 0.8.0, Workspace-Umbau erledigt)
+## 1. Stand heute (Version 0.8.0, ein Crate mit Modulen)
 
 | Bereich | Fertig |
 |---|---|
@@ -167,54 +167,41 @@ rechnen und Euler-Winkel nur für Ein-/Ausgabe zu verwenden.
 
 ---
 
-## 4. Aufteilung in Crates (Cargo-Workspace) – umgesetzt in Phase 0a
+## 4. Struktur: ein Crate, Module in Unterordnern
 
-Das frühere Einzel-Crate ist seit Phase 0a ein Cargo-Workspace. Die Fassade `azmath` re-exportiert alles und hält die alten
-Pfade stabil; der Umbau hat **kein Verhalten geändert** (420 von 420 Tests wie zuvor grün, jedes Crate baut zusätzlich
-einzeln).
-
-```
-azmath                Fassade: Re-Exports, Features, Beispiele
-crates/
-  azmath-core         Real, Backends                    ← später: Complex
-  azmath-linalg       Vektoren/Matrizen, Zerlegungen, iterativ, eigen, Tridiagonal
-  azmath-roots        Nullstellen (1D)
-  azmath-integrate    Integration
-  azmath-interp       Interpolation, Splines
-  azmath-optimize     Newton, Gauß-Newton, Levenberg-Marquardt
-  azmath-ode          Anfangswertprobleme
-  azmath-multigrid    Multigrid (Poisson)
-```
-
-Abhängigkeiten: `roots`, `integrate` → `core`; `linalg` → `core`; `interp`, `optimize`, `multigrid` → `core`, `linalg`;
-`ode` → `core`, `optimize`. Vier interne Kernfunktionen von `linalg` (QR/Cholesky-Kerne, für `optimize`) sind dafür als
-`#[doc(hidden)] pub mod kernel` sichtbar; sie gehören nicht zur stabilen API.
-
-Geplante weitere Crates (Namen vorläufig):
+Seit Phase 0a war das Projekt ein Cargo-Workspace mit acht Crates; auf Wunsch ist es wieder **ein** Crate `azmath`, gegliedert
+in Unterordner von `src/`. Die öffentlichen Pfade (`azmath::linalg`, `azmath::roots`, …) sind unverändert; der Umbau hat
+**kein Verhalten geändert** (420 von 420 Tests wie zuvor grün).
 
 ```
-azmath-autodiff     Jet/Dual (Vorwärts-AD)                          [no_std]
-azmath-geometry     Rotationen, Quaternionen, Transformationen      [no_std]
-azmath-opt          LP, QP, MILP, NLP                               [alloc]
-azmath-pde          FDM, FEM, FVM, Navier-Stokes                    [alloc]
-azmath-particles    SPH (netzfrei)                                  [alloc]
-iapws               Thermodynamik Wasser/Dampf (IF97, dann IAPWS-95)[no_std]
-azsat               DPLL, CDCL, SMT (eigenständig, ohne Real)       [alloc]
+src/
+  real/ (real.rs)   Real, Backends                    ← später: Complex
+  linalg/           Vektoren/Matrizen, Zerlegungen, iterativ, eigen, Tridiagonal
+  roots/            Nullstellen (1D)
+  integrate/        Integration
+  interp/           Interpolation, Splines
+  optimize/         Newton, Gauß-Newton, Levenberg-Marquardt
+  ode/              Anfangswertprobleme
+  multigrid/        Multigrid (Poisson)
+tests/              Integrationstests, Präfix = Modul
+examples/
 ```
 
-**Konventionen im Workspace:** gemeinsame Version, Edition, MSRV und Lizenz stehen in `[workspace.package]`, interne
-Abhängigkeiten in `[workspace.dependencies]`. Jedes Crate kennt dieselben Features (`std`, `libm`, `micromath`, `alloc`) und
-reicht sie an seine Abhängigkeiten weiter, damit `cargo test --workspace --features …` einheitlich funktioniert. Die CI baut
-zusätzlich jedes Crate einzeln, damit eine fehlende Abhängigkeit nicht durch vereinigte Features verdeckt bleibt.
+Geplante weitere **Module** (Namen vorläufig): `autodiff` (Jet/Dual), `geometry` (Rotationen, Quaternionen), `opt` (LP, QP,
+MILP, NLP), `pde` (FDM, FEM, FVM, Navier-Stokes), `particles` (SPH), `iapws` (Wasser/Dampf), `sat` (DPLL, CDCL, SMT).
+
+**Konventionen:** Die Features (`std`, `libm`, `micromath`, `alloc`) gelten crateweit. Mathematische Kernmodule bleiben ohne
+Allokator nutzbar; Module, die `alloc` brauchen (FEM, SPH, MILP, SAT), werden mit `#[cfg(feature = "alloc")]` geschaltet.
+Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 
 ## 5. Reihenfolge
 
 | Phase | Inhalt | Stand |
 |---|---|---|
-| **0a** | Workspace-Aufteilung (mechanisch, ohne API-Änderung) | ✅ |
+| **0a** | Aufteilung in Module (zuerst als Workspace, dann auf Wunsch wieder in **ein** Crate gefaltet; ohne API-Änderung) | ✅ |
 | **0b** | **API-Entwurf** (Arbeitsspeicher-Muster, für Autodiff generische Funktionsschnittstelle): Entwurf und Prototyp liegen vor, [`docs/design/0001`](docs/design/0001-autodiff-und-arbeitsspeicher.md); **Entscheidung steht aus** | ⚠️ |
-| **0c** | `CHANGELOG`, Metadaten je Crate (README, Beschreibung), `cargo publish --dry-run` | ⬜ |
-| **1** | `Complex`, `azmath-autodiff` (**`Jet<T, N>`**), Matrixnormen, Äquilibrierung (Ruiz/Sinkhorn), Orthonormalisierung (MGS/Householder) | ⬜ |
+| **0c** | `CHANGELOG`, Crate-Metadaten, `cargo publish --dry-run` | ⬜ |
+| **1** | `Complex`, Modul `autodiff` (**`Jet<T, N>`**), Matrixnormen, Äquilibrierung (Ruiz/Sinkhorn), Orthonormalisierung (MGS/Householder) | ⬜ |
 | **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination | ⬜ |
 | **3** | Nichtlinear ausbauen: BFGS/L-BFGS, Broyden, Linesearch/Trust-Region, **Polynom-Nullstellen** (Durand-Kerner, Aberth) | ⬜ |
 | **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | ⬜ |
@@ -223,7 +210,7 @@ zusätzlich jedes Crate einzeln, damit eine fehlende Abhängigkeit nicht durch v
 | **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
 | **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |
 | **9** | PDE: Multigrid mit Neumann-Rand → FDM-Gerüst → **Navier-Stokes 2D inkompressibel** (Projektionsverfahren/SIMPLE, Druck per Multigrid); FEM; FVM; SPH | ⬜ |
-| **A** | SAT/SMT (eigenes Crate, jederzeit unabhängig möglich) | ⬜ |
+| **A** | SAT/SMT (eigenes Modul `sat`, jederzeit unabhängig möglich) | ⬜ |
 
 ---
 
@@ -235,8 +222,8 @@ zusätzlich jedes Crate einzeln, damit eine fehlende Abhängigkeit nicht durch v
 | 2 | „Jet“ | Mehrdimensionales Vorwärts-AD wie `Jet<T, N>` in Ceres: Wert `T` plus Gradient `[T; N]` fester Größe auf dem Stack, keine Heap-Allokation; für exakte Jacobi-Matrizen in `newton_system` und `levenberg_marquardt` statt Finite Differenzen |
 | 3 | IAPWS | **IF97 zuerst** (Industriestandard, Regionen 1–5), **IAPWS-95** danach (Helmholtz-Energie, Ableitungen per Autodiff) |
 | 4 | Navier-Stokes | **2D, inkompressibel, kartesisch** (Chorin-Projektion oder SIMPLE), Druck-Poisson per Multigrid; 3D und kompressibel später und optional |
-| 5 | Workspace-Umbau | **Jetzt**, bevor Autodiff und Optimierung auf den bisherigen Signaturen aufbauen ✅ (Phase 0a) |
-| 6 | `alloc`-Politik | Mathematische Kern-Crates (`core`, `linalg`, `roots`, `integrate`, `interp`, `optimize`, `ode`, `autodiff`) bleiben strikt `#![no_std]` **ohne** Allokator nutzbar; große Toolkits (FEM, SPH, MILP, SAT) dürfen `alloc` voraussetzen |
+| 5 | Struktur | **Ein Crate mit Unterordnern/Modulen**, keine Vielzahl von Crates ✅ |
+| 6 | `alloc`-Politik | Mathematische Kernmodule (`real`, `linalg`, `roots`, `integrate`, `interp`, `optimize`, `ode`, `autodiff`) bleiben strikt `#![no_std]` **ohne** Allokator nutzbar; große Toolkits (FEM, SPH, MILP, SAT) dürfen `alloc` voraussetzen |
 | – | Autodiff-API | Löser-Schnittstellen müssen über `T: Real` generisch sein, damit `Jet<T, N>` transparent durchgereicht werden kann (Abschnitt 7) |
 
 ---

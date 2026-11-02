@@ -1,5 +1,5 @@
-use azmath_core::Real;
-use azmath_optimize::{
+use azmath::Real;
+use azmath::optimize::{
     OptimizeOptions, levenberg_marquardt, levenberg_marquardt_work_len, newton_system,
     newton_work_len, numerical_jacobian, numerical_jacobian_work_len,
 };

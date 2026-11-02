@@ -1,6 +1,6 @@
 # design/
 
-Wegwerf-Prototypen, die API-Entwürfe prüfen. **Nicht Teil des Workspaces**, nicht in der CI, nicht für die Veröffentlichung.
+Wegwerf-Prototypen, die API-Entwürfe prüfen. **Nicht Teil des Pakets `azmath`**, nicht in der CI, nicht für die Veröffentlichung.
 Sie können veralten. Die Ergebnisse stehen in [`docs/design/`](../docs/design).
 
 | Prototyp | Zweck | Entwurf |

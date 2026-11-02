@@ -1,32 +1,11 @@
-[workspace]
-members = ["crates/*"]
-resolver = "3"
-
-[workspace.package]
+[package]
+name = "azmath"
+description = "Ein generisches Real-Trait für f32 und f64 mit austauschbarem Backend (std, libm, micromath) und numerische Verfahren für no_std"
 version = "0.8.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Andie2302/azmath"
-
-[workspace.dependencies]
-azmath-core = { path = "crates/azmath-core", version = "0.8.0", default-features = false }
-azmath-linalg = { path = "crates/azmath-linalg", version = "0.8.0", default-features = false }
-azmath-roots = { path = "crates/azmath-roots", version = "0.8.0", default-features = false }
-azmath-integrate = { path = "crates/azmath-integrate", version = "0.8.0", default-features = false }
-azmath-interp = { path = "crates/azmath-interp", version = "0.8.0", default-features = false }
-azmath-optimize = { path = "crates/azmath-optimize", version = "0.8.0", default-features = false }
-azmath-ode = { path = "crates/azmath-ode", version = "0.8.0", default-features = false }
-azmath-multigrid = { path = "crates/azmath-multigrid", version = "0.8.0", default-features = false }
-
-[package]
-name = "azmath"
-description = "Ein generisches Real-Trait für f32 und f64 mit austauschbarem Backend (std, libm, micromath) und numerische Verfahren für no_std"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-repository.workspace = true
 readme = "README.md"
 exclude = ["design/", "docs/", ".github/"]
 keywords = ["math", "no_std", "float", "numerics", "embedded"]
@@ -34,17 +13,11 @@ categories = ["mathematics", "no-std"]
 
 [features]
 default = ["std"]
-std = ["azmath-core/std", "azmath-linalg/std", "azmath-roots/std", "azmath-integrate/std", "azmath-interp/std", "azmath-optimize/std", "azmath-ode/std", "azmath-multigrid/std"]
-libm = ["azmath-core/libm", "azmath-linalg/libm", "azmath-roots/libm", "azmath-integrate/libm", "azmath-interp/libm", "azmath-optimize/libm", "azmath-ode/libm", "azmath-multigrid/libm"]
-micromath = ["azmath-core/micromath", "azmath-linalg/micromath", "azmath-roots/micromath", "azmath-integrate/micromath", "azmath-interp/micromath", "azmath-optimize/micromath", "azmath-ode/micromath", "azmath-multigrid/micromath"]
-alloc = ["azmath-core/alloc", "azmath-linalg/alloc", "azmath-roots/alloc", "azmath-integrate/alloc", "azmath-interp/alloc", "azmath-optimize/alloc", "azmath-ode/alloc", "azmath-multigrid/alloc"]
+std = []
+libm = ["dep:libm"]
+micromath = ["dep:micromath"]
+alloc = []
 
 [dependencies]
-azmath-core.workspace = true
-azmath-linalg.workspace = true
-azmath-roots.workspace = true
-azmath-integrate.workspace = true
-azmath-interp.workspace = true
-azmath-optimize.workspace = true
-azmath-ode.workspace = true
-azmath-multigrid.workspace = true
+libm = { version = "0.2", optional = true, default-features = false }
+micromath = { version = "2.1", optional = true, default-features = false }
