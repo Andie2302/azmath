@@ -18,7 +18,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::integrate` | numerische Integration |
 | `azmath::interp` | Interpolation, Splines |
 | `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt, Broyden, Dogleg, BFGS, L-BFGS, Wolfe-Schrittweitensuche |
-| `azmath::ode` | gewöhnliche Differentialgleichungen |
+| `azmath::ode` | gewöhnliche Differentialgleichungen (Runge-Kutta, Adams, BDF, Radau IIA, Rosenbrock, Ereignissuche) |
 | `azmath::multigrid` | Multigrid für Poisson |
 | `azmath::complex` | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie) |
 | `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB |

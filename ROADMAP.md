@@ -23,7 +23,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Nichtlinear (mehrdimensional) | Newton-System mit Schrittweitensteuerung (gedämpft), Gauß-Newton, Levenberg-Marquardt |
 | Integration | Trapez, Simpson, Gauß-Legendre, adaptives Gauß-Kronrod, Messdaten |
 | Interpolation | linear, kubische Splines (4 Randbedingungen), PCHIP, Lagrange |
-| ODE | Euler, RK4, Dormand-Prince (adaptiv), implizites Euler, implizite Trapezregel |
+| ODE | Euler, RK4, Dormand-Prince (adaptiv), implizites Euler, implizite Trapezregel; Adams-Bashforth-Moulton, BDF 1–5, Radau IIA (Ordnung 5), ROS2, Hermite-Ausgabe + Ereignissuche (RK4) |
 | Orthonormalisierung | modifiziertes Gram-Schmidt (optional mit Reorthogonalisierung), `thin_q` aus Householder-QR, Polarzerlegung `A = U·P`, `nearest_orthogonal`/`nearest_rotation`, `orthogonality_error`; fest und dynamisch |
 | Äquilibrierung | Ruiz (∞-Norm) und Sinkhorn-Knopp, Zweierpotenzen als exakte Faktoren, `scale_rhs`/`recover_solution`; fest und dynamisch |
 | Matrixnormen | Frobenius (überlaufsicher), 1, ∞, 2-Norm über SVD; fest und dynamisch |
@@ -70,11 +70,11 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### D. Differentialgleichungen
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ⬜ | **Adams-Bashforth** (und -Moulton als Prädiktor-Korrektor) | M | RK-Anlaufrechnung ✅ |
-| ⬜ | **BDF** (variable Ordnung/Schrittweite) | L | Newton ✅ (ode → optimize), Autodiff nützlich |
-| ⬜ | **Radau IIA** | L | Newton, lineare Systeme mit Blockstruktur |
-| ⬜ | **Rodas** (linear-implizites Rosenbrock) | L | Jacobi (Autodiff), LU |
-| ⬜ | Dichte Ausgabe, Ereignissuche (Nulldurchgänge) | M | `rk45` ✅, Nullstellen ✅ |
+| ✅ | **Adams-Bashforth-Moulton** (Ordnung 1–4, PECE, feste Schrittweite; ungetestet) | M | RK-Anlaufrechnung ✅ |
+| ⚠️ | **BDF** Ordnung 1–5 mit Radau-Anlauf, feste Schrittweite ✅ (ungetestet); variable Ordnung/Schrittweite ⬜ | L | Newton ✅ (ode → optimize), Autodiff nützlich |
+| ⚠️ | **Radau IIA** (3 Stufen, Ordnung 5, feste Schrittweite) ✅ (ungetestet); Schrittweitensteuerung ⬜ | L | Newton, lineare Systeme mit Blockstruktur |
+| ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅ (ungetestet); RODAS (Ordnung 4) ⬜ | L | Jacobi (Autodiff), LU |
+| ⚠️ | Hermite-Dichte Ausgabe und Ereignissuche für RK4 ✅ (`rk4_event`, ungetestet); für `rk45` ⬜ | M | `rk45` ✅, Nullstellen ✅ |
 | ⬜ | Taylor-Reihen-Verfahren hoher Ordnung | M–L | `Jet` |
 | ⬜ | DAE-Löser, Rand­wertprobleme (Schießverfahren) | L | BDF/Radau, Newton |
 
@@ -218,7 +218,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **2** | Schnelle Gewinne: ~~Regula Falsi~~ ✅, ~~Rotationen/Quaternionen~~ ✅, ~~benannte Gauß-Elimination~~ ✅ | ✅ |
 | **3** | Nichtlinear ausbauen: ~~BFGS/L-BFGS~~ ✅, ~~Broyden~~ ✅, ~~Linesearch~~ ✅, ~~Trust-Region (Dogleg)~~ ✅, ~~**Polynom-Nullstellen** (Durand-Kerner, Aberth)~~ ✅ | ✅ |
 | **4** | Sparse/Band ✅, Links-Vorkonditionierer/ILU ✅, Lanczos/Arnoldi ✅ (Teile ohne Tests) | ✅ |
-| **5** | Steife ODE: Adams-Bashforth, **BDF**, **Radau IIA**, **Rodas**, Ereignissuche | ⬜ |
+| **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) – Tests geschrieben, nicht ausgeführt | ⚠️ |
 | **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus), Begleitmatrix, Jenkins-Traub | ⬜ |
 | **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
 | **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |

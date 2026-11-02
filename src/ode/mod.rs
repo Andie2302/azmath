@@ -49,6 +49,7 @@
 
 mod adams;
 mod bdf;
+mod events;
 mod explicit;
 mod implicit;
 mod radau;
@@ -57,6 +58,7 @@ mod rosenbrock;
 
 pub use adams::{adams_bashforth_moulton, adams_work_len};
 pub use bdf::{bdf, bdf_fd, bdf_work_len};
+pub use events::{Event, EventDirection, event_work_len, hermite_interpolate, rk4_event};
 pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len};
 pub use implicit::{
     implicit_euler, implicit_euler_fd, implicit_trapezoid, implicit_trapezoid_fd, implicit_work_len,
@@ -86,6 +88,8 @@ pub enum OdeError {
     /// Das Newton-Verfahren eines impliziten Schritts ist nicht konvergiert (zu große
     /// Schrittweite, singuläre Jacobi-Matrix oder ungeeignete Funktion).
     NewtonFailed,
+    /// Die Nullstelle der Ereignisfunktion konnte im Schritt nicht lokalisiert werden.
+    EventNotLocated,
 }
 
 impl fmt::Display for OdeError {
@@ -96,6 +100,7 @@ impl fmt::Display for OdeError {
             OdeError::StepSizeTooSmall => "Schrittweite zu klein",
             OdeError::MaxStepsExceeded => "maximale Schrittzahl erreicht",
             OdeError::NewtonFailed => "Newton-Verfahren im impliziten Schritt nicht konvergiert",
+            OdeError::EventNotLocated => "Ereignis im Schritt nicht lokalisierbar",
         })
     }
 }
