@@ -29,6 +29,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Matrixnormen | Frobenius (überlaufsicher), 1, ∞, 2-Norm über SVD; fest und dynamisch |
 | Geometrie | `Quaternion<T>` (Hamilton-Produkt, `rotate`, `slerp`/`nlerp`, `exp`/`ln`, Matrix-Umrechnung nach Shepperd), `exp_so3`/`log_so3`, Rodrigues, Euler Z-Y-X mit Gimbal-Lock-Erkennung |
 | Komplexe Zahlen | `Complex<T>`: Arithmetik (Smith-Division), Betrag/Argument, `sqrt`, `exp`, `ln`, `powi`/`powf`, `sin`/`cos`/`sinh`/`cosh` |
+| Sparse | `CooMatrix` (Assemblierung, Duplikate summiert), `CsrMatrix` (Operator für CG/GMRES/BiCGSTAB, Transponierte, Summe, Skalierung), `CsrView` ohne Allokator |
 | Autodiff | `Jet<T, N>` (Vorwärtsmodus, Stack), `VectorFn`, Jacobi-Adapter mit Strip-Mining, Hessematrix per geschachtelten Jets |
 | PDE | geometrisches Multigrid für Poisson (1D/2D), als Löser und als CG-Vorkonditionierer |
 
@@ -44,7 +45,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | ~~**Matrixnormen** (Frobenius, 1, ∞, 2-Norm über SVD)~~ ✅ und ~~**Äquilibrierung**~~ ✅ (Zeilen-/Spaltenskalierung nach Ruiz bzw. Sinkhorn) | S–M | `linalg`, SVD ✅ | bessere Konditionierung, Fehlerabschätzung |
 | ✅ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
 | ⬜ | `Real` ergänzen (`copysign`, `from_usize`, `fma`-Varianten …) | S | – | bei Bedarf |
-| ⬜ | Sparse-Formate (COO/CSR), Bandmatrizen | M | `alloc` | große Systeme, FEM, Innere-Punkte |
+| ⚠️ | Sparse-Formate (COO ✅, CSR ✅, `CsrView` ohne Allokator ✅), Bandmatrizen ⬜ | M | `alloc` | große Systeme, FEM, Innere-Punkte |
 
 ### B. Lineare Algebra – Lücken
 | | Eintrag | Aufwand | Hängt ab von |

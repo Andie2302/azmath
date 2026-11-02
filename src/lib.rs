@@ -16,6 +16,7 @@
 //! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
 //! | [`complex`] | komplexe Zahlen `Complex<T>` |
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
+//! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
 
 #![no_std]
 #![warn(missing_docs)]
@@ -39,3 +40,4 @@ pub mod multigrid;
 pub mod ode;
 pub mod optimize;
 pub mod roots;
+pub mod sparse;
