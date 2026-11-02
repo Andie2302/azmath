@@ -13,7 +13,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | Modul | Inhalt |
 |---|---|
 | `azmath::Real` | `Real`-Trait, Backends (`std`, `libm`, `micromath`) |
-| `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal |
+| `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal, Matrixnormen |
 | `azmath::roots` | Nullstellen in einer Veränderlichen |
 | `azmath::integrate` | numerische Integration |
 | `azmath::interp` | Interpolation, Splines |

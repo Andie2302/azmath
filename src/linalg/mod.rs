@@ -13,6 +13,7 @@
 //! - [`solve_tridiagonal`] und [`solve_cyclic_tridiagonal`] lösen tridiagonale Systeme (Thomas-Algorithmus)
 //!   in `O(n)`, etwa für Splines und Differenzenverfahren.
 //! - [`eigen`] berechnet Eigenwerte und -vektoren (Jacobi, Potenzmethode) und die Singulärwertzerlegung.
+//! - Matrixnormen: `norm_frobenius`, `norm_1`, `norm_inf` und `norm_2` (größter Singulärwert), siehe `Matrix::norm_2`.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
 //!   Quadrate, etwa für Ausgleichsgeraden.
@@ -37,6 +38,7 @@ pub mod iterative;
 pub(crate) mod kernel;
 mod lu;
 mod matrix;
+mod norm;
 mod operator;
 mod qr;
 mod tridiagonal;
