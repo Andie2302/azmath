@@ -5,6 +5,27 @@ Mathematische Funktionen (`sqrt`, `sin`, `exp`, …) werden je nach Feature-Flag
 Backend weitergeleitet. So lässt sich numerischer Code einmal generisch schreiben und auf
 Desktop wie auf Mikrocontrollern verwenden.
 
+## Aufbau: Fassade und Teil-Crates
+
+`azmath` ist eine **Fassade** über mehrere kleine Crates in einem Cargo-Workspace. Wer alles will, nimmt `azmath`
+(die Pfade `azmath::Real`, `azmath::linalg`, … bleiben unverändert); wer nur einen Teil braucht, bindet das Teil-Crate
+einzeln ein und zieht dadurch nur dessen Abhängigkeiten.
+
+| Crate | Pfad in der Fassade | Inhalt | hängt ab von |
+|---|---|---|---|
+| `azmath-core` | `azmath::Real` | `Real`-Trait, Backends (`std`, `libm`, `micromath`) | – |
+| `azmath-linalg` | `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal | core |
+| `azmath-roots` | `azmath::roots` | Nullstellen in einer Veränderlichen | core |
+| `azmath-integrate` | `azmath::integrate` | numerische Integration | core |
+| `azmath-interp` | `azmath::interp` | Interpolation, Splines | core, linalg |
+| `azmath-optimize` | `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt | core, linalg |
+| `azmath-ode` | `azmath::ode` | gewöhnliche Differentialgleichungen | core, optimize |
+| `azmath-multigrid` | `azmath::multigrid` | Multigrid für Poisson | core, linalg |
+
+Alle Crates sind `#![no_std]` und kennen dieselben Features (`std`, `libm`, `micromath`, `alloc`), die an die
+Abhängigkeiten weitergereicht werden. Die Tests liegen bei den jeweiligen Crates (`cargo test --workspace`), die Beispiele
+bei der Fassade.
+
 ## Features / Backends
 
 | Feature     | Backend      | `f32` | `f64` | Hinweis                                           |
@@ -410,15 +431,16 @@ cargo run --release --example 17_multigrid
 
 ## Tests
 
-Die Integrationstests liegen in [`tests/`](tests):
+Die Integrationstests liegen bei den jeweiligen Crates (`crates/azmath-*/tests`):
 
 ```bash
-cargo test                                              # std
-cargo test --no-default-features --features libm        # libm
-cargo test --features alloc                             # inkl. dynamische Matrizen
+cargo test --workspace                                  # std, alle Crates
+cargo test --workspace --no-default-features --features libm        # libm
+cargo test --workspace --features alloc                 # inkl. dynamische Matrizen
+cargo test -p azmath-linalg                             # nur ein Crate
 ```
 
-Zusätzlich laufen die Doctests mit `cargo test --doc`.
+Die Doctests laufen mit `cargo test --workspace --doc`.
 
 **Die Tests laufen nur mit den genauen Backends `std` und `libm`.** `micromath` rechnet bewusst
 mit Bit-Tricks und ist ungenau; Fehler akkumulieren sich in längeren Rechnungen, sodass Ergebnisse

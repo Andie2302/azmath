@@ -9,7 +9,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 
 ---
 
-## 1. Stand heute (Version 0.8.0)
+## 1. Stand heute (Version 0.8.0, Workspace-Umbau erledigt)
 
 | Bereich | Fertig |
 |---|---|
@@ -31,9 +31,9 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | | Eintrag | Aufwand | Hängt ab von | Ermöglicht |
 |---|---|---|---|---|
 | ⬜ | **`Complex<T>`** (komplexe Zahlen) | S–M | `Real` | Polynom-Nullstellen, nichtsymmetrische Eigenwerte, FFT |
-| ⬜ | **Automatisches Differenzieren**: `Dual<T>` (1. Ableitung), `Jet<T, N>` (Mehrfach-Richtungen/Taylor), geschachtelt für Hessians | M–L | `Real` | exakte Jacobi-/Gradientenmatrizen, SQP/IPOPT, IAPWS-Ableitungen, Taylor-ODE |
-| ⬜ | Matrixnormen (1, ∞, Frobenius, Spektralnorm über SVD), **Normieren/Skalieren/Äquilibrieren** | S | `linalg` | bessere Konditionierung, Fehlerabschätzung |
-| ⬜ | Orthonormalisieren (Gram-Schmidt, Polarzerlegung `R = U·Vᵀ` über SVD) | S | SVD ✅ | stabile Rotationsmatrizen |
+| ⬜ | **Automatisches Differenzieren**: `Jet<T, N>` = Wert plus Gradient `[T; N]` auf dem Stack (Vorwärtsmodus, ohne Heap), `Dual<T>` als Sonderfall `N = 1`, geschachtelt für Hessians (Entwurf siehe Abschnitt 7) | M–L | `Real` | exakte Jacobi-/Gradientenmatrizen für `newton_system` und `levenberg_marquardt`, SQP/IPOPT, IAPWS-Ableitungen, Taylor-ODE |
+| ⬜ | **Matrixnormen** (Frobenius, 1, ∞, 2-Norm über SVD) und **Äquilibrierung** (Zeilen-/Spaltenskalierung nach Ruiz bzw. Sinkhorn) | S–M | `linalg`, SVD ✅ | bessere Konditionierung, Fehlerabschätzung |
+| ⬜ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
 | ⬜ | `Real` ergänzen (`copysign`, `from_usize`, `fma`-Varianten …) | S | – | bei Bedarf |
 | ⬜ | Sparse-Formate (COO/CSR), Bandmatrizen | M | `alloc` | große Systeme, FEM, Innere-Punkte |
 
@@ -165,73 +165,123 @@ rechnen und Euler-Winkel nur für Ein-/Ausgabe zu verwenden.
 
 ---
 
-## 4. Vorschlag: Aufteilung in Crates (Cargo-Workspace)
+## 4. Aufteilung in Crates (Cargo-Workspace) – umgesetzt in Phase 0a
 
-Heute ist alles **ein** Crate mit Modulen. Die Modulabhängigkeiten sind aber schon sauber geschichtet, sodass sich das
-Crate ohne Umbau der Algorithmen aufteilen lässt:
+Das frühere Einzel-Crate ist seit Phase 0a ein Cargo-Workspace. Die Fassade `azmath` re-exportiert alles und hält die alten
+Pfade stabil; der Umbau hat **kein Verhalten geändert** (420 von 420 Tests wie zuvor grün, jedes Crate baut zusätzlich
+einzeln).
 
 ```
-azmath-real       Real, Backends; später Complex, Dual/Jet           [no_std]
-azmath-linalg     Vector/Matrix, Zerlegungen, iterativ, eigen, Sparse [no_std, alloc optional]
-azmath-numerics   roots, integrate, interp, ode, optimize            [no_std]
-azmath-pde        multigrid, FDM, FEM, FVM, Navier-Stokes            [überwiegend alloc]
-azmath-opt        LP, QP, MILP, NLP                                  [alloc]
-azmath-geometry   Rotationen, Quaternionen, Transformationen         [no_std]
-azmath-particles  SPH (netzfrei)                                     [alloc]   (oder Teil von -pde)
-iapws             Thermodynamik Wasser/Dampf                         [no_std]
-azsat             DPLL, CDCL, SMT                                    [alloc]   (eigenständig, ohne Real)
-azmath            Fassade: Features pro Teil-Crate, behält die heutigen Pfade (azmath::linalg::…)
+azmath                Fassade: Re-Exports, Features, Beispiele
+crates/
+  azmath-core         Real, Backends                    ← später: Complex
+  azmath-linalg       Vektoren/Matrizen, Zerlegungen, iterativ, eigen, Tridiagonal
+  azmath-roots        Nullstellen (1D)
+  azmath-integrate    Integration
+  azmath-interp       Interpolation, Splines
+  azmath-optimize     Newton, Gauß-Newton, Levenberg-Marquardt
+  azmath-ode          Anfangswertprobleme
+  azmath-multigrid    Multigrid (Poisson)
 ```
 
-Bestehende interne Kopplungen (aus dem Code ermittelt):
+Abhängigkeiten: `roots`, `integrate` → `core`; `linalg` → `core`; `interp`, `optimize`, `multigrid` → `core`, `linalg`;
+`ode` → `core`, `optimize`. Vier interne Kernfunktionen von `linalg` (QR/Cholesky-Kerne, für `optimize`) sind dafür als
+`#[doc(hidden)] pub mod kernel` sichtbar; sie gehören nicht zur stabilen API.
 
-| Von | nach | wie |
+Geplante weitere Crates (Namen vorläufig):
+
+```
+azmath-autodiff     Jet/Dual (Vorwärts-AD)                          [no_std]
+azmath-geometry     Rotationen, Quaternionen, Transformationen      [no_std]
+azmath-opt          LP, QP, MILP, NLP                               [alloc]
+azmath-pde          FDM, FEM, FVM, Navier-Stokes                    [alloc]
+azmath-particles    SPH (netzfrei)                                  [alloc]
+iapws               Thermodynamik Wasser/Dampf (IF97, dann IAPWS-95)[no_std]
+azsat               DPLL, CDCL, SMT (eigenständig, ohne Real)       [alloc]
+```
+
+**Konventionen im Workspace:** gemeinsame Version, Edition, MSRV und Lizenz stehen in `[workspace.package]`, interne
+Abhängigkeiten in `[workspace.dependencies]`. Jedes Crate kennt dieselben Features (`std`, `libm`, `micromath`, `alloc`) und
+reicht sie an seine Abhängigkeiten weiter, damit `cargo test --workspace --features …` einheitlich funktioniert. Die CI baut
+zusätzlich jedes Crate einzeln, damit eine fehlende Abhängigkeit nicht durch vereinigte Features verdeckt bleibt.
+
+## 5. Reihenfolge
+
+| Phase | Inhalt | Stand |
 |---|---|---|
-| `optimize` | `linalg` | **vier interne Kernfunktionen** (`qr_decompose`, `qr_solve`, `cholesky_decompose`, `cholesky_solve`) – bei Aufteilung öffentlich (`#[doc(hidden)]`) machen |
-| `ode` | `optimize` | `newton_system`, `OptimizeOptions` (öffentliche API) |
-| `interp` | `linalg` | `solve_tridiagonal`, `solve_cyclic_tridiagonal` (öffentlich) |
-| `multigrid` | `linalg` | `LinearOperator`, `Preconditioner` (öffentlich) |
-| `roots`, `integrate` | – | nur `Real` |
-
-**Vorteile:** schnellere Übersetzung, schlankere Abhängigkeiten (wer nur Quaternionen will, zieht keine PDE-Löser),
-unabhängige Versionen, `azsat` kann einen eigenen Namen tragen. **Kosten:** Features (`std`/`libm`/`micromath`/`alloc`)
-müssen durch alle Crates durchgereicht werden, die CI-Matrix wächst, und die Kerne müssen gezielt veröffentlicht werden.
-
-**Empfehlung:** den Workspace-Umbau **vor** den nächsten großen Gebieten machen (Phase 0), solange nur vier interne
-Kopplungen anzupassen sind. Die Fassade `azmath` hält bestehende Importpfade stabil.
+| **0a** | Workspace-Aufteilung (mechanisch, ohne API-Änderung) | ✅ |
+| **0b** | **API-Entwurf** als Dokument: Arbeitsspeicher-Muster (Scratch/Context) und für Autodiff generische Funktionsschnittstelle (Abschnitt 7) | ⬜ als Nächstes |
+| **0c** | `CHANGELOG`, Metadaten je Crate (README, Beschreibung), `cargo publish --dry-run` | ⬜ |
+| **1** | `Complex`, `azmath-autodiff` (**`Jet<T, N>`**), Matrixnormen, Äquilibrierung (Ruiz/Sinkhorn), Orthonormalisierung (MGS/Householder) | ⬜ |
+| **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination | ⬜ |
+| **3** | Nichtlinear ausbauen: BFGS/L-BFGS, Broyden, Linesearch/Trust-Region, **Polynom-Nullstellen** (Durand-Kerner, Aberth) | ⬜ |
+| **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | ⬜ |
+| **5** | Steife ODE: Adams-Bashforth, **BDF**, **Radau IIA**, **Rodas**, Ereignissuche | ⬜ |
+| **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus), Begleitmatrix, Jenkins-Traub | ⬜ |
+| **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
+| **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |
+| **9** | PDE: Multigrid mit Neumann-Rand → FDM-Gerüst → **Navier-Stokes 2D inkompressibel** (Projektionsverfahren/SIMPLE, Druck per Multigrid); FEM; FVM; SPH | ⬜ |
+| **A** | SAT/SMT (eigenes Crate, jederzeit unabhängig möglich) | ⬜ |
 
 ---
 
-## 5. Empfohlene Reihenfolge
+## 6. Entscheidungen
 
-| Phase | Inhalt | Warum jetzt |
+| # | Frage | Entscheidung |
 |---|---|---|
-| **0** | Workspace-Aufteilung, `CHANGELOG`, Lizenz-/Metadaten-Check, `cargo publish --dry-run` | billig, solange wenig gekoppelt ist |
-| **1** | `Complex`, **`Dual`/`Jet` (Autodiff)** samt API-Entscheidung (🔶 Punkt 2), Matrixnormen/-Normierung | Grundbausteine, auf die vieles aufbaut |
-| **2** | Schnelle Gewinne: Regula Falsi, Rotationen/Quaternionen, benannte Gauß-Elimination, Orthonormalisierung | wenig Abhängigkeiten, sofort nutzbar |
-| **3** | Nichtlinear ausbauen: BFGS/L-BFGS, Broyden, Trust-Region/Linesearch, **Polynom-Nullstellen** (Durand-Kerner, Aberth) | Autodiff und `Complex` sind da |
-| **4** | Sparse/Band, Links-Vorkonditionierer/ILU, Lanczos/Arnoldi | öffnet große Systeme |
-| **5** | Steife ODE: Adams-Bashforth, **BDF**, **Radau IIA**, **Rodas**, Ereignissuche | baut auf Newton und Autodiff |
-| **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus), Begleitmatrix, Jenkins-Traub | braucht `Complex`; sehr aufwendig |
-| **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | LP ist Voraussetzung für alles danach |
-| **8** | IAPWS-IF97, dann IAPWS-95 (mit `Jet`) | Anwendungsgebiet, nutzt die Bausteine |
-| **9** | PDE: Multigrid-Erweiterung (Neumann) → FDM-Gerüst → Navier-Stokes; FEM; FVM; SPH | größte Projekte, zuletzt |
-| **A** | SAT/SMT (eigenes Crate, jederzeit unabhängig möglich) | keine Abhängigkeit zum Rest |
+| 1 | „Normieren von Matrizen“ | **Alle drei:** (a) Normen berechnen (Frobenius, 1, ∞, 2-Norm über SVD); (b) Zeilen-/Spaltenäquilibrierung zur Konditionierung (Ruiz, Sinkhorn); (c) Orthonormalisierung von Spalten (modifiziertes Gram-Schmidt, Householder) |
+| 2 | „Jet“ | Mehrdimensionales Vorwärts-AD wie `Jet<T, N>` in Ceres: Wert `T` plus Gradient `[T; N]` fester Größe auf dem Stack, keine Heap-Allokation; für exakte Jacobi-Matrizen in `newton_system` und `levenberg_marquardt` statt Finite Differenzen |
+| 3 | IAPWS | **IF97 zuerst** (Industriestandard, Regionen 1–5), **IAPWS-95** danach (Helmholtz-Energie, Ableitungen per Autodiff) |
+| 4 | Navier-Stokes | **2D, inkompressibel, kartesisch** (Chorin-Projektion oder SIMPLE), Druck-Poisson per Multigrid; 3D und kompressibel später und optional |
+| 5 | Workspace-Umbau | **Jetzt**, bevor Autodiff und Optimierung auf den bisherigen Signaturen aufbauen ✅ (Phase 0a) |
+| 6 | `alloc`-Politik | Mathematische Kern-Crates (`core`, `linalg`, `roots`, `integrate`, `interp`, `optimize`, `ode`, `autodiff`) bleiben strikt `#![no_std]` **ohne** Allokator nutzbar; große Toolkits (FEM, SPH, MILP, SAT) dürfen `alloc` voraussetzen |
+| – | Autodiff-API | Löser-Schnittstellen müssen über `T: Real` generisch sein, damit `Jet<T, N>` transparent durchgereicht werden kann (Abschnitt 7) |
 
 ---
 
-## 6. Offene Fragen (🔶)
+## 7. Entwurfsnotizen für Phase 0b und Phase 1
 
-1. **„Normieren von Matrizen“** – welche Bedeutung ist gemeint? (a) *Normen berechnen* (1, ∞, Frobenius, Spektralnorm);
-   (b) *Skalieren/Äquilibrieren* zur besseren Konditionierung; (c) *Orthonormalisieren* (z. B. eine verrutschte
-   Rotationsmatrix wieder orthogonal machen). Alle drei sind klein; ich habe sie unter A eingetragen.
-2. **„Jet“** – ich lese es als *Jet im Sinne der Autodiff-Bibliotheken* (z. B. Ceres): eine Zahl, die einen Wert und
-   mehrere Ableitungskomponenten mitführt, bzw. abgeschnittene Taylorreihen. Falls etwas anderes gemeint war, bitte
-   korrigieren.
-3. **IAPWS:** IF97 (schnell, Industrie) oder IAPWS-95 (genauer, Helmholtz-basiert) oder beides? Beides ist in Phase 8
-   eingetragen.
-4. **Navier-Stokes:** nur inkompressibel in 2D (Lid-driven Cavity) oder auch kompressibel/3D? Kompressibel würde FVM mit
-   Riemann-Lösern verlangen.
-5. **Aufteilung:** gleich in Phase 0, oder erst wenn ein zweites großes Gebiet beginnt?
-6. **`no_std`-Anspruch:** Gelten alle Teil-Crates als `no_std`, oder dürfen FEM/SPH/MILP/SAT bewusst `alloc` (bzw. `std`)
-   voraussetzen? Vorschlag: ja, die „großen“ Crates dürfen `alloc` voraussetzen.
+### 7.1 `Jet<T, N>`: algebraische Eigenschaften und Konsequenzen
+
+`Jet<T, N>` bildet einen **kommutativen Ring mit Nilpotenten**, keinen Körper: Reine Infinitesimale (`value == 0`,
+Gradient `≠ 0`) sind Nullteiler, denn `(0, d)·(0, d') = (0, 0)`. Daraus folgt:
+
+- Division durch ein `Jet` mit `value ≠ 0` ist erlaubt (Quotientenregel). Für `value == 0` gibt es kein Inverses; die
+  Operatoren verhalten sich dann wie bei Fließkommazahlen (Wert `±∞`/NaN), damit generischer Code über `T: Real` unverändert
+  läuft.
+- Zusätzlich eine ausdrückliche, **geprüfte** Variante `checked_recip(&self) -> Option<Self>`, die bei `value == 0`
+  `None` liefert (keine stille Division durch einen Nullteiler).
+- `Real` verlangt `PartialOrd`, `abs`, `min`, `max`, `floor`, `signum` und Konstanten: Vergleiche und Rundungen beziehen sich
+  auf den **Wert**, Ableitungen der stückweise konstanten Funktionen (`floor`, `round`, …) sind 0, die von `abs` ist
+  `signum(value)·d`. Offen: ob `PartialEq` nur den Wert oder auch den Gradienten vergleicht (üblich in Ceres: nur den Wert).
+- Als Skalar von Verfahren wie `newton_system` muss `Jet` die komplette `Real`-Oberfläche erfüllen (`sqrt`, `sin`, `exp`, `powf`,
+  `powi`, `atan2`, … mit Kettenregel).
+
+### 7.2 Funktionsschnittstelle für Autodiff
+
+Unsere Löser nehmen heute Closures `FnMut(&[T], &mut [T])` für **einen** Zahlentyp. Für Autodiff muss dieselbe Funktion mit
+`T` *und* `Jet<T, N>` aufrufbar sein. Kandidat:
+
+```rust
+pub trait VectorFn<T: Real> {
+    fn eval<S: Real>(&self, x: &[S], out: &mut [S]); // für S = T und S = Jet<T, N>
+}
+```
+
+Die bisherigen Closure-Schnittstellen (`jacobian` selbst angeben oder `*_fd`) bleiben bestehen; neue `*_ad`-Varianten nehmen das
+Trait. Zu klären: Wie reicht man `N` (Anzahl der Unbekannten) durch, wenn die Größe erst zur Laufzeit bekannt ist
+(`Jet` hat feste Größe `N` zur Compile-Zeit)? Vorschlag: für feste `N` direkt, für dynamische Größen in Blöcken bzw.
+Spalte für Spalte (`N = 1`, ein Aufruf je Unbekannter).
+
+### 7.3 Arbeitsspeicher-Muster (Scratch/Workspace)
+
+Heute: `work: &mut [T]` plus `*_work_len(…)` als `const fn`, damit Arrays passen. Das ist einfach und allokatorfrei, aber
+Längenfehler werden erst zur Laufzeit gemeldet und die Aufteilung des Slices steckt in jedem Löser. Kandidaten:
+
+1. **Beibehalten** (Slice + `const fn`-Länge): kleinster Aufwand, bewährt.
+2. **Typisierter Workspace** pro Löser, z. B. `LmWorkspace::new(m, n, &mut buf)?` prüft die Länge einmal und teilt den Puffer in
+   benannte Teile; ein Löser nimmt `&mut LmWorkspace`. Vorteil: Längenprüfung zentral, Wiederverwendung über mehrere Aufrufe.
+3. **Const-generischer Besitz** `Scratch<T, const LEN: usize>`: in `no_std` bequem, aber `LEN` lässt sich auf stabilem Rust nicht
+   aus `M`, `N` berechnen.
+
+Entscheidung steht aus; sie muss **vor** `*_ad`-Varianten, BFGS, SQP und BDF fallen, weil all diese Löser sie benutzen werden.
