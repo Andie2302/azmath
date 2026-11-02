@@ -23,7 +23,7 @@ Für `no_std` muss das Default-Feature abgeschaltet werden:
 
 ```toml
 [dependencies]
-azmath = { version = "0.3", default-features = false, features = ["libm"] }
+azmath = { version = "0.4", default-features = false, features = ["libm"] }
 ```
 
 [`libm`]: https://crates.io/crates/libm
@@ -182,6 +182,49 @@ bei glatten Funktionen vorsichtig, bei Randsingularitäten nur ein Richtwert. Si
 Inneren des Intervalls begrenzen die erreichbare Genauigkeit; dann das Intervall an der
 Singularität teilen.
 
+## Nichtlineare Gleichungen und Ausgleichsrechnung
+
+Das Modul `azmath::optimize` löst nichtlineare Gleichungssysteme und nichtlineare
+Ausgleichsprobleme `min ‖r(x)‖₂`.
+
+| Funktion | Problem | Verfahren |
+|---|---|---|
+| `newton_system` | `F(x) = 0`, `n` Gleichungen und Unbekannte | Newton mit Schrittweitensteuerung (QR) |
+| `gauss_newton` | `min ‖r(x)‖` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
+| `levenberg_marquardt` | `min ‖r(x)‖` | gedämpft, robust bei schlechtem Startwert und Rangmangel |
+
+Zu jedem gibt es eine Variante `*_fd` mit Jacobi-Matrix aus Vorwärtsdifferenzen
+(`numerical_jacobian`). Die Funktionen arbeiten **auf Slices** und brauchen keinen Allokator: Der
+Arbeitsspeicher wird übergeben (`*_work_len`, als `const fn` auch für Arrays nutzbar). Dadurch
+passen sie zu festen Größen wie zu zur Laufzeit bekannten Datenmengen (Kurvenanpassung).
+`x` ist Startwert und Ergebnis; das Ergebnis (`OptimizeResult`) nennt Iterationen, Residuumsnorm und
+den Abbruchgrund (`Termination`: `Residual`, `Step`, `Gradient`, `Cost`). Fehler
+(`OptimizeError`, `#[non_exhaustive]`): `InvalidInput`, `NotFinite`, `SingularJacobian`,
+`NoConvergence`.
+
+```rust
+use azmath::optimize::{levenberg_marquardt_fd, levenberg_marquardt_work_len, OptimizeOptions};
+use azmath::Real;
+
+// Anpassung y = a·exp(b·t) an exakte Daten (a = 2, b = −1)
+let t = [0.0, 0.5, 1.0, 1.5, 2.0];
+let y = t.map(|t| 2.0 * Real::exp(-t));
+let residual = |p: &[f64], r: &mut [f64]| {
+    for i in 0..5 {
+        r[i] = p[0] * Real::exp(p[1] * t[i]) - y[i];
+    }
+};
+let mut p = [1.0, 0.0];
+let mut work = [0.0; levenberg_marquardt_work_len(5, 2)];
+levenberg_marquardt_fd(residual, &mut p, 5, OptimizeOptions::default(), &mut work).unwrap();
+assert!((p[0] - 2.0).abs() < 1e-7 && (p[1] + 1.0).abs() < 1e-7);
+```
+
+Hinweise: Alle Verfahren sind **lokal**; sie finden eine Lösung nahe am Startwert (bei Plateaus oder
+mehreren Lösungen nicht zwingend die beste). Levenberg-Marquardt löst die gedämpften
+Normalengleichungen per Cholesky (die Konditionszahl wird quadriert), Gauß-Newton und Newton
+verwenden QR.
+
 ## Beispiele
 
 Die Beispiele liegen in [`examples/`](examples) und laufen standardmäßig mit `std`:
@@ -196,6 +239,7 @@ cargo run --example 08_conjugate_gradient
 cargo run --example 09_roots
 cargo run --example 10_bicgstab
 cargo run --example 11_integrate
+cargo run --example 12_curve_fit
 ```
 
 | Beispiel                    | Inhalt                                              |
@@ -211,6 +255,7 @@ cargo run --example 11_integrate
 | `09_roots`                  | Nullstellen: Bisektion, Brent, Newton, Sekante, Kepler |
 | `10_bicgstab`               | BiCGSTAB für nichtsymmetrische Systeme                 |
 | `11_integrate`              | Integration: feste Regeln, adaptiv, Messdaten          |
+| `12_curve_fit`              | Kurvenanpassung (LM, Gauß-Newton) und Newton-System    |
 
 ## Tests
 

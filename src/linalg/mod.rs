@@ -29,7 +29,7 @@
 mod cholesky;
 mod error;
 pub mod iterative;
-mod kernel;
+pub(crate) mod kernel;
 mod lu;
 mod matrix;
 mod operator;

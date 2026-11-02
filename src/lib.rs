@@ -19,3 +19,5 @@ pub mod linalg;
 pub mod roots;
 
 pub mod integrate;
+
+pub mod optimize;
