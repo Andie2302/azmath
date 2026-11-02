@@ -5,8 +5,10 @@
 ## 1. Fragen
 
 1. Wie bekommen die Löser exakte Ableitungen (Autodiff), obwohl sie heute Closures für *einen* Zahlentyp nehmen?
-2. Wie reichen Verfahren ihren Arbeitsspeicher an den Aufrufer weiter (heute: `work: &mut [T]` plus `*_work_len`),
-   und soll das vor weiteren Gebieten auf ein einheitliches Muster (Scratch-/Context-Objekte) umgestellt werden?
+2. Wie reichen Verfahren ihren Arbeitsspeicher an den Aufrufer weiter (heute: `work: &mut [T]` plus `*_work_len`)?
+   Aus der Entscheidung zum Workspace-Umbau: Ein einheitliches Scratchpad-/Workspace-Muster (genannt wurden
+   *„strukturierte Context/Scratch-Objekte oder const-berechnete Längen“*) soll spätere Breaking Changes quer durch alle Crates
+   verhindern. Zu klären ist, ob dafür das heutige Muster genügt.
 
 Rahmen aus den Entscheidungen: Basis-Crates bleiben `#![no_std]` **ohne** Allokator nutzbar; Autodiff arbeitet mit
 `Jet<T, N>` (Wert plus Gradient `[T; N]` fester Größe auf dem Stack).
@@ -130,11 +132,16 @@ auf. Er musste am Löser nichts ändern und lässt sich mehrfach wiederverwenden
 | **D5** | **Arbeitsspeicher:** Der Slice mit `const fn`-Länge bleibt das stabile Grundmuster für **zustandslose** Löser. **Zustandsbehaftete** Verfahren (BDF-Historie, L-BFGS-Speicher, SQP, Krylov mit Neustart über mehrere Aufrufe) bekommen ein **Zustandsobjekt** (`Stepper::new(…, &mut buf)?`). Typisierte Hüllen für zustandslose Löser sind optional und jederzeit ergänzbar. | 3.5, 3.8: nichts muss jetzt umgebaut werden |
 | **D6** | Regel für Aufrufer: Längen **immer** über die `*_work_len`-Funktionen bestimmen, nie fest eintragen. | Dann ändert sich bei wachsendem Bedarf nur ein Wert, keine Signatur |
 
-**Zu deinem Wunsch nach einem einheitlichen Scratch-/Context-Muster:** Das spricht D5 an, aber gestaffelt. Ein einziges
-Objekt für alle Löser wäre ein Breaking Change quer durch alle Crates und brächte bei zustandslosen Lösern wenig, denn die
-Längenprüfung passiert so oder so zur Laufzeit. Wo ein Verfahren **Zustand über mehrere Aufrufe** hält (die Fälle, für die du
-Context-Objekte nennst), ist ein Objekt dagegen genau richtig, und genau dort setzen die kommenden Gebiete (BDF, L-BFGS, SQP)
-an. Wenn du trotzdem ein einheitliches Objekt für alles bevorzugst, ist das nach 3.8 möglich, aber ein größerer Umbau.
+**Zur Entscheidung „einheitliches Muster, um Breaking Changes zu vermeiden“:** Genannt waren als Beispiele sowohl
+Context-/Scratch-Objekte als auch *const-berechnete Längen*. Die const-berechneten Längen (`*_work_len` als `const fn`) sind
+genau das heutige Muster, es steht also schon. Es erfüllt das Ziel, solange Aufrufer die Längen über diese Funktionen
+bestimmen (D6): Wächst der Bedarf eines Lösers, ändert sich nur ein Wert, keine Signatur. Ein *einziges* Objekt für alle
+Löser wäre dagegen ein Breaking Change quer durch alle Crates und brächte bei zustandslosen Lösern wenig, denn die
+Längenprüfung passiert so oder so zur Laufzeit. Wo ein Verfahren **Zustand über mehrere Aufrufe** hält (BDF-Historie,
+L-BFGS-Speicher, SQP), ist ein Zustandsobjekt dagegen sinnvoll. Wer ein einheitliches Objekt für alles bevorzugt, kann das
+nach 3.8 nachträglich bekommen; es wäre aber ein größerer Umbau.
+
+---
 
 ## 5. Offene Punkte und Risiken
 
@@ -146,7 +153,7 @@ an. Wenn du trotzdem ein einheitliches Objekt für alles bevorzugst, ist das nac
 - **`powf`** mit Basis ≤ 0 liefert wie bei Gleitkommazahlen NaN; der `ln`-Term wird nur gerechnet, wenn der Exponent selbst
   von den Variablen abhängt (sonst `0·NaN`).
 - **Ergonomie der Literale** (3.2) bleibt ein Nachteil; ein Makro für Konstanten wäre denkbar.
-- **Entscheidung D5** ist eine Empfehlung; das einheitliche Objekt wäre die Alternative.
+- **Entscheidung D5** ist eine Empfehlung; ein einheitliches Objekt für alle Löser wäre die Alternative.
 
 ## 6. Folgen für die Umsetzung (Phase 1)
 
