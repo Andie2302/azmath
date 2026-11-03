@@ -87,6 +87,70 @@ fn mat_t_vec<T: Real>(m: &[T], rows: usize, cols: usize, x: &[T], y: &mut [T]) {
     }
 }
 
+/// Wählt aus den Gleichungen `A·x = b` (`p × n`, zeilenweise) eine Menge **linear unabhängiger** Zeilen aus (Gauß-Elimination
+/// mit Spaltenpivotsuche auf `[A | b]`). Die übrigen Zeilen sind redundant. `Err(())`, wenn eine redundante Zeile mit der
+/// rechten Seite im Widerspruch steht (die Gleichungen sind unlösbar).
+fn independent_equality_rows<T: Real>(
+    a: &[T],
+    b: &[T],
+    p: usize,
+    n: usize,
+) -> Result<Vec<usize>, ()> {
+    if p == 0 {
+        return Ok(Vec::new());
+    }
+    let w = n + 1;
+    let mut m = vec![T::ZERO; p * w];
+    for i in 0..p {
+        m[i * w..i * w + n].copy_from_slice(&a[i * n..(i + 1) * n]);
+        m[i * w + n] = b[i];
+    }
+    let mut idx: Vec<usize> = (0..p).collect();
+    let scale = inf_norm(a);
+    let tol = T::from_f64((p.max(n) as f64) * 10.0) * T::EPSILON * scale.max(T::MIN_POSITIVE);
+    let mut r = 0;
+    for col in 0..n {
+        if r == p {
+            break;
+        }
+        let mut best = r;
+        for i in (r + 1)..p {
+            if m[i * w + col].abs() > m[best * w + col].abs() {
+                best = i;
+            }
+        }
+        if m[best * w + col].abs() <= tol {
+            continue;
+        }
+        if best != r {
+            for j in 0..w {
+                m.swap(best * w + j, r * w + j);
+            }
+            idx.swap(best, r);
+        }
+        let pivot = m[r * w + col];
+        for i in (r + 1)..p {
+            let f = m[i * w + col] / pivot;
+            if f != T::ZERO {
+                for j in col..w {
+                    let v = m[r * w + j];
+                    m[i * w + j] -= f * v;
+                }
+            }
+        }
+        r += 1;
+    }
+    let b_tol = tol * (T::ONE + inf_norm(b)) + T::EPSILON.sqrt() * T::EPSILON.sqrt() * inf_norm(b);
+    for i in r..p {
+        if m[i * w + n].abs() > b_tol.max(tol) {
+            return Err(());
+        }
+    }
+    let mut keep: Vec<usize> = idx[..r].to_vec();
+    keep.sort_unstable();
+    Ok(keep)
+}
+
 /// Größte Schrittweite `α` mit `v + α·dv ≥ 0` (unendlich, wenn keine Komponente fällt).
 fn max_step<T: Real>(v: &[T], dv: &[T]) -> T {
     let mut a = T::INFINITY;
@@ -109,6 +173,8 @@ fn max_step<T: Real>(v: &[T], dv: &[T]) -> T {
 ///
 /// - `q` (`n × n`, zeilenweise, symmetrisch positiv semidefinit), `c` (`n`); `a_eq` (`p × n`), `b_eq` (`p`) und `g` (`q' × n`),
 ///   `h` (`q'`) dürfen leer sein (`p = 0` bzw. `q' = 0`).
+/// - **Redundante Gleichungen** (linear abhängige Zeilen von `A`) werden vor dem Lösen erkannt und gestrichen; ihre Multiplikatoren
+///   sind 0. Widersprüchliche Gleichungen enden sofort als [`QpStatus::NumericalFailure`].
 /// - **Kein Zertifikat** für Unzulässigkeit oder Unbeschränktheit: solche Probleme enden als
 ///   [`QpStatus::NumericalFailure`] oder [`QpStatus::MaxIterations`]. Dafür liefert der Simplex ([`simplex`](super::simplex))
 ///   einen eindeutigen Status. Nicht konvexe `Q` werden nicht erkannt (das Ergebnis ist dann nicht verlässlich).
@@ -153,6 +219,25 @@ pub fn interior_point_qp<T: Real>(
     {
         return Err(OptError::NotFinite);
     }
+    // Presolve: linear abhängige Gleichungen entfernen (sonst wird die KKT-Matrix singulär)
+    let p_orig = p;
+    let Ok(keep) = independent_equality_rows(a_eq, b_eq, p_orig, n) else {
+        return Ok(QpSolution {
+            status: QpStatus::NumericalFailure,
+            x: vec![T::ZERO; n],
+            y: vec![T::ZERO; p_orig],
+            z: vec![T::ZERO; m],
+            objective: T::ZERO,
+            iterations: 0,
+        });
+    };
+    let a_red: Vec<T> = keep
+        .iter()
+        .flat_map(|&i| a_eq[i * n..(i + 1) * n].iter().copied())
+        .collect();
+    let b_red: Vec<T> = keep.iter().map(|&i| b_eq[i]).collect();
+    let (a_eq, b_eq) = (&a_red[..], &b_red[..]);
+    let p = keep.len();
     let tol = opts.tol;
     let delta = opts.regularization;
     let dim = n + p;
@@ -173,13 +258,20 @@ pub fn interior_point_qp<T: Real>(
         }
         T::from_f64(0.5) * quad + lin
     };
-    let result = |status, x: Vec<T>, y: Vec<T>, z: Vec<T>, iterations| QpSolution {
-        status,
-        objective: objective(&x),
-        x,
-        y,
-        z,
-        iterations,
+    let result = |status, x: Vec<T>, y: Vec<T>, z: Vec<T>, iterations| {
+        // Multiplikatoren auf die ursprünglichen Gleichungen zurückschreiben (gestrichene Zeilen: 0)
+        let mut y_full = vec![T::ZERO; p_orig];
+        for (k, &row) in keep.iter().enumerate() {
+            y_full[row] = y[k];
+        }
+        QpSolution {
+            status,
+            objective: objective(&x),
+            x,
+            y: y_full,
+            z,
+            iterations,
+        }
     };
 
     // Arbeitsvektoren

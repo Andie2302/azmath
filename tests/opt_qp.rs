@@ -256,3 +256,49 @@ fn works_for_f32() {
     ));
     assert!((sol.x[0] - 1.5).abs() < 1e-2 && (sol.x[1] - 0.5).abs() < 1e-2);
 }
+
+#[test]
+fn redundant_equalities_are_removed_before_solving() {
+    // x + y = 2, doppelt und als 2x + 2y = 4: gleiche Lösung wie mit einer einzigen Zeile
+    let q = [1.0, 0.0, 0.0, 1.0];
+    let one = interior_point_qp(&q, &[0.0, 0.0], &[1.0, 1.0], &[2.0], &[], &[], opts()).unwrap();
+    let many = interior_point_qp(
+        &q,
+        &[0.0, 0.0],
+        &[1.0, 1.0, 1.0, 1.0, 2.0, 2.0],
+        &[2.0, 2.0, 4.0],
+        &[],
+        &[],
+        opts(),
+    )
+    .unwrap();
+    assert_eq!(one.status, QpStatus::Optimal);
+    assert_eq!(many.status, QpStatus::Optimal);
+    close(many.x[0], one.x[0], 1e-7);
+    close(many.x[1], one.x[1], 1e-7);
+    assert_eq!(
+        many.y.len(),
+        3,
+        "Multiplikatoren behalten die ursprüngliche Länge"
+    );
+    // Multiplikatoren der gestrichenen Zeilen sind 0, die der behaltenen reproduzieren die Stationarität
+    let sum: f64 = many.y.iter().zip([1.0, 1.0, 2.0]).map(|(y, a)| y * a).sum();
+    close(sum, -1.0, 1e-6);
+}
+
+#[test]
+fn contradictory_redundant_equalities_are_reported_as_failure() {
+    // x + y = 2 und x + y = 3
+    let sol = interior_point_qp(
+        &[1.0, 0.0, 0.0, 1.0],
+        &[0.0, 0.0],
+        &[1.0, 1.0, 1.0, 1.0],
+        &[2.0, 3.0],
+        &[],
+        &[],
+        opts(),
+    )
+    .unwrap();
+    assert_eq!(sol.status, QpStatus::NumericalFailure);
+    assert_eq!(sol.y.len(), 2);
+}
