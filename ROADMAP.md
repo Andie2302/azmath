@@ -71,7 +71,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **Quasi-Newton: BFGS**, **L-BFGS**, **Broyden** (Jacobi-Update) | M | Linesearch ✅, optional Autodiff |
 | ⚠️ | **Gedämpftes Newton** – grundlegend vorhanden (Schrittweiten-Halbierung); starke Wolfe-Linesearch ✅ (`line_search_wolfe`, für Minimierung); Trust-Region ✅ (`dogleg`, Powell, für Gleichungssysteme); fehlen: Trust-Region für Minimierung, Jacobi-Wiederverwendung | M | Autodiff (für exakte Jacobi) |
 | ⚠️ | **Polynom-Nullstellen**: Durand-Kerner ✅, Aberth-Ehrlich ✅, Begleitmatrix ✅, Jenkins-Traub ✅ (vereinfachte CPOLY-Fassung) | M–L | `Complex`; Begleitmatrix zusätzlich nichtsymmetrische Eigenwerte |
-| ⬜ | Minimierer ohne Ableitung (Golden Section, Nelder-Mead) | S–M | – |
+| ✅ | Minimierer ohne Ableitung (Golden Section, Brent, Nelder-Mead) | S–M | – |
 
 ### D. Differentialgleichungen
 | | Eintrag | Aufwand | Hängt ab von |
@@ -122,7 +122,7 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 |---|---|---|---|
 | ✅ | **`Real` erweitert**: `to_f64`, `is_finite`, `copysign`, `exp_m1`, `ln_1p`, `asinh/acosh/atanh`, `rem_euclid`, `exp2`, `log`, `sin_cos`, `from_usize` | S | – |
 | ✅ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
-| ⬜ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Richardson) | M | – |
+| ✅ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Ridders, Gradient, Hessematrix, Jacobi-Matrix) | M | – |
 | ⬜ | **Spezialfunktionen** (`gamma`, `ln_gamma`, `erf`/`erfc`, Bessel, unvollständige Gamma-/Beta-Funktion) | M–L | `Real` ✅ |
 | ⬜ | **Dünn besetzte direkte Löser** (Cholesky/LU/LDLᵀ, Umordnung RCM/AMD) | L | Sparse ✅ |
 | ⬜ | **Skalar-Trait und komplexe lineare Algebra** (komplexe LU/QR/Eigenwerte); zuvor Entwurf `docs/design/0002` | L | `Complex` ✅ |

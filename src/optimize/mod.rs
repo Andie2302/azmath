@@ -7,6 +7,8 @@
 //! | [`broyden`] | `F(x) = 0` | Broyden (Rang-1-Update der inversen Jacobi-Matrix), nur eine Jacobi-Matrix am Start |
 //! | [`gauss_newton`] | `min ‖r(x)‖₂` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
 //! | [`levenberg_marquardt`] | `min ‖r(x)‖₂` | Levenberg-Marquardt, robust auch bei schlechtem Startwert und Rangmangel |
+//! | [`brent_min`], [`golden_section`] | eindimensionales Minimum auf einem Intervall, ableitungsfrei |
+//! | [`nelder_mead`] | `min f(x)` ohne Gradienten (Simplexverfahren) |
 //! | [`bfgs`], [`lbfgs`] | `min f(x)` mit Gradient | Quasi-Newton (dicht bzw. mit begrenztem Speicher), starke Wolfe-Schrittweite |
 //! | [`line_search_wolfe`] | Schrittweite entlang einer Abstiegsrichtung | starke Wolfe-Bedingungen |
 //!
@@ -59,6 +61,7 @@
 
 mod bfgs;
 mod broyden;
+mod derivative_free;
 mod dogleg;
 mod gauss_newton;
 mod jacobian;
@@ -68,6 +71,10 @@ mod lm;
 pub use bfgs::{MinimizeResult, bfgs, bfgs_work_len, lbfgs, lbfgs_work_len};
 pub(crate) use broyden::invert;
 pub use broyden::{broyden, broyden_fd, broyden_work_len};
+pub use derivative_free::{
+    Min1dResult, MinOptions, NelderMeadOptions, NelderMeadResult, brent_min, golden_section,
+    nelder_mead, nelder_mead_work_len,
+};
 pub use dogleg::{dogleg, dogleg_fd, dogleg_work_len};
 pub use gauss_newton::{
     gauss_newton, gauss_newton_fd, gauss_newton_work_len, newton_system, newton_system_fd,
