@@ -28,6 +28,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`stats`:** `mean`, `variance`, `std_dev`, `covariance`, `correlation`, Quantile, Median, `mc_integrate`.
 - **`ode`:** adaptive Schrittweite für Radau IIA und ROS2 (`radau5_adaptive`, `ros2_adaptive`, je mit `_fd`), `rk45_event`.
 - **`fdm`:** `fornberg_weights`, `first_derivative_1d`, `second_derivative_1d`, `laplacian_2d`, `heat_rhs_1d`.
+- **`integrate`:** `gauss_rule` (Legendre, Laguerre, Hermite, Jacobi, Tschebyscheff; Golub-Welsch), `tanh_sinh`, `integrate_semi_infinite`, `integrate_infinite`, `tensor_gauss`.
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 

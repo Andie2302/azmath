@@ -129,7 +129,7 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | ✅ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov (Riccati ⬜) | M | linalg ✅ |
 | ✅ | **Reverse-Mode-Autodiff** (Tape, `alloc`), `gradient_ad` | M–L | `Jet` ✅ |
 | ⚠️ | Zufallszahlen und Statistik (PRNG, Verteilungen, Monte Carlo, Kovarianz) | M | – |
-| ⬜ | Mehrdimensionale Integration (Kubatur), weitere Gauß-Formeln (Hermite, Laguerre, Jacobi), Singularitäten/unendliche Intervalle | M | `integrate` ✅ |
+| ✅ | Mehrdimensionale Integration (Tensor-Kubatur, Monte Carlo), Gauß-Formeln (Legendre, Laguerre, Hermite, Jacobi, Tschebyscheff), Tanh-Sinh, unendliche Intervalle | M | `integrate` ✅ |
 | ⬜ | Polynomarithmetik, `polyfit`, Tschebyscheff-Approximation; gewichtete/regularisierte/nichtnegative kleinste Quadrate | M | QR ✅, SVD ✅ |
 
 ### J. Aufbauend auf azmath (eigene Crates, nicht Teil von azmath)

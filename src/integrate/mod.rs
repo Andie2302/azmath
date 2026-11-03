@@ -5,6 +5,9 @@
 //! | [`trapezoid`] | feste Regel | exakt für Geraden, Fehler ∝ h² |
 //! | [`simpson`] | feste Regel | exakt bis Grad 3, Fehler ∝ h⁴ |
 //! | [`gauss_legendre`] | feste Regel | `k` Punkte pro Teilintervall, exakt bis Grad `2k−1` |
+//! | [`gauss_rule`] | Gauß-Regeln beliebiger Ordnung (Legendre, Laguerre, Hermite, Jacobi, Tschebyscheff) |
+//! | [`tanh_sinh`], [`integrate_semi_infinite`], [`integrate_infinite`] | Endpunktsingularitäten, unendliche Intervalle |
+//! | [`tensor_gauss`] | Kubatur über Quader (Tensorprodukt) |
 //! | [`adaptive`] | adaptiv | Gauß-Kronrod (G7/K15) mit Fehlerschätzung; die erste Wahl |
 //! | [`trapezoid_samples`], [`simpson_samples`], [`trapezoid_xy`] | Messdaten | Integral aus Stützwerten |
 //!
@@ -14,7 +17,7 @@
 //! **Adaptiv ist meist die richtige Wahl:** [`adaptive`] teilt das Intervall nur dort, wo die
 //! Funktion schwierig ist, wertet die Funktion nie an den Intervallenden aus (Randsingularitäten
 //! wie `√x` oder `ln x` bei 0 sind daher erlaubt) und liefert eine Fehlerschätzung mit.
-//! Unendliche Integrationsgrenzen werden noch nicht unterstützt.
+//! Unendliche Grenzen: [`integrate_semi_infinite`], [`integrate_infinite`].
 //!
 //! Hinweis zu `micromath`: Mit der bewusst ungenauen Näherung (z. B. bei `sin`, `exp`, `sqrt`
 //! in `f`) lassen sich strenge Toleranzen unter Umständen nicht erreichen; für verlässliche
@@ -35,10 +38,16 @@
 mod adaptive;
 mod fixed;
 mod gauss;
+mod improper;
+mod quadrature;
 
 pub use adaptive::adaptive;
 pub use fixed::{simpson, simpson_samples, trapezoid, trapezoid_samples, trapezoid_xy};
 pub use gauss::gauss_legendre;
+pub use improper::{integrate_infinite, integrate_semi_infinite, tanh_sinh};
+pub use quadrature::{
+    Family, gauss_apply, gauss_quad_work_len, gauss_rule, tensor_gauss, tensor_gauss_work_len,
+};
 
 use core::fmt;
 
