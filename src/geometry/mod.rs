@@ -4,6 +4,7 @@
 //! |---|---|
 //! | [`Quaternion`] | Hamilton-Produkt, Konjugierte, Inverse, Drehen von Vektoren, `slerp`/`nlerp`, `exp`/`ln` |
 //! | [`rotation_matrix_from_axis_angle`], [`exp_so3`], [`log_so3`] | Rodrigues-Formel, Exponential- und Logarithmus-Abbildung der Drehgruppe |
+//! | [`Se3`], [`DualQuaternion`], [`compose_chain`] | starre Bewegungen: Verkettung, Inverse, `exp`/`log` (se(3)), Interpolation, Dualquaternionen |
 //! | [`EulerZyx`] | Euler-Winkel (Gieren, Nicken, Rollen) **nur für Ein- und Ausgabe**, mit Gimbal-Lock-Erkennung |
 //!
 //! **Empfehlung:** Intern mit Quaternionen oder Rotationsmatrizen rechnen. Euler-Winkel haben bei Nickwinkel
@@ -28,8 +29,10 @@
 
 mod euler;
 mod quaternion;
+mod se3;
 mod so3;
 
 pub use euler::EulerZyx;
 pub use quaternion::Quaternion;
+pub use se3::{DualQuaternion, Se3, compose_chain};
 pub use so3::{cross, exp_so3, log_so3, rotation_matrix_from_axis_angle};

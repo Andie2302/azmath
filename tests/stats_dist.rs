@@ -117,3 +117,18 @@ fn elliptic_and_bessel_i() {
     assert!((bessel_i(2, 2.0f64) - 0.6889484476987382).abs() < 1e-13);
     assert_eq!(bessel_i(1, -1.0f64), -bessel_i(1, 1.0f64));
 }
+
+#[test]
+fn bessel_y_and_k() {
+    use azmath::special::{bessel_k, bessel_y};
+    assert!((bessel_k(0, 1.0f64) - 0.42102443824070834).abs() < 1e-12);
+    assert!((bessel_k(1, 1.0f64) - 0.6019072301972346).abs() < 1e-12);
+    assert!((bessel_k(2, 2.0f64) - 0.25375975456605586).abs() < 1e-12);
+    assert!((bessel_k(0, 0.1f64) - 2.4270690247020164).abs() < 1e-11);
+    assert!(bessel_k(0, 0.0f64).is_infinite() && bessel_k(0, -1.0f64).is_nan());
+    assert!((bessel_y(0, 1.0f64) - 0.08825696421567697).abs() < 1e-9);
+    assert!((bessel_y(1, 1.0f64) + 0.7812128213002887).abs() < 1e-9);
+    assert!((bessel_y(2, 3.0f64) - (-0.16040039348492374)).abs() < 1e-9);
+    assert!((bessel_y(0, 10.0f64) - 0.05567116728359939).abs() < 1e-9);
+    assert!(bessel_y(0, 0.0f64) == f64::NEG_INFINITY && bessel_y(1, -2.0f64).is_nan());
+}

@@ -173,3 +173,141 @@ pub fn nnls<T: Real>(a: &DynMatrix<T>, b: &DynVector<T>) -> Result<NnlsResult<T>
         iterations,
     })
 }
+
+/// Kleinste Quadrate mit Schranken `min ‖Ax − b‖₂` unter `lower ≤ x ≤ upper` (aktive Mengen, Variante nach Stark-Parker).
+/// Unendliche Schranken (`±∞`) sind erlaubt. Rückgabe wie [`nnls`].
+///
+/// Fehler: [`LinalgError::DimensionMismatch`], [`LinalgError::NotFinite`] (NaN in Daten oder Schranken, `lower > upper`),
+/// [`LinalgError::NoConvergence`], [`LinalgError::Singular`] (linear abhängige freie Spalten).
+pub fn bvls<T: Real>(
+    a: &DynMatrix<T>,
+    b: &DynVector<T>,
+    lower: &[T],
+    upper: &[T],
+) -> Result<NnlsResult<T>, LinalgError> {
+    let (m, n) = (a.rows(), a.cols());
+    if b.len() != m || lower.len() != n || upper.len() != n {
+        return Err(LinalgError::DimensionMismatch);
+    }
+    if a.as_slice()
+        .iter()
+        .chain(b.as_slice())
+        .any(|v| !v.is_finite())
+        || lower.iter().chain(upper).any(|v| v.is_nan())
+        || (0..n).any(|j| lower[j] > upper[j])
+    {
+        return Err(LinalgError::NotFinite);
+    }
+    let tol = T::EPSILON * T::from_f64(10.0) * (T::ONE + a.max_abs()) * T::from_usize(m.max(n));
+    // Start: jede Variable am Rand, der der 0 am nächsten liegt
+    let mut x: Vec<T> = (0..n)
+        .map(|j| T::ZERO.max(lower[j]).min(upper[j]))
+        .collect();
+    let mut free = alloc::vec![false; n];
+    let residual = |x: &[T]| -> Vec<T> {
+        (0..m)
+            .map(|i| {
+                let mut s = b[i];
+                for j in 0..n {
+                    s -= a[(i, j)] * x[j];
+                }
+                s
+            })
+            .collect()
+    };
+    let max_iter = 5 * n + 20;
+    let mut iterations = 0;
+    loop {
+        let r = residual(&x);
+        let mut best: Option<(usize, T)> = None;
+        for j in 0..n {
+            if free[j] {
+                continue;
+            }
+            let mut w = T::ZERO;
+            for i in 0..m {
+                w += a[(i, j)] * r[i];
+            }
+            let can_up = x[j] < upper[j] && w > tol;
+            let can_down = x[j] > lower[j] && w < -tol;
+            if (can_up || can_down) && best.is_none_or(|(_, bw)| w.abs() > bw) {
+                best = Some((j, w.abs()));
+            }
+        }
+        let Some((jn, _)) = best else { break };
+        iterations += 1;
+        if iterations > max_iter {
+            return Err(LinalgError::NoConvergence);
+        }
+        free[jn] = true;
+        for _inner in 0..(2 * n + 5) {
+            let cols: Vec<usize> = (0..n).filter(|&j| free[j]).collect();
+            if cols.len() > m {
+                return Err(LinalgError::NoConvergence);
+            }
+            // rechte Seite: b − A_fest · x_fest
+            let mut rhs = DynVector::zeros(m);
+            for i in 0..m {
+                let mut s = b[i];
+                for j in 0..n {
+                    if !free[j] {
+                        s -= a[(i, j)] * x[j];
+                    }
+                }
+                rhs[i] = s;
+            }
+            let mut sub = DynMatrix::zeros(m, cols.len());
+            for (k, &j) in cols.iter().enumerate() {
+                for i in 0..m {
+                    sub[(i, k)] = a[(i, j)];
+                }
+            }
+            let s = sub.least_squares(&rhs)?;
+            let feasible = cols
+                .iter()
+                .enumerate()
+                .all(|(k, &j)| s[k] >= lower[j] && s[k] <= upper[j]);
+            if feasible {
+                for (k, &j) in cols.iter().enumerate() {
+                    x[j] = s[k];
+                }
+                break;
+            }
+            let mut alpha = T::ONE;
+            for (k, &j) in cols.iter().enumerate() {
+                let q = if s[k] < lower[j] {
+                    (x[j] - lower[j]) / (x[j] - s[k])
+                } else if s[k] > upper[j] {
+                    (upper[j] - x[j]) / (s[k] - x[j])
+                } else {
+                    continue;
+                };
+                if q < alpha {
+                    alpha = q.max(T::ZERO);
+                }
+            }
+            for (k, &j) in cols.iter().enumerate() {
+                x[j] = x[j] + alpha * (s[k] - x[j]);
+            }
+            for &j in &cols {
+                if x[j] <= lower[j] + tol {
+                    x[j] = lower[j];
+                    free[j] = false;
+                } else if x[j] >= upper[j] - tol {
+                    x[j] = upper[j];
+                    free[j] = false;
+                }
+            }
+        }
+    }
+    let r = residual(&x);
+    let mut s = T::ZERO;
+    for v in &r {
+        s += *v * *v;
+    }
+    Ok(NnlsResult {
+        x,
+        residual_norm: s.sqrt(),
+        iterations,
+    })
+}

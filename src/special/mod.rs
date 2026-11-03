@@ -7,7 +7,7 @@
 //! | [`gamma_p`], [`gamma_q`] | regularisierte unvollständige Gammafunktionen `P(a, x)` und `Q(a, x) = 1 − P(a, x)` |
 //! | [`erf`], [`erfc`], [`erf_inv`] | Fehlerfunktion, komplementäre Fehlerfunktion, Umkehrfunktion |
 //! | [`normal_cdf`], [`normal_quantile`] | Verteilungsfunktion und Quantilfunktion der Standardnormalverteilung |
-//! | [`bessel_j`], [`bessel_i`] | Besselfunktion `Jₙ(x)` und modifizierte Besselfunktion `Iₙ(x)` für ganzzahlige Ordnung |
+//! | [`bessel_j`], [`bessel_y`], [`bessel_i`], [`bessel_k`] | Besselfunktionen `Jₙ`, `Yₙ` und modifizierte `Iₙ`, `Kₙ` für ganzzahlige Ordnung |
 //! | [`elliptic_k`], [`elliptic_e`] | vollständige elliptische Integrale erster und zweiter Art |
 //!
 //! Verfahren: Lanczos-Näherung für `ln Γ` (`g = 7`, relativer Fehler etwa `10⁻¹⁵`), Reihe und Kettenbruch (Lentz) für die
@@ -484,4 +484,75 @@ pub fn bessel_i<T: Real>(n: u32, x: T) -> T {
         }
     }
     if x < T::ZERO && n % 2 == 1 { -sum } else { sum }
+}
+
+/// Modifizierte Besselfunktion zweiter Art `Kₙ(x)` für ganzzahlige Ordnung `n ≥ 0` und `x > 0` (Integraldarstellung
+/// `∫₀^∞ e^(−x·cosh t)·cosh(n·t) dt`, Trapezregel mit exponentieller Konvergenz). `x = 0` liefert `+∞`, `x < 0` `NaN`.
+pub fn bessel_k<T: Real>(n: u32, x: T) -> T {
+    if x.is_nan() || x < T::ZERO {
+        return T::NAN;
+    }
+    if x == T::ZERO {
+        return T::INFINITY;
+    }
+    let h = T::from_f64(0.1);
+    let nf = T::from_f64(n as f64);
+    let t_peak = (nf / x).asinh();
+    let mut sum = T::from_f64(0.5) * (-x).exp();
+    for k in 1..200_000usize {
+        let t = T::from_usize(k) * h;
+        let term = (-x * t.cosh()).exp() * (nf * t).cosh();
+        sum += term;
+        if t > t_peak + T::ONE && term <= T::EPSILON * T::from_f64(1.0e-3) * sum {
+            break;
+        }
+        if term.is_infinite() || term.is_nan() {
+            break;
+        }
+    }
+    sum * h
+}
+
+/// Besselfunktion zweiter Art `Yₙ(x)` für ganzzahlige Ordnung `n ≥ 0` und `x > 0` (Integraldarstellung nach Schläfli: ein
+/// oszillierendes Integral über `[0, π]` und ein abklingendes über `[0, ∞)`, beide mit Gauß-Legendre bzw. adaptivem
+/// Gauß-Kronrod; relative Genauigkeit etwa `10⁻¹⁰`). `x = 0` liefert `−∞`, `x < 0` `NaN`.
+pub fn bessel_y<T: Real>(n: u32, x: T) -> T {
+    use crate::integrate::{IntegrateOptions, adaptive, gauss_legendre};
+    if x.is_nan() || x < T::ZERO {
+        return T::NAN;
+    }
+    if x == T::ZERO {
+        return T::NEG_INFINITY;
+    }
+    let nf = T::from_f64(n as f64);
+    let panels = ((x.to_f64() + n as f64) / 2.0).ceil() as usize + 8;
+    let i1 = gauss_legendre(
+        |t: T| (x * t.sin() - nf * t).sin(),
+        T::ZERO,
+        T::PI,
+        5,
+        panels,
+    )
+    .unwrap_or(T::NAN)
+        / T::PI;
+    // Obere Grenze: x·sinh(T) ≥ n·T + 45
+    let mut upper = T::ONE;
+    for _ in 0..200 {
+        if x * upper.sinh() >= nf * upper + T::from_f64(45.0) {
+            break;
+        }
+        upper += T::ONE;
+    }
+    let sign = if n % 2 == 0 { T::ONE } else { -T::ONE };
+    let opts = IntegrateOptions::new(T::ZERO, T::from_f64(1.0e-12));
+    let i2 = adaptive(
+        |t: T| ((nf * t).exp() + sign * (-nf * t).exp()) * (-x * t.sinh()).exp(),
+        T::ZERO,
+        upper,
+        opts,
+    )
+    .map(|r| r.value)
+    .unwrap_or(T::NAN)
+        / T::PI;
+    i1 - i2
 }

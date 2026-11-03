@@ -5,7 +5,7 @@
 //! | [`Polynomial`] | Koeffizienten aufsteigend (`c[0] + c[1]·x + …`): Rechnen, Ableiten, Integrieren, Division, Einsetzen, ggT |
 //! | [`polyfit`] | Ausgleichspolynom vom Grad `d` (kleinste Quadrate über QR) |
 //! | [`ChebyshevSeries`] | Approximation einer Funktion auf `[a, b]` durch Tschebyscheff-Reihe, Auswertung nach Clenshaw |
-//! | [`weighted_least_squares`], [`ridge`], [`nnls`] | gewichtete, regularisierte und nichtnegative kleinste Quadrate |
+//! | [`weighted_least_squares`], [`ridge`], [`nnls`], [`bvls`] | gewichtete, regularisierte, nichtnegative und beschränkte kleinste Quadrate |
 //!
 //! ```
 //! use azmath::poly::Polynomial;
@@ -20,7 +20,7 @@ mod chebyshev;
 mod lsq;
 
 pub use chebyshev::{ChebyshevSeries, chebyshev_nodes};
-pub use lsq::{NnlsResult, nnls, ridge, weighted_least_squares};
+pub use lsq::{NnlsResult, bvls, nnls, ridge, weighted_least_squares};
 
 use crate::Real;
 use crate::linalg::{DynMatrix, DynVector, LinalgError};

@@ -32,6 +32,8 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`poly`:** `Polynomial` (Arithmetik, Division, ggT), `polyfit`, `ChebyshevSeries`, `weighted_least_squares`, `ridge`, `nnls` (Feature `alloc`).
 - **`stats`:** `dist` (Normal, Exponential, Gleichverteilung, Gamma, χ², Beta, Student-t, F: pdf/cdf/quantile), `t_test_one_sample`, `t_test_welch`, `chi_square_gof`, `ks_test_one_sample`, `linear_regression` mit Konfidenzintervallen.
 - **`special`:** `elliptic_k`, `elliptic_e`, `bessel_i`.
+- **`geometry`:** `Se3`, `compose_chain`, `DualQuaternion` (Verkettung, Inverse, `exp`/`log`, Interpolation).
+- **`special`:** `bessel_y`, `bessel_k`. **`poly`:** `bvls` (beschränkte kleinste Quadrate).
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 

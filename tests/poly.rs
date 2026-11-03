@@ -130,3 +130,43 @@ fn nnls_cases() {
     }
     assert!(nnls(&a, &DynVector::new(vec![1.0])).is_err());
 }
+
+#[test]
+fn bvls_cases() {
+    // unbeschränkt im Inneren der Schranken
+    let a = mat(3, 2, &[1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
+    let b = DynVector::new(vec![1.0, 2.0, 3.0]);
+    let r = bvls(&a, &b, &[-10.0, -10.0], &[10.0, 10.0]).unwrap();
+    assert!((r.x[0] - 1.0).abs() < 1e-10 && (r.x[1] - 2.0).abs() < 1e-10);
+    // aktive Schranke
+    let r = bvls(&a, &b, &[0.0, 0.0], &[0.5, 10.0]).unwrap();
+    assert!((r.x[0] - 0.5).abs() < 1e-12 && r.x[1] > 0.0);
+    // KKT: Gradient wj = Aᵀ(b − Ax): bei Obergrenze ≥ 0, frei ≈ 0
+    let res: Vec<f64> = (0..3)
+        .map(|i| b[i] - (a[(i, 0)] * r.x[0] + a[(i, 1)] * r.x[1]))
+        .collect();
+    let w1: f64 = (0..3).map(|i| a[(i, 1)] * res[i]).sum();
+    assert!(w1.abs() < 1e-9);
+    // negative Untergrenze, unendliche Obergrenze
+    let b2 = DynVector::new(vec![-1.0, -2.0, -3.0]);
+    let r = bvls(
+        &a,
+        &b2,
+        &[-0.5, f64::NEG_INFINITY],
+        &[f64::INFINITY, f64::INFINITY],
+    )
+    .unwrap();
+    assert!(r.x[0] >= -0.5 - 1e-12);
+    // gleich wie NNLS bei [0, ∞)
+    let n1 = nnls(&a, &DynVector::new(vec![1.0, -1.0, 0.5])).unwrap();
+    let n2 = bvls(
+        &a,
+        &DynVector::new(vec![1.0, -1.0, 0.5]),
+        &[0.0, 0.0],
+        &[f64::INFINITY; 2],
+    )
+    .unwrap();
+    assert!((n1.x[0] - n2.x[0]).abs() < 1e-9 && (n1.x[1] - n2.x[1]).abs() < 1e-9);
+    assert!(bvls(&a, &b, &[1.0, 0.0], &[0.0, 1.0]).is_err());
+    assert!(bvls(&a, &b, &[0.0], &[1.0]).is_err());
+}
