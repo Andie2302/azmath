@@ -164,6 +164,100 @@ pub trait Real:
         self * Self::from_f64(180.0) / Self::PI
     }
 
+    /// `true`, wenn der Wert weder NaN noch unendlich ist.
+    fn is_finite(self) -> bool {
+        !self.is_nan() && !self.is_infinite()
+    }
+
+    /// Betrag von `self` mit dem Vorzeichen von `sign` (auch für `-0.0`).
+    fn copysign(self, sign: Self) -> Self {
+        let negative = sign < Self::ZERO || (sign == Self::ZERO && Self::ONE / sign < Self::ZERO);
+        if negative { -self.abs() } else { self.abs() }
+    }
+
+    /// Sinus und Kosinus zugleich.
+    fn sin_cos(self) -> (Self, Self) {
+        (self.sin(), self.cos())
+    }
+
+    /// `2^self`.
+    fn exp2(self) -> Self {
+        Self::from_f64(2.0).powf(self)
+    }
+
+    /// Logarithmus zur Basis `base`.
+    fn log(self, base: Self) -> Self {
+        self.ln() / base.ln()
+    }
+
+    /// `e^self − 1`, auch für kleine `self` ohne Auslöschung (Kahan).
+    fn exp_m1(self) -> Self {
+        let u = self.exp();
+        if u == Self::ONE {
+            return self;
+        }
+        let um1 = u - Self::ONE;
+        if um1 == -Self::ONE || u.is_infinite() {
+            return um1;
+        }
+        um1 * self / u.ln()
+    }
+
+    /// `ln(1 + self)`, auch für kleine `self` ohne Auslöschung (Kahan).
+    fn ln_1p(self) -> Self {
+        let u = Self::ONE + self;
+        if u == Self::ONE {
+            return self;
+        }
+        if u.is_infinite() {
+            return u.ln();
+        }
+        u.ln() * self / (u - Self::ONE)
+    }
+
+    /// Areasinus hyperbolicus.
+    fn asinh(self) -> Self {
+        let a = self.abs();
+        let r = if a > Self::from_f64(1e8) {
+            a.ln() + Self::from_f64(core::f64::consts::LN_2)
+        } else {
+            (a + a * a / (Self::ONE + (Self::ONE + a * a).sqrt())).ln_1p()
+        };
+        r.copysign(self)
+    }
+
+    /// Areakosinus hyperbolicus (NaN für `self < 1`).
+    fn acosh(self) -> Self {
+        if self < Self::ONE {
+            return Self::NAN;
+        }
+        if self > Self::from_f64(1e8) {
+            return self.ln() + Self::from_f64(core::f64::consts::LN_2);
+        }
+        let t = self - Self::ONE;
+        (t + (Self::from_f64(2.0) * t + t * t).sqrt()).ln_1p()
+    }
+
+    /// Areatangens hyperbolicus (NaN für `|self| > 1`).
+    fn atanh(self) -> Self {
+        Self::from_f64(0.5) * (Self::from_f64(2.0) * self / (Self::ONE - self)).ln_1p()
+    }
+
+    /// Euklidischer Rest: stets `0 ≤ r < |rhs|` mit `self = q·rhs + r`.
+    fn rem_euclid(self, rhs: Self) -> Self {
+        let m = rhs.abs();
+        let r = self - m * (self / m).floor();
+        if r < Self::ZERO { r + m } else { r }
+    }
+
+    /// Ganzzahl `n` als Gleitkommazahl.
+    fn from_usize(n: usize) -> Self {
+        Self::from_f64(n as f64)
+    }
+
+    /// Umwandlung in `f64` (verlustfrei für `f32` und `f64`; für zusammengesetzte Typen der Wert).
+    fn to_f64(self) -> f64;
+
     /// Konvertierung von f64-Literalen für generische Formeln.
     fn from_f64(v: f64) -> Self;
 }
@@ -286,6 +380,11 @@ impl Real for f32 {
         v as f32
     }
 
+    #[inline(always)]
+    fn to_f64(self) -> f64 {
+        self as f64
+    }
+
     route_f32! {
         sqrt() => sqrtf;
         sin() => sinf;
@@ -361,6 +460,11 @@ impl Real for f64 {
     #[inline(always)]
     fn from_f64(v: f64) -> Self {
         v
+    }
+
+    #[inline(always)]
+    fn to_f64(self) -> f64 {
+        self
     }
 
     route_f64! {

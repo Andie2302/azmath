@@ -214,6 +214,10 @@ impl<T: Real, const N: usize> Real for Jet<T, N> {
         Self::constant(T::from_f64(v))
     }
 
+    fn to_f64(self) -> f64 {
+        self.v.to_f64()
+    }
+
     fn abs(self) -> Self {
         self.chain(self.v.abs(), self.v.signum())
     }

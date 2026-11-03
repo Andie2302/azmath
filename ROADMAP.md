@@ -50,7 +50,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **Automatisches Differenzieren** (`azmath::autodiff`; `Jet<T,N>`, `VectorFn`, `jacobian_ad`, `hessian_ad`; `gradient_ad` noch offen): `Jet<T, N>` = Wert plus Gradient `[T; N]` auf dem Stack (Vorwärtsmodus, ohne Heap), `Dual<T>` als Sonderfall `N = 1`, geschachtelt für Hessians (Entwurf siehe Abschnitt 7) | M–L | `Real` | exakte Jacobi-/Gradientenmatrizen für `newton_system` und `levenberg_marquardt`, SQP/IPOPT, IAPWS-Ableitungen, Taylor-ODE |
 | ✅ | ~~**Matrixnormen** (Frobenius, 1, ∞, 2-Norm über SVD)~~ ✅ und ~~**Äquilibrierung**~~ ✅ (Zeilen-/Spaltenskalierung nach Ruiz bzw. Sinkhorn) | S–M | `linalg`, SVD ✅ | bessere Konditionierung, Fehlerabschätzung |
 | ✅ | **Orthonormalisierung** von Spalten (modifiziertes Gram-Schmidt, Householder-QR ✅) und Polarzerlegung `R = U·Vᵀ` über SVD | S | QR ✅, SVD ✅ | stabile Rotationsmatrizen |
-| ⬜ | `Real` ergänzen (`copysign`, `from_usize`, `fma`-Varianten …) | S | – | bei Bedarf |
+| ✅ | `Real` ergänzen (`to_f64`, `copysign`, `exp_m1`, `ln_1p`, `asinh` …) | S | – | siehe Abschnitt H |
 | ⚠️ | Sparse-Formate (COO ✅, CSR ✅, `CsrView` ohne Allokator ✅), Bandmatrizen ✅ | M | `alloc` | große Systeme, FEM, Innere-Punkte |
 
 ### B. Lineare Algebra – Lücken
@@ -91,8 +91,6 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ⬜ | Multigrid erweitern: **Neumann/periodische Ränder**, variable Koeffizienten, anisotrop, 3D | M | Multigrid ✅ |
 | ⬜ | **FEM** (1D/2D, Dreiecke, Assemblierung, Dirichlet/Neumann) | XL | Sparse, Cholesky/CG ✅, `alloc` |
 | ⬜ | **FVM** (Erhaltungsgleichungen, Flussfunktionen, Riemann-Löser) | XL | Gitter, ODE-Zeitschritte |
-| ⬜ | **SPH** (netzfrei: Nachbarsuche, Kernel, Zeitintegration) | XL | `alloc`, Geometrie |
-| ⬜ | **Navier-Stokes** (inkompressibel 2D, Projektionsverfahren, MAC-Gitter, Lid-driven Cavity als Testfall) | XL | FDM-Gerüst, **Multigrid mit Neumann-Rand** (Druck), ODE-Zeitschritte |
 
 ### F. Optimierung
 | | Eintrag | Aufwand | Hängt ab von |
@@ -116,18 +114,32 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 Neigung ±90° geht ein Freiheitsgrad verloren). Die Abhilfe ist, intern mit **Quaternionen oder Rotationsmatrizen** zu
 rechnen und Euler-Winkel nur für Ein-/Ausgabe zu verwenden.
 
-### H. Fachgebiet Thermodynamik
-| | Eintrag | Aufwand | Hängt ab von |
-|---|---|---|---|
-| ⬜ | **IAPWS-IF97** (Wasser/Dampf, Gebiete 1–5, Rückwärtsgleichungen) | L | Newton ✅; Prüfwerte der IAPWS-Tabellen als Tests |
-| ⬜ | **IAPWS-95** (Helmholtz-Energie `φ(δ, τ)`; alle Größen folgen aus ihren Ableitungen) | L | **Autodiff (`Jet`)** – `φ` einmal programmieren, alle Eigenschaften automatisch; Newton/Brent ✅ |
-| ⬜ | Sättigungslinie (Maxwell-Konstruktion), Zustandsgrößen aus (p,h), (p,s) usw. | M | Newton ✅, Autodiff |
+### H. Fehlende allgemeine Werkzeuge (Lückenanalyse)
+Anwendungen (Thermodynamik, SAT/SMT, SPH, Strömungslöser, …) gehören **nicht** in azmath, sondern in eigene Crates, die auf
+azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allgemeine Bausteine. Reihenfolge der Umsetzung:
 
-### I. SAT / SMT
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ⬜ | **DPLL**, dann **CDCL** (Konfliktlernen, Watched Literals, Restarts) | L | – (benötigt kein `Real`) |
-| ⬜ | **SMT / Simplex-Kombination (Z3-artig)**: Theorielöser für lineare Arithmetik | XL | CDCL, Simplex über **exakten Brüchen** (`Rational`) |
+| ✅ | **`Real` erweitert**: `to_f64`, `is_finite`, `copysign`, `exp_m1`, `ln_1p`, `asinh/acosh/atanh`, `rem_euclid`, `exp2`, `log`, `sin_cos`, `from_usize` | S | – |
+| ⬜ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
+| ⬜ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Richardson) | M | – |
+| ⬜ | **Spezialfunktionen** (`gamma`, `ln_gamma`, `erf`/`erfc`, Bessel, unvollständige Gamma-/Beta-Funktion) | M–L | `Real` ✅ |
+| ⬜ | **Dünn besetzte direkte Löser** (Cholesky/LU/LDLᵀ, Umordnung RCM/AMD) | L | Sparse ✅ |
+| ⬜ | **Skalar-Trait und komplexe lineare Algebra** (komplexe LU/QR/Eigenwerte); zuvor Entwurf `docs/design/0002` | L | `Complex` ✅ |
+| ⬜ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov/Riccati | M | linalg ✅ |
+| ⬜ | **Reverse-Mode-Autodiff** (Tape, `alloc`), `gradient_ad` | M–L | `Jet` ✅ |
+| ⬜ | Zufallszahlen und Statistik (PRNG, Verteilungen, Monte Carlo, Kovarianz) | M | – |
+| ⬜ | Mehrdimensionale Integration (Kubatur), weitere Gauß-Formeln (Hermite, Laguerre, Jacobi), Singularitäten/unendliche Intervalle | M | `integrate` ✅ |
+| ⬜ | Polynomarithmetik, `polyfit`, Tschebyscheff-Approximation; gewichtete/regularisierte/nichtnegative kleinste Quadrate | M | QR ✅, SVD ✅ |
+
+### J. Aufbauend auf azmath (eigene Crates, nicht Teil von azmath)
+| Anwendung | Benötigt aus azmath |
+|---|---|
+| **IAPWS-IF97/-95** (Wasser/Dampf), Sättigungslinie, Zustandsgrößen aus (p,h), (p,s) | `Real`, `roots` (Newton/Brent), `autodiff` (`Jet`) |
+| **SAT/SMT** (DPLL, CDCL, Simplex über exakten Brüchen `Rational`) | eigenständig; Simplex-Ideen aus `opt` |
+| **SPH** (netzfrei) | `geometry`, `sparse`, `ode` |
+| **Navier-Stokes** (2D inkompressibel) | FDM-Gerüst, `multigrid`, `ode` |
+
 
 ---
 
@@ -227,9 +239,9 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) | ⚠️ |
 | **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus) ✅ (nur Eigenwerte), Begleitmatrix ✅, Jenkins-Traub ✅ (vereinfacht) | ✅ |
 | **7** | Optimierung: Simplex ✅ → Innere-Punkte ✅ → QP ✅ → SQP ✅ → IPOPT-artig ✅ → Branch-and-Bound ✅ (Branch-and-Cut, Warmstart, Dual-Simplex ⬜) | ✅ |
-| **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |
-| **9** | PDE: Multigrid mit Neumann-Rand → FDM-Gerüst → **Navier-Stokes 2D inkompressibel** (Projektionsverfahren/SIMPLE, Druck per Multigrid); FEM; FVM; SPH | ⬜ |
-| **A** | SAT/SMT (eigenes Modul `sat`, jederzeit unabhängig möglich) | ⬜ |
+| **8** | Allgemeine Werkzeuge laut Abschnitt H (Anwendungen wie IAPWS siehe Abschnitt J: eigene Crates) | ⚠️ |
+| **9** | PDE-Werkzeuge: Multigrid mit Neumann-Rand → FDM-Gerüst; FEM-Assemblierung; FVM-Gerüst (Navier-Stokes und SPH sind Anwendungen, Abschnitt J) | ⬜ |
+| **A** | SAT/SMT: eigenes Crate (Abschnitt J), nicht Teil von azmath | – |
 
 ---
 
