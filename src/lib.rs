@@ -20,6 +20,7 @@
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
 //! | `opt` | lineare Programme (Simplex), später QP/NLP/MILP (Feature `alloc`) |
 //! | [`special`] | Gamma-, Beta-, Fehlerfunktion, unvollständige Funktionen, Besselfunktionen |
+//! | [`scalar`] | `Scalar`-Trait (reell/komplex), LU für beliebige `Scalar` |
 //! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
 
 #![no_std]
@@ -48,6 +49,7 @@ pub mod ode;
 pub mod opt;
 pub mod optimize;
 pub mod roots;
+pub mod scalar;
 pub mod sparse;
 pub mod special;
 pub use complex::*;

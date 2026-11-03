@@ -21,6 +21,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`optimize`:** zusätzlich `golden_section`, `brent_min`, `nelder_mead` (ableitungsfrei).
 - **`special`:** `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`, `erfc`, `erf_inv`, `normal_cdf`, `normal_quantile`, `gamma_p`, `gamma_q`, `beta_inc`, `bessel_j`.
 - **`fft`:** FFT beliebiger Länge (Radix-2 und Bluestein), reelle FFT, Faltung, `fft_freq`.
+- **`scalar`:** `Scalar`-Trait (f32, f64, `Complex`), `ScalarLu` (LU mit Teilpivotisierung, reell und komplex).
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 
