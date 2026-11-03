@@ -259,7 +259,7 @@ fn solve<T: Real>(
         p_all[k] = coef(hi - k);
     }
     let mut m = d;
-    while m > 1 {
+    while m > 2 {
         let root = find_root(
             &p_all[..=m],
             &mut h_all[..m],
@@ -275,23 +275,46 @@ fn solve<T: Real>(
         }
         m -= 1;
     }
-    roots[lo + d - 1] = -(p_all[1] / p_all[0]);
-    // Nachiteration mit dem Newton-Verfahren am ursprünglichen Polynom (gegen Fehler der Deflation)
+    if m == 2 {
+        // Restpolynom vom Grad 2 direkt lösen (stabile Quadratformel)
+        let (qa, qb, qc) = (p_all[0], p_all[1], p_all[2]);
+        let sq = (qb * qb - qa * qc.scale(T::from_f64(4.0))).sqrt();
+        let q = if (qb + sq).abs() >= (qb - sq).abs() {
+            -(qb + sq).scale(T::from_f64(0.5))
+        } else {
+            -(qb - sq).scale(T::from_f64(0.5))
+        };
+        let first = q / qa;
+        roots[lo + d - 2] = first;
+        roots[lo + d - 1] = if is_zero(q) { first } else { qc / q };
+    } else {
+        roots[lo + d - 1] = -(p_all[1] / p_all[0]);
+    }
+    // Nachiteration mit dem Newton-Verfahren am ursprünglichen Polynom; ein Schritt gilt nur, wenn |P| dabei sinkt
+    let eval = |z: C<T>| {
+        let (mut pz, mut dp) = (coef(hi), C::ZERO);
+        for k in (lo..hi).rev() {
+            dp = dp * z + pz;
+            pz = pz * z + coef(k);
+        }
+        (pz, dp)
+    };
     for r in roots[lo..hi].iter_mut() {
         for _ in 0..2 {
-            let (mut pz, mut dp) = (coef(hi), C::ZERO);
-            for k in (lo..hi).rev() {
-                dp = dp * *r + pz;
-                pz = pz * *r + coef(k);
-            }
+            let (pz, dp) = eval(*r);
             if is_zero(dp) || !pz.is_finite() {
                 break;
             }
             let delta = pz / dp;
-            if !delta.is_finite() || delta.abs() > T::from_f64(0.5) * r.abs().max(T::MIN_POSITIVE) {
-                break; // mehrfache Nullstelle oder schlechte Näherung: nicht nachpolieren
+            if !delta.is_finite() {
+                break;
             }
-            *r -= delta;
+            let candidate = *r - delta;
+            let (pc, _) = eval(candidate);
+            if !pc.is_finite() || pc.abs() >= pz.abs() {
+                break; // keine Verbesserung (z. B. mehrfache Nullstelle): nicht nachpolieren
+            }
+            *r = candidate;
             result.last_correction = result
                 .last_correction
                 .max(delta.abs() / r.abs().max(T::MIN_POSITIVE));
