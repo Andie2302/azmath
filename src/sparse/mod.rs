@@ -6,6 +6,7 @@
 //! | `CsrMatrix` | CSR-Matrix mit eigenem Speicher: Matrix-Vektor-Produkt, Transponierte, Summe, Umwandlungen | `alloc` |
 //! | `CooMatrix` | Tripletliste zum Aufbauen (Duplikate werden summiert) | `alloc` |
 //! | `Ilu0`, `Ic0`, `Ssor` | Vorkonditionierer für CSR-Matrizen (unvollständige LU/Cholesky, SSOR) | `alloc` |
+//! | `SparseLdl`, `SparseCholesky` | direkte Löser für symmetrische Matrizen mit Umordnung (Reverse Cuthill-McKee); LDLᵀ auch für KKT-Matrizen | `alloc` |
 //! | `BandMatrix` | Bandmatrix mit direkten Lösern `BandLu` (Pivotisierung) und `BandCholesky` (SPD) | `alloc` |
 //!
 //! CSR-Matrizen implementieren [`LinearOperator`](crate::linalg::LinearOperator) und laufen damit unverändert
@@ -30,6 +31,8 @@ mod band;
 mod coo;
 #[cfg(feature = "alloc")]
 mod csr;
+#[cfg(feature = "alloc")]
+mod direct;
 mod error;
 #[cfg(feature = "alloc")]
 mod precond;
@@ -41,6 +44,8 @@ pub use band::{BandCholesky, BandLu, BandMatrix};
 pub use coo::CooMatrix;
 #[cfg(feature = "alloc")]
 pub use csr::CsrMatrix;
+#[cfg(feature = "alloc")]
+pub use direct::{Ordering, SparseCholesky, SparseLdl, permute_symmetric, rcm_ordering};
 pub use error::SparseError;
 #[cfg(feature = "alloc")]
 pub use precond::{Ic0, Ilu0, Ssor};

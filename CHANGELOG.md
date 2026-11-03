@@ -12,7 +12,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`linalg`:** Matrixnormen, Äquilibrierung (Ruiz, Sinkhorn), Orthonormalisierung (MGS, `thin_q`), Polarzerlegung,
   Gauß-Elimination (`gauss_solve`, `rank`, `row_echelon`), nichtsymmetrische Eigenwerte (`eigenvalues`, `hessenberg_form`),
   Lanczos/Arnoldi, Links-Vorkonditionierung (`pgmres_left`).
-- **`sparse`:** CSR/COO/`CsrView`, Bandmatrizen mit LU/Cholesky, ILU(0)/IC(0)/SSOR.
+- **`sparse`:** CSR/COO/`CsrView`, Bandmatrizen mit LU/Cholesky, ILU(0)/IC(0)/SSOR, direkte LDLᵀ/Cholesky mit RCM-Umordnung (`SparseLdl`, `SparseCholesky`).
 - **`roots`:** Regula Falsi, Illinois, Polynom-Nullstellen (Aberth, Durand-Kerner, Jenkins-Traub, Begleitmatrix).
 - **`optimize`:** BFGS, L-BFGS, Wolfe-Schrittweitensuche, Broyden, Dogleg.
 - **`ode`:** Adams-Bashforth-Moulton, BDF 1–5, Radau IIA, ROS2, Hermite-Ausgabe, Ereignissuche (RK4).

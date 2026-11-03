@@ -124,7 +124,7 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | ✅ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
 | ✅ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Ridders, Gradient, Hessematrix, Jacobi-Matrix) | M | – |
 | ⚠️ | **Spezialfunktionen**: `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`/`erfc`/`erf_inv`, Normalverteilung, unvollständige Gamma-/Beta-Funktion, Bessel `Jₙ` ✅; Bessel `Yₙ`, `Iₙ`, `Kₙ`, elliptische Integrale ⬜ | M–L | `Real` ✅ |
-| ⬜ | **Dünn besetzte direkte Löser** (Cholesky/LU/LDLᵀ, Umordnung RCM/AMD) | L | Sparse ✅ |
+| ⚠️ | **Dünn besetzte direkte Löser**: LDLᵀ/Cholesky mit RCM ✅; LU und AMD ⬜ | L | Sparse ✅ |
 | ⬜ | **Skalar-Trait und komplexe lineare Algebra** (komplexe LU/QR/Eigenwerte); zuvor Entwurf `docs/design/0002` | L | `Complex` ✅ |
 | ⬜ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov/Riccati | M | linalg ✅ |
 | ⬜ | **Reverse-Mode-Autodiff** (Tape, `alloc`), `gradient_ad` | M–L | `Jet` ✅ |
