@@ -82,7 +82,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅; RODAS (Ordnung 4) ⬜ | L | Jacobi (Autodiff), LU |
 | ✅ | Hermite-Dichte Ausgabe und Ereignissuche für RK4 (`rk4_event`) und `rk45` (`rk45_event`) | M | `rk45` ✅, Nullstellen ✅ |
 | ⬜ | Taylor-Reihen-Verfahren hoher Ordnung | M–L | `Jet` |
-| ⬜ | DAE-Löser, Rand­wertprobleme (Schießverfahren) | L | BDF/Radau, Newton |
+| ✅ | DAE-Löser (`dae_bdf`, voll implizit, Index 1, BDF1/2, feste Schrittweite) und Randwertprobleme (`bvp_shooting`, `bvp_trapezoid`) | L | BDF/Radau, Newton |
 
 ### E. PDE und Strömung
 | | Eintrag | Aufwand | Hängt ab von |

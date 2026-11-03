@@ -50,6 +50,10 @@
 mod adams;
 mod adaptive;
 mod bdf;
+#[cfg(feature = "alloc")]
+mod bvp;
+#[cfg(feature = "alloc")]
+mod dae;
 mod events;
 mod explicit;
 mod implicit;
@@ -63,6 +67,10 @@ pub use adaptive::{
     ros2_adaptive, ros2_adaptive_fd,
 };
 pub use bdf::{bdf, bdf_fd, bdf_work_len};
+#[cfg(feature = "alloc")]
+pub use bvp::{BvpResult, bvp_shooting, bvp_trapezoid};
+#[cfg(feature = "alloc")]
+pub use dae::dae_bdf;
 pub use events::{
     Event, EventDirection, event_work_len, hermite_interpolate, rk4_event, rk45_event,
     rk45_event_work_len,
