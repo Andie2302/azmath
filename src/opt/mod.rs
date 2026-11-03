@@ -5,12 +5,16 @@
 //! | Funktion | Problem |
 //! |---|---|
 //! | [`simplex`] | `min cᵀx` unter `A·x ≤ / = / ≥ b`, `x ≥ 0` (Zwei-Phasen-Simplex, dichtes Tableau) |
+//! | [`interior_point_qp`] | konvexes QP `min ½xᵀQx + cᵀx` unter `A·x = b`, `G·x ≤ h` (primal-duales Innere-Punkte-Verfahren) |
+//! | [`interior_point_lp`] | LP `min cᵀx`, `A·x = b`, `x ≥ 0` per Innere-Punkte-Verfahren |
 //!
 //! Die Minimierung ohne Nebenbedingungen (BFGS, L-BFGS, Newton, Levenberg-Marquardt) steht in
 //! [`optimize`](crate::optimize).
 
+mod qp;
 mod simplex;
 
+pub use qp::{QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp};
 pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex};
 
 use core::fmt;

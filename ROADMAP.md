@@ -20,6 +20,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Nichtlineare Systeme (Vertrauensbereich) | Powell-Dogleg (Newton-/Cauchy-Schritt), robust bei schlechtem Startwert und singulärer Jacobi-Matrix |
 | Nichtlineare Systeme (quasi-Newton) | Broyden (inverse Rang-1-Updates, Jacobi-Matrix nur am Start) |
 | Nichtsymmetrische Eigenwerte | `Matrix::eigenvalues` (Balancieren, Hessenberg, QR mit Doppelshift), `hessenberg_form`, Polynom-Nullstellen über die Begleitmatrix |
+| Quadratische Programme | `opt::interior_point_qp` (konvexes QP mit Gleichungen und Ungleichungen), `interior_point_lp` (Mehrotra-Prädiktor-Korrektor, hinter `alloc`) |
 | Lineare Programme | `opt::simplex`: Zwei-Phasen-Simplex mit `≤`, `=`, `≥`, Bland-Schutz gegen Zyklen (hinter `alloc`) |
 | Minimierung | BFGS, L-BFGS (Zweischleifen-Rekursion), starke Wolfe-Schrittweitensuche |
 | Nichtlinear (mehrdimensional) | Newton-System mit Schrittweitensteuerung (gedämpft), Gauß-Newton, Levenberg-Marquardt |
@@ -94,8 +95,8 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
 | ⚠️ | **LP: Simplex** (Zwei-Phasen, dichtes Tableau, Bland-Schutz) ✅; Variablenschranken, Dual-Simplex, Warmstart ⬜ | M–L | LU ✅ |
-| ⬜ | **LP: Innere-Punkte (Primal-Dual)** | L | Cholesky/LDLᵀ, Sparse |
-| ⬜ | **QP** (Baustein für SQP) | L | Simplex/Innere-Punkte, KKT-Löser |
+| ✅ | **LP: Innere-Punkte (Primal-Dual)** (`interior_point_lp`, ohne zertifizierte Status) | L | Cholesky/LDLᵀ, Sparse |
+| ✅ | **QP** konvex, dicht (`interior_point_qp`, Mehrotra) – Baustein für SQP | L | Simplex/Innere-Punkte, KKT-Löser |
 | ⬜ | **NLP: SQP** | XL | QP, Linesearch, **Autodiff (Hessians)**, BFGS |
 | ⬜ | **NLP: Innere-Punkte (IPOPT-artig)** | XL | Sparse LDLᵀ, Filter-Linesearch, Autodiff |
 | ⬜ | **MILP: Branch-and-Bound**, dann **Branch-and-Cut** | L–XL | Simplex (Warmstart), `alloc` |
