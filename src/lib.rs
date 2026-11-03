@@ -25,6 +25,7 @@
 //! | `matfun` | Matrixfunktionen: `expm`, `sqrtm`, `logm`, `powm`, Sylvester/Lyapunov (Feature `alloc`) |
 //! | [`random`] | Zufallszahlen (PCG32, xoshiro256++), Verteilungen |
 //! | [`stats`] | Mittelwert, Varianz, Kovarianz, Quantile, Monte-Carlo-Integration |
+//! | `poly` | Polynome, `polyfit`, Tschebyscheff-Reihen, gewichtete/Ridge/nichtnegative kleinste Quadrate (Feature `alloc`) |
 //! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
 
 #![no_std]
@@ -55,6 +56,8 @@ pub mod ode;
 #[cfg(feature = "alloc")]
 pub mod opt;
 pub mod optimize;
+#[cfg(feature = "alloc")]
+pub mod poly;
 pub mod random;
 pub mod roots;
 pub mod scalar;
