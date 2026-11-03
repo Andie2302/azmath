@@ -21,6 +21,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Nichtlineare Systeme (quasi-Newton) | Broyden (inverse Rang-1-Updates, Jacobi-Matrix nur am Start) |
 | Nichtsymmetrische Eigenwerte | `Matrix::eigenvalues` (Balancieren, Hessenberg, QR mit Doppelshift), `hessenberg_form`, Polynom-Nullstellen über die Begleitmatrix |
 | Ganzzahlige Programme | `opt::branch_and_bound`: MILP über Simplex-Relaxationen, Best-First oder Depth-First, Binär-/Ganzzahlvariablen (hinter `alloc`) |
+| Nichtlineare Programme (Innere Punkte) | `opt::interior_point_nlp`: Schlupfvariablen, Barriere mit monoton fallendem μ, exakte Hessematrix (auch per `hessian_ad`), Trägheitskorrektur (hinter `alloc`) |
 | Nichtlineare Programme | `opt::sqp`: SQP mit gedämpftem BFGS, ℓ₁-Merit-Funktion und Armijo-Backtracking; Ableitungen per Closure oder `jacobian_ad` |
 | Quadratische Programme | `opt::interior_point_qp` (konvexes QP mit Gleichungen und Ungleichungen), `interior_point_lp` (Mehrotra-Prädiktor-Korrektor, hinter `alloc`) |
 | Lineare Programme | `opt::simplex`: Zwei-Phasen-Simplex mit `≤`, `=`, `≥`, Bland-Schutz gegen Zyklen (hinter `alloc`) |
@@ -100,7 +101,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **LP: Innere-Punkte (Primal-Dual)** (`interior_point_lp`, ohne zertifizierte Status) | L | Cholesky/LDLᵀ, Sparse |
 | ✅ | **QP** konvex, dicht (`interior_point_qp`, Mehrotra) – Baustein für SQP | L | Simplex/Innere-Punkte, KKT-Löser |
 | ⚠️ | **NLP: SQP** ✅ (BFGS, ℓ₁-Merit, QP über Innere Punkte; ohne Wiederherstellungsphase und Maratos-Korrektur) | XL | QP, Linesearch, **Autodiff (Hessians)**, BFGS |
-| ⬜ | **NLP: Innere-Punkte (IPOPT-artig)** | XL | Sparse LDLᵀ, Filter-Linesearch, Autodiff |
+| ⚠️ | **NLP: Innere-Punkte** ✅ (`interior_point_nlp`, exakte Hessematrix, ℓ₁-Merit statt Filter, ohne Wiederherstellungsphase) | XL | Sparse LDLᵀ, Filter-Linesearch, Autodiff |
 | ⚠️ | **MILP: Branch-and-Bound** ✅ (`branch_and_bound`, ohne Warmstart); Branch-and-Cut ⬜ | L–XL | Simplex (Warmstart), `alloc` |
 
 ### G. Geometrie und Rotationen
@@ -225,7 +226,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **4** | Sparse/Band ✅, Links-Vorkonditionierer/ILU ✅, Lanczos/Arnoldi ✅ (Teile ohne Tests) | ✅ |
 | **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) | ⚠️ |
 | **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus) ✅ (nur Eigenwerte), Begleitmatrix ✅, Jenkins-Traub ✅ (vereinfacht) | ✅ |
-| **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
+| **7** | Optimierung: Simplex ✅ → Innere-Punkte ✅ → QP ✅ → SQP ✅ → IPOPT-artig ✅ → Branch-and-Bound ✅ (Branch-and-Cut, Warmstart, Dual-Simplex ⬜) | ✅ |
 | **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |
 | **9** | PDE: Multigrid mit Neumann-Rand → FDM-Gerüst → **Navier-Stokes 2D inkompressibel** (Projektionsverfahren/SIMPLE, Druck per Multigrid); FEM; FVM; SPH | ⬜ |
 | **A** | SAT/SMT (eigenes Modul `sat`, jederzeit unabhängig möglich) | ⬜ |

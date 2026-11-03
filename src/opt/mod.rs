@@ -7,6 +7,7 @@
 //! | [`simplex`] | `min cᵀx` unter `A·x ≤ / = / ≥ b`, `x ≥ 0` (Zwei-Phasen-Simplex, dichtes Tableau) |
 //! | [`simplex_bounded`] | wie `simplex`, aber mit Schranken `lᵢ ≤ xᵢ ≤ uᵢ` je Variable (auch unendlich, freie Variablen) |
 //! | [`branch_and_bound`] | gemischt-ganzzahliges LP (`xᵢ ∈ ℤ` für markierte Variablen), Branch-and-Bound über Simplex-Relaxationen |
+//! | [`interior_point_nlp`] | nichtlineares Programm per primal-dualem Innere-Punkte-Verfahren (exakte Hessematrix, Barriere, ℓ₁-Merit-Funktion) |
 //! | [`interior_point_qp`] | konvexes QP `min ½xᵀQx + cᵀx` unter `A·x = b`, `G·x ≤ h` (primal-duales Innere-Punkte-Verfahren) |
 //! | [`sqp`] | nichtlineares Programm `min f(x)`, `c(x) = 0`, `c(x) ≤ 0` (SQP mit BFGS und ℓ₁-Merit-Funktion) |
 //! | [`interior_point_lp`] | LP `min cᵀx`, `A·x = b`, `x ≥ 0` per Innere-Punkte-Verfahren |
@@ -15,11 +16,13 @@
 //! [`optimize`](crate::optimize).
 
 mod milp;
+mod nlp_ip;
 mod qp;
 mod simplex;
 mod sqp;
 
 pub use milp::{MilpOptions, MilpSolution, MilpStatus, NodeSelection, branch_and_bound};
+pub use nlp_ip::{NlpOptions, NlpResult, NlpStatus, interior_point_nlp};
 pub use qp::{QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp};
 pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex, simplex_bounded};
 pub use sqp::{SqpOptions, SqpResult, SqpStatus, sqp};
