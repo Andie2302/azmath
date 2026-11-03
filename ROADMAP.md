@@ -77,7 +77,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
 | ✅ | **Adams-Bashforth-Moulton** (Ordnung 1–4, PECE, feste Schrittweite) | M | RK-Anlaufrechnung ✅ |
-| ⚠️ | **BDF** Ordnung 1–5 mit Radau-Anlauf, feste Schrittweite ✅; variable Ordnung/Schrittweite ⬜ | L | Newton ✅ (ode → optimize), Autodiff nützlich |
+| ✅ | **BDF** Ordnung 1–5 mit Radau-Anlauf, feste Schrittweite (`bdf`) und **variable Schrittweite und Ordnung** (`bdf_adaptive`) | L | Newton ✅ (ode → optimize), Autodiff nützlich |
 | ⚠️ | **Radau IIA** (3 Stufen, Ordnung 5) ✅, adaptive Schrittweite über Schrittverdopplung (`radau5_adaptive`, `ros2_adaptive`) ✅; eingebettete Fehlerschätzung ⬜ | L | Newton, lineare Systeme mit Blockstruktur |
 | ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅; RODAS (Ordnung 4) ⬜ | L | Jacobi (Autodiff), LU |
 | ✅ | Hermite-Dichte Ausgabe und Ereignissuche für RK4 (`rk4_event`) und `rk45` (`rk45_event`) | M | `rk45` ✅, Nullstellen ✅ |

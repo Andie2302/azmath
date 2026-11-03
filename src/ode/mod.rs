@@ -51,6 +51,8 @@ mod adams;
 mod adaptive;
 mod bdf;
 #[cfg(feature = "alloc")]
+mod bdf_adaptive;
+#[cfg(feature = "alloc")]
 mod bvp;
 #[cfg(feature = "alloc")]
 mod dae;
@@ -67,6 +69,8 @@ pub use adaptive::{
     ros2_adaptive, ros2_adaptive_fd,
 };
 pub use bdf::{bdf, bdf_fd, bdf_work_len};
+#[cfg(feature = "alloc")]
+pub use bdf_adaptive::{BdfAdaptiveOptions, BdfAdaptiveResult, bdf_adaptive, bdf_adaptive_fd};
 #[cfg(feature = "alloc")]
 pub use bvp::{BvpResult, bvp_shooting, bvp_trapezoid};
 #[cfg(feature = "alloc")]
