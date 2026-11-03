@@ -3,7 +3,7 @@
 //! Die Tests laufen nur mit den genauen Backends `std` und `libm` und brauchen `alloc`.
 #![cfg(all(any(feature = "std", feature = "libm"), feature = "alloc"))]
 
-use azmath::opt::{LpStatus, OptError, Relation, SimplexOptions, simplex};
+use azmath::opt::{LpStatus, OptError, Relation, SimplexOptions, simplex, simplex_bounded};
 
 use Relation::{Eq, Ge, Le};
 
@@ -231,4 +231,158 @@ fn works_for_f32() {
     .unwrap();
     assert_eq!(sol.status, LpStatus::Optimal);
     assert!((sol.objective + 11.0).abs() < 1e-3);
+}
+
+// ---------------------------------------------------------------------------
+// Variablenschranken
+// ---------------------------------------------------------------------------
+
+const INF: f64 = f64::INFINITY;
+
+#[test]
+fn box_bounds_with_negative_lower_bound() {
+    // maximiere x + y mit −2 ≤ x ≤ 3, 0 ≤ y ≤ 4, x + y ≤ 5
+    let sol = simplex_bounded(
+        &[-1.0, -1.0],
+        &[1.0, 1.0],
+        &[5.0],
+        &[Le],
+        &[(-2.0, 3.0), (0.0, 4.0)],
+        opts(),
+    )
+    .unwrap();
+    assert_eq!(sol.status, LpStatus::Optimal);
+    close(sol.objective, -5.0);
+    assert!(sol.x[0] >= -2.0 - 1e-9 && sol.x[0] <= 3.0 + 1e-9);
+    assert!(sol.x[1] >= -1e-9 && sol.x[1] <= 4.0 + 1e-9);
+    close(sol.x[0] + sol.x[1], 5.0);
+}
+
+#[test]
+fn bounds_alone_determine_the_optimum() {
+    // keine Restriktionen: minimiere x − y mit x ∈ [−2, 3], y ∈ [1, 7] -> x = −2, y = 7
+    let sol = simplex_bounded(
+        &[1.0, -1.0],
+        &[],
+        &[],
+        &[],
+        &[(-2.0, 3.0), (1.0, 7.0)],
+        opts(),
+    )
+    .unwrap();
+    assert_eq!(sol.status, LpStatus::Optimal);
+    close(sol.x[0], -2.0);
+    close(sol.x[1], 7.0);
+    close(sol.objective, -9.0);
+}
+
+#[test]
+fn upper_bound_only_and_free_variables() {
+    // maximiere x mit x ≤ 4 (−∞ < x ≤ 4)
+    let up = simplex_bounded(&[-1.0], &[], &[], &[], &[(-INF, 4.0)], opts()).unwrap();
+    assert_eq!(up.status, LpStatus::Optimal);
+    close(up.x[0], 4.0);
+    // freie Variable: minimiere x unter x ≥ −5 (als Restriktion)
+    let free = simplex_bounded(&[1.0], &[1.0], &[-5.0], &[Ge], &[(-INF, INF)], opts()).unwrap();
+    assert_eq!(free.status, LpStatus::Optimal);
+    close(free.x[0], -5.0);
+    // freie Variable ohne untere Begrenzung: unbeschränkt
+    let unb = simplex_bounded(&[1.0], &[], &[], &[], &[(-INF, INF)], opts()).unwrap();
+    assert_eq!(unb.status, LpStatus::Unbounded);
+    // zwei freie Variablen mit Gleichung: minimiere x + 2y unter x − y = 3, x ≥ 0 -> y = x − 3, Ziel 3x − 6, x = 0 -> (0, −3)
+    let two = simplex_bounded(
+        &[1.0, 2.0],
+        &[1.0, -1.0],
+        &[3.0],
+        &[Eq],
+        &[(0.0, INF), (-INF, INF)],
+        opts(),
+    )
+    .unwrap();
+    assert_eq!(two.status, LpStatus::Optimal);
+    close(two.x[0], 0.0);
+    close(two.x[1], -3.0);
+    close(two.objective, -6.0);
+}
+
+#[test]
+fn fixed_and_contradictory_bounds() {
+    // x fest auf 2: minimiere y unter x + y ≥ 5 -> y = 3
+    let fixed = simplex_bounded(
+        &[0.0, 1.0],
+        &[1.0, 1.0],
+        &[5.0],
+        &[Ge],
+        &[(2.0, 2.0), (0.0, INF)],
+        opts(),
+    )
+    .unwrap();
+    assert_eq!(fixed.status, LpStatus::Optimal);
+    close(fixed.x[0], 2.0);
+    close(fixed.x[1], 3.0);
+    // l > u
+    let bad = simplex_bounded(&[1.0], &[], &[], &[], &[(3.0, 1.0)], opts()).unwrap();
+    assert_eq!(bad.status, LpStatus::Infeasible);
+    // Schranken im Widerspruch zur Restriktion: x ≤ 1, aber x ≥ 2
+    let inf = simplex_bounded(&[1.0], &[1.0], &[2.0], &[Ge], &[(0.0, 1.0)], opts()).unwrap();
+    assert_eq!(inf.status, LpStatus::Infeasible);
+}
+
+#[test]
+fn bounds_agree_with_explicit_constraints_on_random_problems() {
+    let mut s = 4242u64;
+    for (m, n) in [(2, 3), (3, 4), (4, 4)] {
+        let a: Vec<f64> = (0..m * n).map(|_| 2.0 * lcg(&mut s) - 0.5).collect();
+        let b: Vec<f64> = (0..m).map(|_| 1.0 + 3.0 * lcg(&mut s)).collect();
+        let c: Vec<f64> = (0..n).map(|_| lcg(&mut s) - 0.5).collect();
+        let lo: Vec<f64> = (0..n).map(|_| -1.0 - lcg(&mut s)).collect();
+        let hi: Vec<f64> = (0..n).map(|k| lo[k] + 1.0 + 2.0 * lcg(&mut s)).collect();
+        let bounds: Vec<(f64, f64)> = lo.iter().copied().zip(hi.iter().copied()).collect();
+        let bounded = simplex_bounded(&c, &a, &b, &vec![Le; m], &bounds, opts()).unwrap();
+
+        // gleiches Problem mit Verschiebung x = lo + y und expliziten Zeilen y ≤ hi − lo
+        let mut a2 = vec![0.0; (m + n) * n];
+        let mut b2 = vec![0.0; m + n];
+        for i in 0..m {
+            b2[i] = b[i];
+            for j in 0..n {
+                a2[i * n + j] = a[i * n + j];
+                b2[i] -= a[i * n + j] * lo[j];
+            }
+        }
+        for j in 0..n {
+            a2[(m + j) * n + j] = 1.0;
+            b2[m + j] = hi[j] - lo[j];
+        }
+        let explicit = simplex(&c, &a2, &b2, &vec![Le; m + n], opts()).unwrap();
+        assert_eq!(bounded.status, explicit.status, "{m}×{n}");
+        if bounded.status == LpStatus::Optimal {
+            let shift: f64 = c.iter().zip(&lo).map(|(ci, li)| ci * li).sum();
+            close(bounded.objective, explicit.objective + shift);
+        }
+    }
+}
+
+#[test]
+fn bounded_errors() {
+    assert_eq!(
+        simplex_bounded(&[1.0], &[], &[], &[], &[], opts()),
+        Err(OptError::InvalidInput)
+    );
+    assert_eq!(
+        simplex_bounded(&[1.0], &[], &[], &[], &[(0.0, 1.0), (0.0, 1.0)], opts()),
+        Err(OptError::InvalidInput)
+    );
+    assert_eq!(
+        simplex_bounded(&[1.0], &[], &[], &[], &[(INF, INF)], opts()),
+        Err(OptError::InvalidInput)
+    );
+    assert_eq!(
+        simplex_bounded(&[1.0], &[], &[], &[], &[(-INF, -INF)], opts()),
+        Err(OptError::InvalidInput)
+    );
+    assert_eq!(
+        simplex_bounded(&[1.0], &[], &[], &[], &[(f64::NAN, 1.0)], opts()),
+        Err(OptError::NotFinite)
+    );
 }

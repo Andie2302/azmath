@@ -21,7 +21,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::ode` | gewöhnliche Differentialgleichungen (Runge-Kutta, Adams, BDF, Radau IIA, Rosenbrock, Ereignissuche) |
 | `azmath::multigrid` | Multigrid für Poisson |
 | `azmath::complex` | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie) |
-| `azmath::opt` | lineare Programme (Zwei-Phasen-Simplex), konvexe QPs und LPs per Innere-Punkte-Verfahren, nichtlineare Programme per SQP (Feature `alloc`) |
+| `azmath::opt` | lineare Programme (Zwei-Phasen-Simplex, auch mit Variablenschranken), konvexe QPs und LPs per Innere-Punkte-Verfahren, nichtlineare Programme per SQP (Feature `alloc`) |
 | `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB |
 | `azmath::geometry` | Quaternionen, Rotationsmatrizen (Rodrigues, `exp_so3`/`log_so3`), `slerp`, Euler-Winkel mit Gimbal-Lock-Erkennung |
 | `azmath::autodiff` | Automatisches Differenzieren (`Jet`, exakte Jacobi-/Hessematrizen) |

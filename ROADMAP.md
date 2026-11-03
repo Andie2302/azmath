@@ -95,7 +95,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### F. Optimierung
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ⚠️ | **LP: Simplex** (Zwei-Phasen, dichtes Tableau, Bland-Schutz) ✅; Variablenschranken, Dual-Simplex, Warmstart ⬜ | M–L | LU ✅ |
+| ⚠️ | **LP: Simplex** (Zwei-Phasen, dichtes Tableau, Bland-Schutz) ✅; Variablenschranken ✅ (`simplex_bounded`, über Umformung); Dual-Simplex, Warmstart ⬜ | M–L | LU ✅ |
 | ✅ | **LP: Innere-Punkte (Primal-Dual)** (`interior_point_lp`, ohne zertifizierte Status) | L | Cholesky/LDLᵀ, Sparse |
 | ✅ | **QP** konvex, dicht (`interior_point_qp`, Mehrotra) – Baustein für SQP | L | Simplex/Innere-Punkte, KKT-Löser |
 | ⚠️ | **NLP: SQP** ✅ (BFGS, ℓ₁-Merit, QP über Innere Punkte; ohne Wiederherstellungsphase und Maratos-Korrektur) | XL | QP, Linesearch, **Autodiff (Hessians)**, BFGS |

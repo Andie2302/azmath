@@ -5,6 +5,7 @@
 //! | Funktion | Problem |
 //! |---|---|
 //! | [`simplex`] | `min cᵀx` unter `A·x ≤ / = / ≥ b`, `x ≥ 0` (Zwei-Phasen-Simplex, dichtes Tableau) |
+//! | [`simplex_bounded`] | wie `simplex`, aber mit Schranken `lᵢ ≤ xᵢ ≤ uᵢ` je Variable (auch unendlich, freie Variablen) |
 //! | [`interior_point_qp`] | konvexes QP `min ½xᵀQx + cᵀx` unter `A·x = b`, `G·x ≤ h` (primal-duales Innere-Punkte-Verfahren) |
 //! | [`sqp`] | nichtlineares Programm `min f(x)`, `c(x) = 0`, `c(x) ≤ 0` (SQP mit BFGS und ℓ₁-Merit-Funktion) |
 //! | [`interior_point_lp`] | LP `min cᵀx`, `A·x = b`, `x ≥ 0` per Innere-Punkte-Verfahren |
@@ -17,7 +18,7 @@ mod simplex;
 mod sqp;
 
 pub use qp::{QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp};
-pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex};
+pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex, simplex_bounded};
 pub use sqp::{SqpOptions, SqpResult, SqpStatus, sqp};
 
 use core::fmt;

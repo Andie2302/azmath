@@ -341,3 +341,153 @@ pub fn simplex<T: Real>(
         iterations: iters,
     })
 }
+
+/// Wie [`simplex`], aber mit **Schranken je Variable**: `lᵢ ≤ xᵢ ≤ uᵢ` statt `x ≥ 0`.
+///
+/// `bounds[i] = (lᵢ, uᵢ)`; unendliche Schranken sind erlaubt (`T::NEG_INFINITY`, `T::INFINITY`). Das Problem wird auf die
+/// Standardform zurückgeführt: eine endliche Untergrenze verschiebt die Variable (`x = l + y`), eine nur obere Schranke
+/// spiegelt sie (`x = u − y`), eine freie Variable wird in Positiv- und Negativteil gespalten, und endliche Obergrenzen
+/// kommen als zusätzliche Zeilen `y ≤ u − l` hinzu. Das ist einfach und korrekt, aber nicht so schnell wie ein Simplex, der
+/// Schranken implizit behandelt; ein Warm- oder Dual-Simplex fehlt noch.
+///
+/// Das Ergebnis `x` steht in den **ursprünglichen** Variablen. `lᵢ > uᵢ` ergibt [`LpStatus::Infeasible`].
+///
+/// Fehler: [`OptError::InvalidInput`] (Längen, `lᵢ = +∞` oder `uᵢ = −∞`), [`OptError::NotFinite`] (NaN).
+///
+/// ```
+/// use azmath::opt::{simplex_bounded, LpStatus, Relation, SimplexOptions};
+///
+/// // maximiere x + y  mit  −2 ≤ x ≤ 3,  0 ≤ y ≤ 4  und  x + y ≤ 5   (also minimiere −x − y)
+/// let sol = simplex_bounded(
+///     &[-1.0f64, -1.0], &[1.0, 1.0], &[5.0], &[Relation::Le],
+///     &[(-2.0, 3.0), (0.0, 4.0)], SimplexOptions::default(),
+/// ).unwrap();
+/// assert_eq!(sol.status, LpStatus::Optimal);
+/// assert!((sol.objective + 5.0).abs() < 1e-9);
+/// ```
+pub fn simplex_bounded<T: Real>(
+    c: &[T],
+    a: &[T],
+    b: &[T],
+    relations: &[Relation],
+    bounds: &[(T, T)],
+    opts: SimplexOptions<T>,
+) -> Result<LpSolution<T>, OptError> {
+    let n = c.len();
+    let m = b.len();
+    if n == 0 || bounds.len() != n || a.len() != m * n || relations.len() != m {
+        return Err(OptError::InvalidInput);
+    }
+    for &(l, u) in bounds {
+        if l.is_nan() || u.is_nan() {
+            return Err(OptError::NotFinite);
+        }
+        if l == T::INFINITY || u == T::NEG_INFINITY {
+            return Err(OptError::InvalidInput);
+        }
+    }
+    let is_inf = |v: T| v.is_infinite();
+    // Spaltenabbildung: x_j = offset_j + sign_j·y_{col_j} (− y_{col2_j} bei freien Variablen)
+    #[derive(Clone, Copy)]
+    struct Map<T> {
+        offset: T,
+        sign: T,
+        col: usize,
+        col2: Option<usize>,
+    }
+    let mut maps: Vec<Map<T>> = Vec::with_capacity(n);
+    let mut n_cols = 0usize;
+    let mut upper_rows: Vec<(usize, T)> = Vec::new(); // (Spalte, Obergrenze von y)
+    for &(l, u) in bounds {
+        if l > u {
+            return Ok(LpSolution {
+                status: LpStatus::Infeasible,
+                x: vec![T::ZERO; n],
+                objective: T::ZERO,
+                iterations: 0,
+            });
+        }
+        if !is_inf(l) {
+            maps.push(Map {
+                offset: l,
+                sign: T::ONE,
+                col: n_cols,
+                col2: None,
+            });
+            if !is_inf(u) {
+                upper_rows.push((n_cols, u - l));
+            }
+            n_cols += 1;
+        } else if !is_inf(u) {
+            maps.push(Map {
+                offset: u,
+                sign: -T::ONE,
+                col: n_cols,
+                col2: None,
+            });
+            n_cols += 1;
+        } else {
+            maps.push(Map {
+                offset: T::ZERO,
+                sign: T::ONE,
+                col: n_cols,
+                col2: Some(n_cols + 1),
+            });
+            n_cols += 2;
+        }
+    }
+    let rows = m + upper_rows.len();
+    let mut c2 = vec![T::ZERO; n_cols];
+    let mut a2 = vec![T::ZERO; rows * n_cols];
+    let mut b2 = vec![T::ZERO; rows];
+    let mut rel2 = relations.to_vec();
+    for i in 0..m {
+        b2[i] = b[i];
+        for j in 0..n {
+            let aij = a[i * n + j];
+            let mp = maps[j];
+            b2[i] -= aij * mp.offset;
+            a2[i * n_cols + mp.col] += aij * mp.sign;
+            if let Some(c2col) = mp.col2 {
+                a2[i * n_cols + c2col] -= aij;
+            }
+        }
+    }
+    for j in 0..n {
+        let mp = maps[j];
+        c2[mp.col] += c[j] * mp.sign;
+        if let Some(c2col) = mp.col2 {
+            c2[c2col] -= c[j];
+        }
+    }
+    for (k, &(col, ub)) in upper_rows.iter().enumerate() {
+        a2[(m + k) * n_cols + col] = T::ONE;
+        b2[m + k] = ub;
+        rel2.push(Relation::Le);
+    }
+    let inner = simplex(&c2, &a2, &b2, &rel2, opts)?;
+    if inner.status != LpStatus::Optimal {
+        return Ok(LpSolution {
+            status: inner.status,
+            x: vec![T::ZERO; n],
+            objective: T::ZERO,
+            iterations: inner.iterations,
+        });
+    }
+    let mut x = vec![T::ZERO; n];
+    for j in 0..n {
+        let mp = maps[j];
+        let mut v = mp.offset + mp.sign * inner.x[mp.col];
+        if let Some(c2col) = mp.col2 {
+            v -= inner.x[c2col];
+        }
+        x[j] = v;
+    }
+    let objective = c.iter().zip(&x).fold(T::ZERO, |s, (ci, xi)| s + *ci * *xi);
+    Ok(LpSolution {
+        status: LpStatus::Optimal,
+        x,
+        objective,
+        iterations: inner.iterations,
+    })
+}
