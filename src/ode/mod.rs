@@ -62,6 +62,8 @@ mod implicit;
 mod radau;
 mod rk45;
 mod rosenbrock;
+#[cfg(feature = "alloc")]
+mod seulex;
 
 pub use adams::{adams_bashforth_moulton, adams_work_len};
 pub use adaptive::{
@@ -86,6 +88,8 @@ pub use implicit::{
 pub use radau::{radau_work_len, radau5, radau5_fd};
 pub use rk45::{Rk45Options, Rk45Result, rk45, rk45_work_len};
 pub use rosenbrock::{ros2, ros2_fd, ros2_work_len};
+#[cfg(feature = "alloc")]
+pub use seulex::{SeulexOptions, SeulexResult, seulex, seulex_fd};
 
 use core::fmt;
 

@@ -79,7 +79,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **Adams-Bashforth-Moulton** (Ordnung 1–4, PECE, feste Schrittweite) | M | RK-Anlaufrechnung ✅ |
 | ✅ | **BDF** Ordnung 1–5 mit Radau-Anlauf, feste Schrittweite (`bdf`) und **variable Schrittweite und Ordnung** (`bdf_adaptive`) | L | Newton ✅ (ode → optimize), Autodiff nützlich |
 | ⚠️ | **Radau IIA** (3 Stufen, Ordnung 5) ✅, adaptive Schrittweite über Schrittverdopplung (`radau5_adaptive`, `ros2_adaptive`) ✅; eingebettete Fehlerschätzung ⬜ | L | Newton, lineare Systeme mit Blockstruktur |
-| ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅; RODAS (Ordnung 4) ⬜ | L | Jacobi (Autodiff), LU |
+| ⚠️ | **Rosenbrock**: ROS2 (Ordnung 2) ✅; hochgradiger Ersatz: `seulex` (extrapoliertes linear-implizites Euler-Verfahren, Ordnung bis 8, adaptiv) ✅; die RODAS-Koeffizienten (Ordnung 4) bewusst nicht aus dem Gedächtnis übernommen ⬜ | L | Jacobi (Autodiff), LU |
 | ✅ | Hermite-Dichte Ausgabe und Ereignissuche für RK4 (`rk4_event`) und `rk45` (`rk45_event`) | M | `rk45` ✅, Nullstellen ✅ |
 | ⬜ | Taylor-Reihen-Verfahren hoher Ordnung | M–L | `Jet` |
 | ✅ | DAE-Löser (`dae_bdf`, voll implizit, Index 1, BDF1/2, feste Schrittweite) und Randwertprobleme (`bvp_shooting`, `bvp_trapezoid`) | L | BDF/Radau, Newton |
@@ -236,7 +236,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **2** | Schnelle Gewinne: ~~Regula Falsi~~ ✅, ~~Rotationen/Quaternionen~~ ✅, ~~benannte Gauß-Elimination~~ ✅ | ✅ |
 | **3** | Nichtlinear ausbauen: ~~BFGS/L-BFGS~~ ✅, ~~Broyden~~ ✅, ~~Linesearch~~ ✅, ~~Trust-Region (Dogleg)~~ ✅, ~~**Polynom-Nullstellen** (Durand-Kerner, Aberth)~~ ✅ | ✅ |
 | **4** | Sparse/Band ✅, Links-Vorkonditionierer/ILU ✅, Lanczos/Arnoldi ✅ (Teile ohne Tests) | ✅ |
-| **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) | ⚠️ |
+| **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ✅ (fest und variabel), **Radau IIA** ✅ (fest und adaptiv), **Rosenbrock/Extrapolation** ✅ (`ros2`, `seulex`), Ereignisse ✅ (`rk4_event`, `rk45_event`), DAE/BVP ✅ | ✅ |
 | **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus) ✅ (nur Eigenwerte), Begleitmatrix ✅, Jenkins-Traub ✅ (vereinfacht) | ✅ |
 | **7** | Optimierung: Simplex ✅ → Innere-Punkte ✅ → QP ✅ → SQP ✅ → IPOPT-artig ✅ → Branch-and-Bound ✅, Branch-and-Cut (Gomory) ✅, Warmstart/Dual-Simplex ✅ | ✅ |
 | **8** | Allgemeine Werkzeuge laut Abschnitt H (Anwendungen wie IAPWS siehe Abschnitt J: eigene Crates) | ⚠️ |
