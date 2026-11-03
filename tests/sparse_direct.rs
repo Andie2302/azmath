@@ -212,13 +212,7 @@ fn error_cases() {
         SparseLdl::new(&r, Ordering::Natural),
         Err(LinalgError::DimensionMismatch)
     ));
-    // nicht endlich
-    let mut coo = CooMatrix::new(1, 1);
-    coo.push(0, 0, f64::NAN).unwrap();
-    assert!(matches!(
-        SparseLdl::new(&CsrMatrix::from_coo(&coo), Ordering::Natural),
-        Err(LinalgError::NotFinite)
-    ));
+    // (NaN/∞ lehnt bereits `CooMatrix::push` ab)
     // falsche rechte Seite
     let mut coo = CooMatrix::new(2, 2);
     coo.push(0, 0, 1.0).unwrap();

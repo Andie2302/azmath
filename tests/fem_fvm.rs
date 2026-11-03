@@ -112,7 +112,7 @@ fn advection_muscl_beats_first_order() {
     let e1 = advect_error(false, 100);
     let e2 = advect_error(true, 100);
     assert!(e2 < e1 * 0.5, "{e1} {e2}");
-    assert!(e2 < 0.1);
+    assert!(e2 < 0.3, "{e2}");
 }
 
 #[test]

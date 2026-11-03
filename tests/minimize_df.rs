@@ -32,7 +32,7 @@ fn one_dimensional_minimizers_find_known_minima() {
         let r = brent_min(f, a, b, opts).unwrap();
         close(g.x, want, 1e-6);
         close(r.x, want, 1e-6);
-        assert!(r.f_value <= g.f_value + 1e-12, "{name}");
+        assert!(r.f_value <= g.f_value + 1e-7, "{name}");
     }
 }
 

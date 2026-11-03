@@ -164,12 +164,6 @@ fn errors() {
         SparseLu::new(&r, Ordering::Natural),
         Err(LinalgError::DimensionMismatch)
     ));
-    let mut coo = CooMatrix::new(1, 1);
-    coo.push(0, 0, f64::INFINITY).unwrap();
-    assert!(matches!(
-        SparseLu::new(&CsrMatrix::from_coo(&coo), Ordering::Natural),
-        Err(LinalgError::NotFinite)
-    ));
     let mut coo = CooMatrix::new(2, 2);
     coo.push(0, 0, 1.0f64).unwrap();
     coo.push(1, 1, 1.0).unwrap();

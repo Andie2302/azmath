@@ -20,7 +20,7 @@ use alloc::vec::Vec;
 /// assert!((lp.solution().objective + 4.0).abs() < 1e-9);
 /// // zusätzlich y ≤ 0,5: Dual-Simplex statt Neustart
 /// assert_eq!(lp.add_constraint(&[0.0, 1.0], Relation::Le, 0.5).unwrap(), LpStatus::Optimal);
-/// assert!((lp.solution().objective + 4.0).abs() < 1e-9);
+/// assert!((lp.solution().objective + 3.5).abs() < 1e-9);
 /// assert_eq!(lp.add_constraint(&[0.0, 1.0], Relation::Ge, 2.0).unwrap(), LpStatus::Infeasible);
 /// ```
 #[derive(Clone)]
@@ -165,7 +165,9 @@ impl<T: Real> LpWarmStart<T> {
     }
 
     /// Hängt die Zeile `row·(Spalten) + s = rhs` mit neuer Schlupfvariable `s` (Basisvariable) an.
-    pub(super) fn append_row(&mut self, row: Vec<T>, rhs: T) {
+    pub(super) fn append_row(&mut self, mut row: Vec<T>, rhs: T) {
+        // Zeilen aus früher berechneten Schnitten kennen später eingefügte Schlupfspalten (Basisspalten) nicht: Koeffizient 0
+        row.resize(self.tab.cols, T::ZERO);
         let tab = &mut self.tab;
         let (cols, rows) = (tab.cols, tab.rows);
         let w_old = cols + 1;

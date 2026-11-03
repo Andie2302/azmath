@@ -64,7 +64,7 @@ fn hessenberg<T: Real>(n: usize, h: &mut [C<T>]) {
 /// use azmath::complex::Complex;
 /// use azmath::scalar::complex_eigenvalues;
 /// // Drehung um 90°: Eigenwerte ±i
-/// let a = [Complex::new(0.0, 0.0), Complex::new(-1.0, 0.0), Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)];
+/// let a = [Complex::new(0.0f64, 0.0), Complex::new(-1.0, 0.0), Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)];
 /// let ev = complex_eigenvalues(2, &a).unwrap();
 /// assert!(ev.iter().all(|z| (z.abs() - 1.0).abs() < 1e-12 && z.re.abs() < 1e-12));
 /// # }

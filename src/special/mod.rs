@@ -101,7 +101,7 @@ pub fn gamma<T: Real>(x: T) -> T {
     T::from_f64(HALF_LN_2PI).exp() * p * (-t).exp() * p * a
 }
 
-/// Digammafunktion `ψ(x) = d/dx ln Γ(x)` (Reflexion für `x < ½`, Rekursion bis `x ≥ 6`, danach asymptotische Reihe).
+/// Digammafunktion `ψ(x) = d/dx ln Γ(x)` (Reflexion für `x < ½`, Rekursion bis `x ≥ 10`, danach asymptotische Reihe).
 /// An den Polen `NaN`.
 pub fn digamma<T: Real>(x: T) -> T {
     if x.is_nan() || is_nonpositive_integer(x) {
@@ -112,7 +112,7 @@ pub fn digamma<T: Real>(x: T) -> T {
     }
     let mut x = x;
     let mut shift = T::ZERO;
-    while x < T::from_f64(6.0) {
+    while x < T::from_f64(10.0) {
         shift -= T::ONE / x;
         x += T::ONE;
     }
@@ -126,7 +126,10 @@ pub fn digamma<T: Real>(x: T) -> T {
                     - inv2
                         * (T::from_f64(1.0 / 252.0)
                             - inv2
-                                * (T::from_f64(1.0 / 240.0) - inv2 * T::from_f64(1.0 / 132.0)))));
+                                * (T::from_f64(1.0 / 240.0)
+                                    - inv2
+                                        * (T::from_f64(1.0 / 132.0)
+                                            - inv2 * T::from_f64(691.0 / 32760.0))))));
     shift + x.ln() - T::from_f64(0.5) * inv - series
 }
 

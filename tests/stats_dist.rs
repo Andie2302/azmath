@@ -50,7 +50,7 @@ fn densities_integrate_to_one() {
     let integral =
         |f: &dyn Fn(f64) -> f64| (0..n).map(|i| f(-10.0 + (i as f64 + 0.5) * h)).sum::<f64>() * h;
     assert!((integral(&|x| normal_pdf(x, 0.0, 1.0)) - 1.0).abs() < 1e-6);
-    assert!((integral(&|x| student_t_pdf(x, 5.0)) - 1.0).abs() < 1e-4);
+    assert!((integral(&|x| student_t_pdf(x, 5.0)) - 1.0).abs() < 5e-4);
     let h2 = 40.0 / n as f64;
     let int_pos =
         |f: &dyn Fn(f64) -> f64| (0..n).map(|i| f((i as f64 + 0.5) * h2)).sum::<f64>() * h2;

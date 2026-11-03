@@ -15,7 +15,7 @@
 //! use azmath::fdm::{fornberg_weights, fornberg_work_len};
 //!
 //! // zentrale zweite Ableitung auf h = 0,5: Gewichte [1, −2, 1]/h²
-//! let mut w = [0.0; 3];
+//! let mut w = [0.0f64; 3];
 //! let mut work = [0.0; fornberg_work_len(3, 2)];
 //! fornberg_weights(2, 0.0, &[-0.5, 0.0, 0.5], &mut w, &mut work);
 //! assert!((w[0] - 4.0).abs() < 1e-12 && (w[1] + 8.0).abs() < 1e-12 && (w[2] - 4.0).abs() < 1e-12);
