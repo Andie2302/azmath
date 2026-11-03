@@ -21,6 +21,8 @@ mod qr;
 #[cfg(feature = "alloc")]
 mod sparse;
 #[cfg(feature = "alloc")]
+mod sparse_lu;
+#[cfg(feature = "alloc")]
 pub use cholesky::ScalarCholesky;
 #[cfg(feature = "alloc")]
 pub use eigen::{
@@ -33,6 +35,8 @@ pub use lu::ScalarLu;
 pub use qr::ScalarQr;
 #[cfg(feature = "alloc")]
 pub use sparse::{GmresScalarResult, ScalarCsr, gmres_scalar};
+#[cfg(feature = "alloc")]
+pub use sparse_lu::ScalarSparseLu;
 
 /// Zahlentyp für lineare Algebra: reell oder komplex.
 pub trait Scalar:
@@ -70,6 +74,7 @@ pub trait Scalar:
     fn is_finite(self) -> bool;
 }
 
+#[allow(unused_macros)]
 macro_rules! impl_scalar_real {
     ($t:ty) => {
         impl Scalar for $t {
@@ -100,7 +105,9 @@ macro_rules! impl_scalar_real {
         }
     };
 }
+#[cfg(any(feature = "std", feature = "libm", feature = "micromath"))]
 impl_scalar_real!(f32);
+#[cfg(any(feature = "std", feature = "libm"))]
 impl_scalar_real!(f64);
 
 impl<T: Real> Scalar for Complex<T> {

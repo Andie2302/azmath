@@ -40,6 +40,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`opt`:** `LpWarmStart` (Dual-Simplex, Warmstart), `branch_and_cut` (Gomory-Schnitte, Warmstart der Knoten).
 - **`ode`:** `bdf_adaptive`, `bdf_adaptive_fd` (BDF 1–5 mit variabler Schrittweite und Ordnung, Feature `alloc`).
 - **`ode`:** `seulex`, `seulex_fd` (extrapoliertes linear-implizites Euler-Verfahren, Ordnung bis 8, adaptiv; Ersatz für RODAS).
+- **`scalar`:** `ScalarSparseLu` (komplexe dünn besetzte LU mit Umordnung, `solve`, `solve_transposed`, `solve_adjoint`).
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 

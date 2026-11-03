@@ -220,7 +220,7 @@ pub fn complex_eigenvector<T: Real>(
             return Err(LinalgError::Singular);
         }
         for z in w.iter_mut() {
-            *z = *z / C::from_real(nrm);
+            *z /= C::from_real(nrm);
         }
         v = w;
     }

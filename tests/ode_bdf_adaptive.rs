@@ -1,5 +1,11 @@
 //! Tests für `bdf_adaptive` (variable Schrittweite und Ordnung).
 #![cfg(all(any(feature = "std", feature = "libm"), feature = "alloc"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::ode::{BdfAdaptiveOptions, OdeError, bdf_adaptive, bdf_adaptive_fd};
 

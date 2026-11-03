@@ -227,9 +227,7 @@ pub fn irfft<T: Real>(
         return Err(FftError::InvalidLength);
     }
     let (full, rest) = work.split_at_mut(n);
-    for k in 0..=n / 2 {
-        full[k] = spectrum[k];
-    }
+    full[..=n / 2].copy_from_slice(&spectrum[..=n / 2]);
     for k in (n / 2 + 1)..n {
         full[k] = spectrum[n - k].conj();
     }

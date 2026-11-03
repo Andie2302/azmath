@@ -1,5 +1,11 @@
 //! Tests für `seulex` (extrapoliertes linear-implizites Euler-Verfahren).
 #![cfg(all(any(feature = "std", feature = "libm"), feature = "alloc"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::ode::{OdeError, SeulexOptions, seulex, seulex_fd};
 

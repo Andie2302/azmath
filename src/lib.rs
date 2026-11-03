@@ -32,6 +32,14 @@
 
 #![no_std]
 #![warn(missing_docs)]
+// Numerischer Code: `!(x > 0)` fängt bewusst auch NaN ab; Indexschleifen über parallele Slices sind hier klarer als Iteratoren;
+// viele Löser haben bewusst lange Parameterlisten und verschachtelte Closure-Typen.
+#![allow(
+    clippy::neg_cmp_op_on_partial_ord,
+    clippy::needless_range_loop,
+    clippy::too_many_arguments,
+    clippy::type_complexity
+)]
 
 #[cfg(feature = "std")]
 extern crate std;

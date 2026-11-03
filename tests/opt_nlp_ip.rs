@@ -2,6 +2,12 @@
 //!
 //! Die Tests laufen nur mit den genauen Backends `std` und `libm` und brauchen `alloc`.
 #![cfg(all(any(feature = "std", feature = "libm"), feature = "alloc"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::Real;
 use azmath::autodiff::{VectorFn, hessian_ad};

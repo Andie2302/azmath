@@ -97,12 +97,12 @@ pub fn expm<T: Real>(a: &DynMatrix<T>) -> Result<DynMatrix<T>, LinalgError> {
     let mut s = 0u32;
     let mut scaled = nrm;
     while scaled > theta && s < 1000 {
-        scaled = scaled * T::from_f64(0.5);
+        scaled *= T::from_f64(0.5);
         s += 1;
     }
     let mut half = T::ONE;
     for _ in 0..s {
-        half = half * T::from_f64(0.5);
+        half *= T::from_f64(0.5);
     }
     let a1 = scale(a, half);
     let id = DynMatrix::identity(n);
@@ -211,7 +211,7 @@ pub fn logm<T: Real>(a: &DynMatrix<T>) -> Result<DynMatrix<T>, LinalgError> {
     }
     let mut factor = T::ONE;
     for _ in 0..k {
-        factor = factor * T::from_f64(2.0);
+        factor *= T::from_f64(2.0);
     }
     Ok(scale(&sum, factor))
 }

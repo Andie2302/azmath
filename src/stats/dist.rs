@@ -29,7 +29,7 @@ fn invert<T: Real>(cdf: impl Fn(T) -> T, p: T, lo: T, symmetric: bool) -> T {
     if symmetric {
         a = -hi;
         while cdf(a) > p && n < 2000 {
-            a = a * two;
+            a *= two;
             n += 1;
         }
     }

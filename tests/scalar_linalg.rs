@@ -273,3 +273,62 @@ fn real_matrix_eigen() {
     assert!(re[0].abs() < 1e-12 && re[1].abs() < 1e-12 && (re[2] - 2.0).abs() < 1e-12);
     assert!(real_eigen(&DynMatrix::<f64>::zeros(2, 3)).is_err());
 }
+
+#[test]
+fn sparse_complex_lu() {
+    use azmath::sparse::Ordering;
+    let mut rng = Pcg32::new(44, 6);
+    for n in [8usize, 30] {
+        let mut t = Vec::new();
+        for i in 0..n {
+            for j in 0..n {
+                if i != j && rng.uniform::<f64>() < 0.15 {
+                    t.push((
+                        i,
+                        j,
+                        C::new(rng.uniform::<f64>() - 0.5, rng.uniform::<f64>() - 0.5),
+                    ));
+                }
+            }
+            if i % 4 != 0 {
+                t.push((i, i, C::new(1.0 + rng.uniform::<f64>(), 0.3)));
+            }
+            t.push((i, (i + 1) % n, C::new(2.0, rng.uniform::<f64>())));
+        }
+        let a = ScalarCsr::from_triplets(n, n, &t).unwrap();
+        let dense = a.to_dense();
+        let b: Vec<C> = (0..n).map(|i| C::new(1.0, i as f64 * 0.1)).collect();
+        let reference = ScalarLu::new(n, &dense).unwrap().solve(&b).unwrap();
+        for ord in [
+            Ordering::Natural,
+            Ordering::ReverseCuthillMcKee,
+            Ordering::MinimumDegree,
+        ] {
+            let lu = ScalarSparseLu::new(&a, ord).unwrap();
+            let x = lu.solve(&b).unwrap();
+            assert!(maxdiff(&x, &reference) < 1e-9, "n = {n}, {ord:?}");
+            // Aᵀ x = b
+            let xt = lu.solve_transposed(&b).unwrap();
+            let at: Vec<C> = (0..n * n)
+                .map(|idx| dense[(idx % n) * n + idx / n])
+                .collect();
+            assert!(maxdiff(&matmul(&at, &xt, n, n, 1), &b) < 1e-9);
+            // Aᴴ x = b
+            let xh = lu.solve_adjoint(&b).unwrap();
+            let ah: Vec<C> = (0..n * n)
+                .map(|idx| dense[(idx % n) * n + idx / n].conj())
+                .collect();
+            assert!(maxdiff(&matmul(&ah, &xh, n, n, 1), &b) < 1e-9);
+            assert!(lu.nnz_u() >= n);
+        }
+    }
+    let sing = ScalarCsr::from_triplets(2, 2, &[(0, 0, C::ONE)]).unwrap();
+    assert!(ScalarSparseLu::new(&sing, Ordering::Natural).is_err());
+    assert!(
+        ScalarSparseLu::new(
+            &ScalarCsr::<C>::from_triplets(2, 3, &[]).unwrap(),
+            Ordering::Natural
+        )
+        .is_err()
+    );
+}

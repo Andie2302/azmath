@@ -81,6 +81,7 @@ fn quantiles() {
     assert_eq!(quantile_sorted(&s, 0.0), 1.0);
     assert_eq!(quantile_sorted(&s, 1.0), 4.0);
     assert!((quantile_sorted(&s, 0.5) - 2.5).abs() < 1e-14);
+    #[cfg(feature = "alloc")]
     assert_eq!(median(&[5.0, 1.0, 3.0]), 3.0);
     assert!(quantile_sorted(&s, 1.5).is_nan());
 }

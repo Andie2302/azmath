@@ -1,5 +1,11 @@
 //! Tests für die adaptiven impliziten Löser (Schrittverdopplung).
 #![cfg(any(feature = "std", feature = "libm"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::ode::{
     AdaptiveOptions, OdeError, adaptive_work_len, radau5_adaptive, radau5_adaptive_fd,

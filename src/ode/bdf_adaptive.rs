@@ -107,13 +107,13 @@ fn lagrange<T: Real>(xs: &[T], ys: &[&[T]], x: T, out: &mut [T]) {
 /// Dividierte Differenz höchster Ordnung `[x₀ … x_k] y` (vektorwertig).
 fn divided_difference<T: Real>(xs: &[T], ys: &[&[T]]) -> Vec<T> {
     let m = xs.len();
-    let n = ys[0].len();
     let mut table: Vec<Vec<T>> = ys.iter().map(|v| v.to_vec()).collect();
     for level in 1..m {
         for i in 0..m - level {
             let dx = xs[i + level] - xs[i];
-            for k in 0..n {
-                table[i][k] = (table[i + 1][k] - table[i][k]) / dx;
+            let (head, tail) = table.split_at_mut(i + 1);
+            for (x, y) in head[i].iter_mut().zip(&tail[0]) {
+                *x = (*y - *x) / dx;
             }
         }
     }
@@ -145,7 +145,7 @@ fn lte<T: Real>(ts: &[T], ys: &[Vec<T>], k: usize, h: T, rtol: T, atol: T) -> Op
     }
     let scale = h.abs().powi(k as i32 + 1) * fact;
     let scaled: Vec<T> = dd.iter().map(|v| *v * scale).collect();
-    Some(weighted_norm(&scaled, &vs[0], &vs[1], rtol, atol))
+    Some(weighted_norm(&scaled, vs[0], vs[1], rtol, atol))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -239,7 +239,7 @@ where
         let c = derivative_weights(&xs);
         // Startnäherung
         let mut x = vec![T::ZERO; n];
-        if len >= p + 1 {
+        if len > p {
             let nodes: Vec<T> = (0..=p).map(|j| ts[len - 1 - j]).collect();
             let vals: Vec<&[T]> = (0..=p).map(|j| ys[len - 1 - j].as_slice()).collect();
             lagrange(&nodes, &vals, tn1, &mut x);

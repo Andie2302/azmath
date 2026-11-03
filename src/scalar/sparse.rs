@@ -71,6 +71,17 @@ impl<T: Scalar> ScalarCsr<T> {
         self.cols
     }
 
+    /// Alle gespeicherten Einträge als `(Zeile, Spalte, Wert)`.
+    pub fn entries(&self) -> Vec<(usize, usize, T)> {
+        let mut v = Vec::with_capacity(self.values.len());
+        for i in 0..self.rows {
+            for k in self.row_ptr[i]..self.row_ptr[i + 1] {
+                v.push((i, self.col_idx[k], self.values[k]));
+            }
+        }
+        v
+    }
+
     /// Anzahl der gespeicherten Einträge.
     pub fn nnz(&self) -> usize {
         self.values.len()

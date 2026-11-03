@@ -1,5 +1,11 @@
 //! Tests für die direkten dünn besetzten Löser (LDLᵀ, Cholesky, RCM-Umordnung).
 #![cfg(all(any(feature = "std", feature = "libm"), feature = "alloc"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::linalg::LinalgError;
 use azmath::sparse::{

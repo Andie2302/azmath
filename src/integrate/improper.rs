@@ -76,7 +76,7 @@ pub fn tanh_sinh<T: Real>(
     let mut prev = sum * h;
     let mut est = prev;
     for _ in 0..10 {
-        h = h * half;
+        h *= half;
         let mut k = T::ONE;
         let mut add = T::ZERO;
         while k * h <= t_max {

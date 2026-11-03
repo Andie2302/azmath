@@ -1,5 +1,11 @@
 //! Tests für Verteilungen, Hypothesentests, Regression und die neuen Spezialfunktionen.
 #![cfg(any(feature = "std", feature = "libm"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::random::{Pcg32, Rng};
 use azmath::special::{bessel_i, elliptic_e, elliptic_k};
@@ -75,12 +81,15 @@ fn chi_square_and_ks() {
     let r = chi_square_gof(&[50.0f64, 10.0, 10.0, 10.0], &[20.0; 4], 0);
     assert!(r.p_value < 1e-6);
     assert!(chi_square_gof(&[1.0f64], &[1.0], 0).statistic.is_nan());
-    let mut rng = Pcg32::new(3, 9);
-    let u: Vec<f64> = (0..500).map(|_| rng.uniform()).collect();
-    let ok = ks_test_one_sample(&u, |x| uniform_cdf(x, 0.0, 1.0));
-    assert!(ok.p_value > 0.01 && ok.statistic < 0.1);
-    let bad = ks_test_one_sample(&u, |x| uniform_cdf(x, 0.0, 0.5));
-    assert!(bad.p_value < 1e-6);
+    #[cfg(feature = "alloc")]
+    {
+        let mut rng = Pcg32::new(3, 9);
+        let u: Vec<f64> = (0..500).map(|_| rng.uniform()).collect();
+        let ok = ks_test_one_sample(&u, |x| uniform_cdf(x, 0.0, 1.0));
+        assert!(ok.p_value > 0.01 && ok.statistic < 0.1);
+        let bad = ks_test_one_sample(&u, |x| uniform_cdf(x, 0.0, 0.5));
+        assert!(bad.p_value < 1e-6);
+    }
 }
 
 #[test]

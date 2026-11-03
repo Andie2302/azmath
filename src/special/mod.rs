@@ -381,8 +381,8 @@ pub fn bessel_j<T: Real>(n: u32, x: T) -> T {
     let big_inv = T::from_f64(1e-10);
     let scale = T::from_f64(n as f64).max(ax);
     // gerade Startordnung oberhalb von max(n, |x|)
-    let start = scale.to_f64() + (160.0 * scale.to_f64()).sqrt();
-    let m = 2 * ((start as usize + 1) / 2) + 2;
+    let start = scale.to_f64() + (T::from_f64(160.0) * scale).sqrt().to_f64();
+    let m = 2 * (start as usize).div_ceil(2) + 2;
     let tox = T::from_f64(2.0) / ax;
     let (mut bjp, mut bj) = (T::ZERO, T::ONE);
     let (mut sum, mut ans) = (T::ZERO, T::ZERO);
@@ -456,7 +456,7 @@ pub fn elliptic_e<T: Real>(m: T) -> T {
         let an = (a + b) * half;
         b = (a * b).sqrt();
         a = an;
-        pow2 = pow2 * T::from_f64(2.0);
+        pow2 *= T::from_f64(2.0);
         sum += pow2 * c * c;
     }
     let k = T::PI / (T::from_f64(2.0) * a);
@@ -525,7 +525,7 @@ pub fn bessel_y<T: Real>(n: u32, x: T) -> T {
         return T::NEG_INFINITY;
     }
     let nf = T::from_f64(n as f64);
-    let panels = ((x.to_f64() + n as f64) / 2.0).ceil() as usize + 8;
+    let panels = ((x + nf) * T::from_f64(0.5)).ceil().to_f64() as usize + 8;
     let i1 = gauss_legendre(
         |t: T| (x * t.sin() - nf * t).sin(),
         T::ZERO,

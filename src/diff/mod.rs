@@ -61,7 +61,7 @@ pub fn derivative_ridders<T: Real>(mut f: impl FnMut(T) -> T, x: T, h: T) -> (T,
     let mut err = T::from_f64(1e30);
     let mut ans = a[0][0];
     for i in 1..NTAB {
-        hh = hh / con;
+        hh /= con;
         a[0][i] = (f(x + hh) - f(x - hh)) / (two * hh);
         let mut fac = con2;
         for j in 1..=i {

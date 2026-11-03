@@ -124,8 +124,8 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | ✅ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
 | ✅ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Ridders, Gradient, Hessematrix, Jacobi-Matrix) | M | – |
 | ⚠️ | **Spezialfunktionen**: `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`/`erfc`/`erf_inv`, Normalverteilung, unvollständige Gamma-/Beta-Funktion, Bessel `Jₙ` ✅; `Iₙ`, elliptische Integrale ✅; Bessel `Yₙ`, `Kₙ` ✅ | M–L | `Real` ✅ |
-| ✅ | **Dünn besetzte direkte Löser**: LDLᵀ, Cholesky, LU mit Pivotisierung; Umordnung RCM und Minimum Degree (AMD mit Quotientengraph ⬜) | L | Sparse ✅ |
-| ⚠️ | **Skalar-Trait und komplexe lineare Algebra**: `Scalar`, LU, QR, hermitesche Cholesky, Eigenwerte/-vektoren, `ScalarCsr` + GMRES ✅; komplexe Schur-Form und Eigenvektoren (`complex_schur`, `complex_eigen`, `real_eigen`) ✅; generischer `sparse`-Modul ⬜ (Entwurf `docs/design/0002`) | L | `Complex` ✅ |
+| ✅ | **Dünn besetzte direkte Löser**: LDLᵀ, Cholesky, LU mit Pivotisierung; Umordnung RCM und exakter Minimum Degree (AMD mit Quotientengraph wäre nur schneller, nicht besser ⬜) | L | Sparse ✅ |
+| ⚠️ | **Skalar-Trait und komplexe lineare Algebra**: `Scalar`, LU, QR, hermitesche Cholesky, Eigenwerte/-vektoren, `ScalarCsr` + GMRES ✅; komplexe Schur-Form und Eigenvektoren ✅; komplexe Sparse-LU (`ScalarSparseLu`) ✅; vollständig generischer `sparse`-Modul (CG/ILU für komplexe Matrizen) ⬜ (Entwurf `docs/design/0002`) | L | `Complex` ✅ |
 | ✅ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov/Riccati (`care`, `dare`) | M | linalg ✅ |
 | ✅ | **Reverse-Mode-Autodiff** (Tape, `alloc`), `gradient_ad` | M–L | `Jet` ✅ |
 | ✅ | Zufallszahlen und Statistik (PRNG, Verteilungen, Hypothesentests, Regression, Monte Carlo, Kovarianz) | M | – |

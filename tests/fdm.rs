@@ -1,5 +1,11 @@
 //! Tests für `fdm`.
 #![cfg(any(feature = "std", feature = "libm"))]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::field_reassign_with_default,
+    clippy::type_complexity,
+    clippy::excessive_precision
+)]
 
 use azmath::fdm::*;
 use azmath::ode::{
