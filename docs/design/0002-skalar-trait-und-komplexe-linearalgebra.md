@@ -1,6 +1,6 @@
 # Entwurf 0002: Skalar-Trait und komplexe lineare Algebra
 
-**Status:** Entwurf · **Abhängig von:** `Real`, `Complex<T>`, `linalg`, `sparse`
+**Status:** teilweise umgesetzt (Schritte 1–5 in minimaler Form, `azmath::scalar`) · **Abhängig von:** `Real`, `Complex<T>`, `linalg`, `sparse`
 
 ## 1. Frage
 

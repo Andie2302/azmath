@@ -21,7 +21,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`optimize`:** zusätzlich `golden_section`, `brent_min`, `nelder_mead` (ableitungsfrei).
 - **`special`:** `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`, `erfc`, `erf_inv`, `normal_cdf`, `normal_quantile`, `gamma_p`, `gamma_q`, `beta_inc`, `bessel_j`.
 - **`fft`:** FFT beliebiger Länge (Radix-2 und Bluestein), reelle FFT, Faltung, `fft_freq`.
-- **`scalar`:** `Scalar`-Trait (f32, f64, `Complex`), `ScalarLu` (LU mit Teilpivotisierung, reell und komplex).
+- **`scalar`:** `Scalar`-Trait (f32, f64, `Complex`), `ScalarLu`, `ScalarQr` (kleinste Quadrate), `ScalarCholesky` (hermitesch), `complex_eigenvalues`, `hermitian_eigenvalues`, `complex_eigenvector`, `ScalarCsr`, `gmres_scalar`.
 - **`matfun`:** `expm` (Padé 13), `sqrtm` (Denman-Beavers), `logm`, `powm`, `sylvester`, `lyapunov` (Feature `alloc`).
 - **`autodiff`:** Rückwärtsmodus (`Tape`, `Var`, `gradient_ad`, Feature `alloc`).
 - **`random`:** `Pcg32`, `Xoshiro256pp`, `Rng` (gleichverteilt, normal, exponential, `below`, `shuffle`).

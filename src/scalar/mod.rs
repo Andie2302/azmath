@@ -3,16 +3,33 @@
 //! `Scalar` verlangt nur Körperarithmetik und Konjugation; Beträge, Normen und Toleranzen sind immer reell
 //! ([`Scalar::Real`]). Implementiert für `f32`, `f64` und [`Complex`]. [`Real`] bleibt unverändert.
 //!
-//! Darauf bauen die komplexen dichten Löser in [`ScalarLu`] auf (Feature `alloc`).
+//! Darauf bauen (Feature `alloc`) auf: `ScalarLu`, `ScalarQr` (kleinste Quadrate), `ScalarCholesky` (hermitesch),
+//! `complex_eigenvalues`/`hermitian_eigenvalues`/`complex_eigenvector`, `ScalarCsr` und `gmres_scalar`.
 
 use crate::Real;
 use crate::complex::Complex;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[cfg(feature = "alloc")]
+mod cholesky;
+#[cfg(feature = "alloc")]
+mod eigen;
+#[cfg(feature = "alloc")]
 mod lu;
 #[cfg(feature = "alloc")]
+mod qr;
+#[cfg(feature = "alloc")]
+mod sparse;
+#[cfg(feature = "alloc")]
+pub use cholesky::ScalarCholesky;
+#[cfg(feature = "alloc")]
+pub use eigen::{complex_eigenvalues, complex_eigenvector, hermitian_eigenvalues};
+#[cfg(feature = "alloc")]
 pub use lu::ScalarLu;
+#[cfg(feature = "alloc")]
+pub use qr::ScalarQr;
+#[cfg(feature = "alloc")]
+pub use sparse::{GmresScalarResult, ScalarCsr, gmres_scalar};
 
 /// Zahlentyp für lineare Algebra: reell oder komplex.
 pub trait Scalar:
