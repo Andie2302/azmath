@@ -62,16 +62,17 @@ pub struct LpSolution<T> {
 }
 
 /// Ein Tableau mit Basis und Reduzierte-Kosten-Zeile.
-struct Tableau<T> {
-    rows: usize,
-    cols: usize, // ohne rechte Seite
-    t: Vec<T>,   // rows × (cols + 1), letzte Spalte = rechte Seite
-    basis: Vec<usize>,
-    d: Vec<T>, // reduzierte Kosten (cols), danach d[cols] = −Zielwert
+#[derive(Clone)]
+pub(super) struct Tableau<T> {
+    pub(super) rows: usize,
+    pub(super) cols: usize, // ohne rechte Seite
+    pub(super) t: Vec<T>,   // rows × (cols + 1), letzte Spalte = rechte Seite
+    pub(super) basis: Vec<usize>,
+    pub(super) d: Vec<T>, // reduzierte Kosten (cols), danach d[cols] = −Zielwert
 }
 
 impl<T: Real> Tableau<T> {
-    fn at(&self, i: usize, j: usize) -> T {
+    pub(super) fn at(&self, i: usize, j: usize) -> T {
         self.t[i * (self.cols + 1) + j]
     }
 
@@ -89,7 +90,7 @@ impl<T: Real> Tableau<T> {
         }
     }
 
-    fn pivot(&mut self, row: usize, col: usize) {
+    pub(super) fn pivot(&mut self, row: usize, col: usize) {
         let w = self.cols + 1;
         let p = self.t[row * w + col];
         for j in 0..w {
@@ -222,6 +223,17 @@ pub fn simplex<T: Real>(
     relations: &[Relation],
     opts: SimplexOptions<T>,
 ) -> Result<LpSolution<T>, OptError> {
+    simplex_tableau(c, a, b, relations, opts).map(|(sol, _)| sol)
+}
+
+/// Wie [`simplex`], liefert zusätzlich das optimale Tableau (und die Zahl der zulässigen Spalten `n + Schlupf`) für Warmstarts.
+pub(super) fn simplex_tableau<T: Real>(
+    c: &[T],
+    a: &[T],
+    b: &[T],
+    relations: &[Relation],
+    opts: SimplexOptions<T>,
+) -> Result<(LpSolution<T>, Option<(Tableau<T>, usize)>), OptError> {
     let n = c.len();
     let m = b.len();
     if n == 0 || a.len() != m * n || relations.len() != m {
@@ -301,12 +313,12 @@ pub fn simplex<T: Real>(
         }
         tab.set_costs(&cost1);
         match iterate(&mut tab, cols, tol, opts.max_iter, &mut iters) {
-            Outcome::IterationLimit => return Ok(fail(LpStatus::IterationLimit, iters)),
+            Outcome::IterationLimit => return Ok((fail(LpStatus::IterationLimit, iters), None)),
             Outcome::Unbounded | Outcome::Optimal => {}
         }
         let scale = T::ONE + b.iter().fold(T::ZERO, |s, v| s + v.abs());
         if -tab.d[cols] > tol * scale {
-            return Ok(fail(LpStatus::Infeasible, iters));
+            return Ok((fail(LpStatus::Infeasible, iters), None));
         }
         // künstliche Variablen aus der Basis entfernen, soweit möglich (sonst ist die Zeile redundant)
         for i in 0..m {
@@ -323,8 +335,8 @@ pub fn simplex<T: Real>(
     cost2[..n].copy_from_slice(c);
     tab.set_costs(&cost2);
     match iterate(&mut tab, n + n_slack, tol, opts.max_iter, &mut iters) {
-        Outcome::Unbounded => return Ok(fail(LpStatus::Unbounded, iters)),
-        Outcome::IterationLimit => return Ok(fail(LpStatus::IterationLimit, iters)),
+        Outcome::Unbounded => return Ok((fail(LpStatus::Unbounded, iters), None)),
+        Outcome::IterationLimit => return Ok((fail(LpStatus::IterationLimit, iters), None)),
         Outcome::Optimal => {}
     }
     let mut x = vec![T::ZERO; n];
@@ -334,12 +346,15 @@ pub fn simplex<T: Real>(
         }
     }
     let objective = c.iter().zip(&x).fold(T::ZERO, |s, (ci, xi)| s + *ci * *xi);
-    Ok(LpSolution {
-        status: LpStatus::Optimal,
-        x,
-        objective,
-        iterations: iters,
-    })
+    Ok((
+        LpSolution {
+            status: LpStatus::Optimal,
+            x,
+            objective,
+            iterations: iters,
+        },
+        Some((tab, n + n_slack)),
+    ))
 }
 
 /// Wie [`simplex`], aber mit **Schranken je Variable**: `lᵢ ≤ xᵢ ≤ uᵢ` statt `x ≥ 0`.

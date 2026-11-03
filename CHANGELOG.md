@@ -37,6 +37,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`scalar`:** `complex_schur`, `complex_eigen`, `real_eigen` (Eigenvektoren nichtsymmetrischer Matrizen). **`matfun`:** `care`, `dare` (Riccati).
 - **`fem`:** P1-Elemente 1D/2D (`assemble_1d`, `assemble_2d`, `load_vector_2d`, `apply_dirichlet`, `rectangle_mesh`). **`fvm`:** `rusanov`, `lax_friedrichs`, `fvm_rhs_1d`, `muscl_rhs_1d`, `Boundary`.
 - **`ode`:** `bvp_shooting`, `bvp_trapezoid` (Randwertprobleme), `dae_bdf` (voll implizite DAE, BDF1/2); Feature `alloc`.
+- **`opt`:** `LpWarmStart` (Dual-Simplex, Warmstart), `branch_and_cut` (Gomory-Schnitte, Warmstart der Knoten).
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 
