@@ -7,7 +7,8 @@
 //! | [`gamma_p`], [`gamma_q`] | regularisierte unvollständige Gammafunktionen `P(a, x)` und `Q(a, x) = 1 − P(a, x)` |
 //! | [`erf`], [`erfc`], [`erf_inv`] | Fehlerfunktion, komplementäre Fehlerfunktion, Umkehrfunktion |
 //! | [`normal_cdf`], [`normal_quantile`] | Verteilungsfunktion und Quantilfunktion der Standardnormalverteilung |
-//! | [`bessel_j`] | Besselfunktion erster Art `Jₙ(x)` für ganzzahlige Ordnung |
+//! | [`bessel_j`], [`bessel_i`] | Besselfunktion `Jₙ(x)` und modifizierte Besselfunktion `Iₙ(x)` für ganzzahlige Ordnung |
+//! | [`elliptic_k`], [`elliptic_e`] | vollständige elliptische Integrale erster und zweiter Art |
 //!
 //! Verfahren: Lanczos-Näherung für `ln Γ` (`g = 7`, relativer Fehler etwa `10⁻¹⁵`), Reihe und Kettenbruch (Lentz) für die
 //! unvollständigen Funktionen, `erf = P(½, x²)`, Miller-Rückwärtsrekursion für `Jₙ`. Alle Funktionen sind generisch über
@@ -410,4 +411,77 @@ pub fn bessel_j<T: Real>(n: u32, x: T) -> T {
     sum = T::from_f64(2.0) * sum - bj;
     let r = ans / sum;
     if x < T::ZERO && n % 2 == 1 { -r } else { r }
+}
+
+/// Vollständiges elliptisches Integral erster Art `K(m) = ∫₀^{π/2} dθ/√(1 − m·sin²θ)` mit Parameter `m = k² ∈ [0, 1]`
+/// (arithmetisch-geometrisches Mittel). `m = 1` liefert `+∞`, Werte außerhalb von `[0, 1]` `NaN`.
+pub fn elliptic_k<T: Real>(m: T) -> T {
+    if m.is_nan() || m < T::ZERO || m > T::ONE {
+        return T::NAN;
+    }
+    if m == T::ONE {
+        return T::INFINITY;
+    }
+    let (mut a, mut b) = (T::ONE, (T::ONE - m).sqrt());
+    for _ in 0..60 {
+        if (a - b).abs() <= T::EPSILON * a {
+            break;
+        }
+        let an = (a + b) * T::from_f64(0.5);
+        b = (a * b).sqrt();
+        a = an;
+    }
+    T::PI / (T::from_f64(2.0) * a)
+}
+
+/// Vollständiges elliptisches Integral zweiter Art `E(m) = ∫₀^{π/2} √(1 − m·sin²θ) dθ` mit Parameter `m ∈ [0, 1]`.
+/// Werte außerhalb von `[0, 1]` liefern `NaN`.
+pub fn elliptic_e<T: Real>(m: T) -> T {
+    if m.is_nan() || m < T::ZERO || m > T::ONE {
+        return T::NAN;
+    }
+    if m == T::ONE {
+        return T::ONE;
+    }
+    let half = T::from_f64(0.5);
+    let (mut a, mut b) = (T::ONE, (T::ONE - m).sqrt());
+    // E = K·(1 − Σ 2^(n−1)·cₙ²), c₀² = m
+    let mut sum = half * m;
+    let mut pow2 = half;
+    for _ in 0..60 {
+        if (a - b).abs() <= T::EPSILON * a {
+            break;
+        }
+        let c = (a - b) * half;
+        let an = (a + b) * half;
+        b = (a * b).sqrt();
+        a = an;
+        pow2 = pow2 * T::from_f64(2.0);
+        sum += pow2 * c * c;
+    }
+    let k = T::PI / (T::from_f64(2.0) * a);
+    k * (T::ONE - sum)
+}
+
+/// Modifizierte Besselfunktion erster Art `Iₙ(x)` für ganzzahlige Ordnung `n ≥ 0` (Potenzreihe mit lauter positiven Termen,
+/// daher ohne Auslöschung; Rechenzeit etwa `O(|x|)`; läuft bei `|x|` über etwa 700 in den Überlauf).
+pub fn bessel_i<T: Real>(n: u32, x: T) -> T {
+    if x.is_nan() {
+        return x;
+    }
+    let half_x = x.abs() * T::from_f64(0.5);
+    let q = half_x * half_x;
+    let mut term = T::ONE;
+    for k in 1..=n {
+        term = term * half_x / T::from_f64(k as f64);
+    }
+    let mut sum = term;
+    for k in 1..100_000usize {
+        term = term * q / (T::from_usize(k) * (T::from_usize(k) + T::from_f64(n as f64)));
+        sum += term;
+        if term <= T::EPSILON * sum {
+            break;
+        }
+    }
+    if x < T::ZERO && n % 2 == 1 { -sum } else { sum }
 }

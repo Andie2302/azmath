@@ -1,7 +1,18 @@
-//! Statistik auf Slices: Momente, Kovarianz, Korrelation, Quantile und Monte-Carlo-Integration.
+//! Statistik auf Slices: Momente, Kovarianz, Korrelation, Quantile, Monte-Carlo-Integration, Verteilungen ([`dist`]),
+//! Hypothesentests (t-Test, χ², Kolmogorow-Smirnow) und lineare Regression mit Konfidenzintervallen.
 //!
 //! Leere Eingaben oder zu kurze Stichproben liefern `NaN`. Varianz und Kovarianz sind die **Stichprobenwerte**
 //! (Nenner `n − 1`).
+
+pub mod dist;
+mod hypothesis;
+
+pub use hypothesis::{
+    ChiSquareResult, RegressionResult, TTestResult, chi_square_gof, linear_regression,
+    t_test_one_sample, t_test_welch,
+};
+#[cfg(feature = "alloc")]
+pub use hypothesis::{KsResult, ks_test_one_sample};
 
 use crate::Real;
 use crate::random::Rng;

@@ -30,6 +30,8 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`fdm`:** `fornberg_weights`, `first_derivative_1d`, `second_derivative_1d`, `laplacian_2d`, `heat_rhs_1d`.
 - **`integrate`:** `gauss_rule` (Legendre, Laguerre, Hermite, Jacobi, Tschebyscheff; Golub-Welsch), `tanh_sinh`, `integrate_semi_infinite`, `integrate_infinite`, `tensor_gauss`.
 - **`poly`:** `Polynomial` (Arithmetik, Division, ggT), `polyfit`, `ChebyshevSeries`, `weighted_least_squares`, `ridge`, `nnls` (Feature `alloc`).
+- **`stats`:** `dist` (Normal, Exponential, Gleichverteilung, Gamma, χ², Beta, Student-t, F: pdf/cdf/quantile), `t_test_one_sample`, `t_test_welch`, `chi_square_gof`, `ks_test_one_sample`, `linear_regression` mit Konfidenzintervallen.
+- **`special`:** `elliptic_k`, `elliptic_e`, `bessel_i`.
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 

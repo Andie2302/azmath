@@ -123,12 +123,12 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | ✅ | **`Real` erweitert**: `to_f64`, `is_finite`, `copysign`, `exp_m1`, `ln_1p`, `asinh/acosh/atanh`, `rem_euclid`, `exp2`, `log`, `sin_cos`, `from_usize` | S | – |
 | ✅ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
 | ✅ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Ridders, Gradient, Hessematrix, Jacobi-Matrix) | M | – |
-| ⚠️ | **Spezialfunktionen**: `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`/`erfc`/`erf_inv`, Normalverteilung, unvollständige Gamma-/Beta-Funktion, Bessel `Jₙ` ✅; Bessel `Yₙ`, `Iₙ`, `Kₙ`, elliptische Integrale ⬜ | M–L | `Real` ✅ |
+| ⚠️ | **Spezialfunktionen**: `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`/`erfc`/`erf_inv`, Normalverteilung, unvollständige Gamma-/Beta-Funktion, Bessel `Jₙ` ✅; `Iₙ`, elliptische Integrale ✅; Bessel `Yₙ`, `Kₙ` ⬜ | M–L | `Real` ✅ |
 | ⚠️ | **Dünn besetzte direkte Löser**: LDLᵀ/Cholesky mit RCM ✅; LU und AMD ⬜ | L | Sparse ✅ |
 | ⚠️ | **Skalar-Trait und komplexe lineare Algebra**: `Scalar` + komplexe LU ✅; QR, Cholesky, Eigenwerte, Sparse ⬜ (Entwurf `docs/design/0002`) | L | `Complex` ✅ |
 | ✅ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov (Riccati ⬜) | M | linalg ✅ |
 | ✅ | **Reverse-Mode-Autodiff** (Tape, `alloc`), `gradient_ad` | M–L | `Jet` ✅ |
-| ⚠️ | Zufallszahlen und Statistik (PRNG, Verteilungen, Monte Carlo, Kovarianz) | M | – |
+| ✅ | Zufallszahlen und Statistik (PRNG, Verteilungen, Hypothesentests, Regression, Monte Carlo, Kovarianz) | M | – |
 | ✅ | Mehrdimensionale Integration (Tensor-Kubatur, Monte Carlo), Gauß-Formeln (Legendre, Laguerre, Hermite, Jacobi, Tschebyscheff), Tanh-Sinh, unendliche Intervalle | M | `integrate` ✅ |
 | ✅ | Polynomarithmetik, `polyfit`, Tschebyscheff-Approximation, gewichtete/regularisierte/nichtnegative kleinste Quadrate (beschränktes LS ⬜) | M | QR ✅, SVD ✅ |
 
