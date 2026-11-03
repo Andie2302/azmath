@@ -19,6 +19,7 @@
 //! | [`fft`] | schnelle Fourier-Transformation (beliebige Länge) |
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
 //! | `opt` | lineare Programme (Simplex), später QP/NLP/MILP (Feature `alloc`) |
+//! | [`special`] | Gamma-, Beta-, Fehlerfunktion, unvollständige Funktionen, Besselfunktionen |
 //! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
 
 #![no_std]
@@ -48,4 +49,5 @@ pub mod opt;
 pub mod optimize;
 pub mod roots;
 pub mod sparse;
+pub mod special;
 pub use complex::*;

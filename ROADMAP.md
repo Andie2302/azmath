@@ -123,7 +123,7 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | ✅ | **`Real` erweitert**: `to_f64`, `is_finite`, `copysign`, `exp_m1`, `ln_1p`, `asinh/acosh/atanh`, `rem_euclid`, `exp2`, `log`, `sin_cos`, `from_usize` | S | – |
 | ✅ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
 | ✅ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Ridders, Gradient, Hessematrix, Jacobi-Matrix) | M | – |
-| ⬜ | **Spezialfunktionen** (`gamma`, `ln_gamma`, `erf`/`erfc`, Bessel, unvollständige Gamma-/Beta-Funktion) | M–L | `Real` ✅ |
+| ⚠️ | **Spezialfunktionen**: `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`/`erfc`/`erf_inv`, Normalverteilung, unvollständige Gamma-/Beta-Funktion, Bessel `Jₙ` ✅; Bessel `Yₙ`, `Iₙ`, `Kₙ`, elliptische Integrale ⬜ | M–L | `Real` ✅ |
 | ⬜ | **Dünn besetzte direkte Löser** (Cholesky/LU/LDLᵀ, Umordnung RCM/AMD) | L | Sparse ✅ |
 | ⬜ | **Skalar-Trait und komplexe lineare Algebra** (komplexe LU/QR/Eigenwerte); zuvor Entwurf `docs/design/0002` | L | `Complex` ✅ |
 | ⬜ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov/Riccati | M | linalg ✅ |
