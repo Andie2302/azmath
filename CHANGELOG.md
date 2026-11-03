@@ -23,6 +23,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`fft`:** FFT beliebiger Länge (Radix-2 und Bluestein), reelle FFT, Faltung, `fft_freq`.
 - **`scalar`:** `Scalar`-Trait (f32, f64, `Complex`), `ScalarLu` (LU mit Teilpivotisierung, reell und komplex).
 - **`matfun`:** `expm` (Padé 13), `sqrtm` (Denman-Beavers), `logm`, `powm`, `sylvester`, `lyapunov` (Feature `alloc`).
+- **`autodiff`:** Rückwärtsmodus (`Tape`, `Var`, `gradient_ad`, Feature `alloc`).
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 

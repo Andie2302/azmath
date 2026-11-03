@@ -2,6 +2,7 @@
 //!
 //! * [`Jet`]: Wert plus Gradient fester Größe `N` auf dem Stack; erfüllt [`Real`], läuft also durch jeden
 //!   generischen Code.
+//! * `Tape`, `Var`, `gradient_ad` (Feature `alloc`): Rückwärtsmodus, Gradient mit einem Rückwärtsdurchlauf.
 //! * [`VectorFn`]: vektorwertige Funktion, generisch über den Zahlentyp (`f64` oder `Jet`).
 //! * [`jacobian_ad`], [`hessian_ad`]: Adapter, die die unveränderten Löser aus [`optimize`](crate::optimize) mit
 //!   exakten Ableitungen versorgen (Entwurf 0001, D1–D4).
@@ -31,6 +32,11 @@
 //! ```
 
 #![allow(clippy::needless_range_loop)] // parallele Gradientfelder: Indexschleifen sind hier klarer
+
+#[cfg(feature = "alloc")]
+mod reverse;
+#[cfg(feature = "alloc")]
+pub use reverse::{Tape, Var, gradient_ad};
 
 use crate::Real;
 use core::cmp::Ordering;
