@@ -20,6 +20,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Nichtlineare Systeme (Vertrauensbereich) | Powell-Dogleg (Newton-/Cauchy-Schritt), robust bei schlechtem Startwert und singulärer Jacobi-Matrix |
 | Nichtlineare Systeme (quasi-Newton) | Broyden (inverse Rang-1-Updates, Jacobi-Matrix nur am Start) |
 | Nichtsymmetrische Eigenwerte | `Matrix::eigenvalues` (Balancieren, Hessenberg, QR mit Doppelshift), `hessenberg_form`, Polynom-Nullstellen über die Begleitmatrix |
+| Ganzzahlige Programme | `opt::branch_and_bound`: MILP über Simplex-Relaxationen, Best-First oder Depth-First, Binär-/Ganzzahlvariablen (hinter `alloc`) |
 | Nichtlineare Programme | `opt::sqp`: SQP mit gedämpftem BFGS, ℓ₁-Merit-Funktion und Armijo-Backtracking; Ableitungen per Closure oder `jacobian_ad` |
 | Quadratische Programme | `opt::interior_point_qp` (konvexes QP mit Gleichungen und Ungleichungen), `interior_point_lp` (Mehrotra-Prädiktor-Korrektor, hinter `alloc`) |
 | Lineare Programme | `opt::simplex`: Zwei-Phasen-Simplex mit `≤`, `=`, `≥`, Bland-Schutz gegen Zyklen (hinter `alloc`) |
@@ -100,7 +101,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **QP** konvex, dicht (`interior_point_qp`, Mehrotra) – Baustein für SQP | L | Simplex/Innere-Punkte, KKT-Löser |
 | ⚠️ | **NLP: SQP** ✅ (BFGS, ℓ₁-Merit, QP über Innere Punkte; ohne Wiederherstellungsphase und Maratos-Korrektur) | XL | QP, Linesearch, **Autodiff (Hessians)**, BFGS |
 | ⬜ | **NLP: Innere-Punkte (IPOPT-artig)** | XL | Sparse LDLᵀ, Filter-Linesearch, Autodiff |
-| ⬜ | **MILP: Branch-and-Bound**, dann **Branch-and-Cut** | L–XL | Simplex (Warmstart), `alloc` |
+| ⚠️ | **MILP: Branch-and-Bound** ✅ (`branch_and_bound`, ohne Warmstart); Branch-and-Cut ⬜ | L–XL | Simplex (Warmstart), `alloc` |
 
 ### G. Geometrie und Rotationen
 | | Eintrag | Aufwand | Hängt ab von |
