@@ -89,8 +89,8 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 |---|---|---|---|
 | ⚠️ | **FDM** – Fornberg-Gewichte, 1D-/2D-Operatoren, Linienmethode (`fdm`) ✅; fehlt: Zeitschritte für Wellen/Advektion, allgemeine Randbedingungen, Gittergerüst | L | Multigrid ✅, ODE ✅ |
 | ⬜ | Multigrid erweitern: **Neumann/periodische Ränder**, variable Koeffizienten, anisotrop, 3D | M | Multigrid ✅ |
-| ⬜ | **FEM** (1D/2D, Dreiecke, Assemblierung, Dirichlet/Neumann) | XL | Sparse, Cholesky/CG ✅, `alloc` |
-| ⬜ | **FVM** (Erhaltungsgleichungen, Flussfunktionen, Riemann-Löser) | XL | Gitter, ODE-Zeitschritte |
+| ⚠️ | **FEM**: P1 in 1D/2D, Assemblierung, Dirichlet ✅; höhere Ordnung, Neumann/Robin, 3D ⬜ | L | `sparse` ✅ |
+| ⚠️ | **FVM**: 1D-Erhaltungsgleichungen (Rusanov, MUSCL) ✅; 2D/unstrukturiert ⬜ | L | `ode` ✅ |
 
 ### F. Optimierung
 | | Eintrag | Aufwand | Hängt ab von |

@@ -17,6 +17,8 @@
 //! | [`complex`] | komplexe Zahlen `Complex<T>` |
 //! | [`diff`] | numerisches Differenzieren (Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix) |
 //! | [`fdm`] | Finite Differenzen: Fornberg-Gewichte, Ableitungs-/Laplace-Operatoren, Linienmethode |
+//! | `fem` | Finite Elemente: P1 in 1D/2D, Assemblierung, Dirichlet-Ränder (Feature `alloc`) |
+//! | [`fvm`] | Finite Volumen für 1D-Erhaltungsgleichungen: Rusanov, MUSCL |
 //! | [`fft`] | schnelle Fourier-Transformation (beliebige Länge) |
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
 //! | `opt` | lineare Programme (Simplex), später QP/NLP/MILP (Feature `alloc`) |
@@ -44,7 +46,10 @@ pub mod autodiff;
 pub mod complex;
 pub mod diff;
 pub mod fdm;
+#[cfg(feature = "alloc")]
+pub mod fem;
 pub mod fft;
+pub mod fvm;
 pub mod geometry;
 pub mod integrate;
 pub mod interp;
