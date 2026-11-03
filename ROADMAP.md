@@ -126,7 +126,7 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | ⚠️ | **Spezialfunktionen**: `gamma`, `ln_gamma`, `digamma`, `beta`, `erf`/`erfc`/`erf_inv`, Normalverteilung, unvollständige Gamma-/Beta-Funktion, Bessel `Jₙ` ✅; Bessel `Yₙ`, `Iₙ`, `Kₙ`, elliptische Integrale ⬜ | M–L | `Real` ✅ |
 | ⚠️ | **Dünn besetzte direkte Löser**: LDLᵀ/Cholesky mit RCM ✅; LU und AMD ⬜ | L | Sparse ✅ |
 | ⚠️ | **Skalar-Trait und komplexe lineare Algebra**: `Scalar` + komplexe LU ✅; QR, Cholesky, Eigenwerte, Sparse ⬜ (Entwurf `docs/design/0002`) | L | `Complex` ✅ |
-| ⬜ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov/Riccati | M | linalg ✅ |
+| ✅ | Matrixfunktionen (`expm`, `sqrtm`, `logm`), Sylvester/Lyapunov (Riccati ⬜) | M | linalg ✅ |
 | ⬜ | **Reverse-Mode-Autodiff** (Tape, `alloc`), `gradient_ad` | M–L | `Jet` ✅ |
 | ⬜ | Zufallszahlen und Statistik (PRNG, Verteilungen, Monte Carlo, Kovarianz) | M | – |
 | ⬜ | Mehrdimensionale Integration (Kubatur), weitere Gauß-Formeln (Hermite, Laguerre, Jacobi), Singularitäten/unendliche Intervalle | M | `integrate` ✅ |
