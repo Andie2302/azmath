@@ -44,3 +44,4 @@ pub mod opt;
 pub mod optimize;
 pub mod roots;
 pub mod sparse;
+pub use complex::*;

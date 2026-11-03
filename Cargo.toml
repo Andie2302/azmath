@@ -1,7 +1,7 @@
 [package]
 name = "azmath"
 description = "Ein generisches Real-Trait für f32 und f64 mit austauschbarem Backend (std, libm, micromath) und numerische Verfahren für no_std"
-version = "0.8.0"
+version = "0.0.1"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
