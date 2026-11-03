@@ -118,7 +118,9 @@ fn find_root<T: Real>(
         p.iter().fold(T::ZERO, |acc, c| acc * r + c.abs())
     };
     let deg_pi = T::PI / T::from_f64(180.0);
-    for attempt in 0..20 {
+    // Annahmeschwelle: Auswertungsfehler des Horner-Schemas ist etwa 2·m·ε·Σ|pₖ||s|ᵏ
+    let accept = opts.tol.max(T::from_f64(4.0 * m as f64) * T::EPSILON);
+    for attempt in 0..6 {
         // H₀ = P′
         for k in 0..m {
             h[k] = p[k].scale(deg(k));
@@ -148,33 +150,75 @@ fn find_root<T: Real>(
         };
         let Some(first) = step(h, s) else { continue };
         s = first;
-        let mut hits = 0;
         for _ in 0..opts.max_iter.min(60) {
             *iterations += 1;
             let ps = horner(p, s);
             if !ps.is_finite() {
                 break;
             }
-            if ps.abs() <= opts.tol * magnitude(s) {
+            if ps.abs() <= accept * magnitude(s) {
                 return Ok(s);
             }
             if !h_step(p, h, n, Some(s)) {
                 return Ok(s);
             }
             let Some(next) = step(h, s) else { break };
-            if (next - s).abs() <= opts.tol * s.abs().max(T::MIN_POSITIVE) {
-                hits += 1;
-                if hits >= 2 {
-                    return Ok(next);
-                }
-            } else {
-                hits = 0;
-            }
             s = next;
             if !s.is_finite() {
                 break;
             }
         }
+    }
+    // Rückfall: Laguerre-Iteration von 0 aus (sehr robust, wenn die Shift-Folge nicht konvergiert)
+    laguerre(p, iterations)
+}
+
+/// Laguerre-Verfahren für eine Nullstelle von `p` (absteigende Koeffizienten, Grad `m ≥ 2`), Start bei 0.
+fn laguerre<T: Real>(p: &[C<T>], iterations: &mut usize) -> Result<C<T>, RootError> {
+    let m = p.len() - 1;
+    let m_t = T::from_f64(m as f64);
+    let frac = [0.0, 0.5, 0.25, 0.75, 0.13, 0.38, 0.62, 0.88, 1.0];
+    let mut x = C::ZERO;
+    for iter in 1..=80usize {
+        *iterations += 1;
+        let mut b = p[0];
+        let mut err = b.abs();
+        let (mut d, mut f) = (C::ZERO, C::ZERO);
+        let abx = x.abs();
+        for j in 1..=m {
+            f = x * f + d;
+            d = x * d + b;
+            b = x * b + p[j];
+            err = b.abs() + abx * err;
+        }
+        err *= T::EPSILON;
+        if b.abs() <= err {
+            return Ok(x);
+        }
+        let g = d / b;
+        let g2 = g * g;
+        let h = g2 - (f / b).scale(T::from_f64(2.0));
+        let sq = (((h.scale(m_t)) - g2).scale(m_t - T::ONE)).sqrt();
+        let gp = g + sq;
+        let gm = g - sq;
+        let denom = if gp.abs() < gm.abs() { gm } else { gp };
+        let dx = if denom.abs() > T::ZERO {
+            C::from_real(m_t) / denom
+        } else {
+            C::from_polar(T::ONE + abx, T::from_f64(iter as f64))
+        };
+        let x1 = x - dx;
+        if !x1.is_finite() {
+            return Err(RootError::NoConvergence);
+        }
+        if x1.re == x.re && x1.im == x.im {
+            return Ok(x);
+        }
+        x = if iter % 10 != 0 {
+            x1
+        } else {
+            x - dx.scale(T::from_f64(frac[(iter / 10).min(8)]))
+        };
     }
     Err(RootError::NoConvergence)
 }
@@ -244,8 +288,8 @@ fn solve<T: Real>(
                 break;
             }
             let delta = pz / dp;
-            if !delta.is_finite() {
-                break;
+            if !delta.is_finite() || delta.abs() > T::from_f64(0.5) * r.abs().max(T::MIN_POSITIVE) {
+                break; // mehrfache Nullstelle oder schlechte Näherung: nicht nachpolieren
             }
             *r -= delta;
             result.last_correction = result
@@ -269,7 +313,7 @@ fn solve<T: Real>(
 ///   Schritte der letzten Stufe je Versuch.
 ///
 /// Dies ist eine vereinfachte Fassung des Originalalgorithmus (kein Zertifikat für die Konvergenz der Stufe 2, Versuche
-/// mit gedrehtem Shift bis zu 20 Mal); bei Misserfolg [`RootError::NoConvergence`].
+/// mit gedrehtem Shift bis zu 6 Mal, danach ein Rückfall auf das Laguerre-Verfahren); bei Misserfolg [`RootError::NoConvergence`].
 ///
 /// Fehler: [`RootError::InvalidInput`], [`RootError::NotFinite`], [`RootError::NoConvergence`].
 ///

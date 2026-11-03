@@ -37,7 +37,7 @@ fn simple_polynomials() {
     assert_same_roots(&z, &[c(0.0, 1.0), c(0.0, -1.0)], 1e-13);
     // (x − 1)(x − 2)(x − 3)(x + 4)
     let mut z = [C::ZERO; 4];
-    companion_roots(&[24.0, -14.0, -13.0, 2.0, 1.0], &mut z, &mut work).unwrap();
+    companion_roots(&[-24.0, 38.0, -13.0, -2.0, 1.0], &mut z, &mut work).unwrap();
     assert_same_roots(
         &z,
         &[c(1.0, 0.0), c(2.0, 0.0), c(3.0, 0.0), c(-4.0, 0.0)],
