@@ -35,6 +35,8 @@ mod csr;
 mod direct;
 mod error;
 #[cfg(feature = "alloc")]
+mod lu;
+#[cfg(feature = "alloc")]
 mod precond;
 mod view;
 
@@ -45,8 +47,12 @@ pub use coo::CooMatrix;
 #[cfg(feature = "alloc")]
 pub use csr::CsrMatrix;
 #[cfg(feature = "alloc")]
-pub use direct::{Ordering, SparseCholesky, SparseLdl, permute_symmetric, rcm_ordering};
+pub use direct::{
+    Ordering, SparseCholesky, SparseLdl, minimum_degree_ordering, permute_symmetric, rcm_ordering,
+};
 pub use error::SparseError;
+#[cfg(feature = "alloc")]
+pub use lu::SparseLu;
 #[cfg(feature = "alloc")]
 pub use precond::{Ic0, Ilu0, Ssor};
 pub use view::CsrView;

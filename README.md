@@ -27,7 +27,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::random`, `azmath::stats` | PCG32/xoshiro256++, Verteilungen; Momente, Kovarianz, Quantile, Monte-Carlo-Integration |
 | `azmath::fdm` | Finite Differenzen: Fornberg-Gewichte, Ableitungs- und Laplace-Operatoren, Linienmethode |
 | `azmath::poly` | Polynome, `polyfit`, Tschebyscheff-Reihen, gewichtete/Ridge/nichtnegative kleinste Quadrate (`alloc`) |
-| `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky mit RCM-Umordnung (`SparseLdl`, `SparseCholesky`) |
+| `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky/LU (`SparseLdl`, `SparseCholesky`, `SparseLu`) mit RCM- und Minimum-Degree-Umordnung |
 | `azmath::diff` | numerisches Differenzieren: Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix |
 | `azmath::special` | Gamma-, Beta-, Fehlerfunktion, unvollständige Gamma-/Beta-Funktion, Besselfunktion `Jₙ` |
 | `azmath::fft` | schnelle Fourier-Transformation für beliebige Längen (Radix-2, Bluestein), reelle FFT, Faltung |

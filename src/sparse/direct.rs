@@ -15,6 +15,8 @@ pub enum Ordering {
     Natural,
     /// Reverse Cuthill-McKee: verkleinert die Bandbreite; gut für gitterartige Matrizen.
     ReverseCuthillMcKee,
+    /// Minimum Degree (exakter Grad auf dem Eliminationsgraphen): wenig Auffüllung auch bei unregelmäßigen Strukturen.
+    MinimumDegree,
 }
 
 /// Reverse-Cuthill-McKee-Ordnung der (strukturell symmetrischen) Matrix `a`: `perm[neu] = alt`. Jede Zusammenhangskomponente
@@ -62,6 +64,47 @@ pub fn rcm_ordering<T: Real>(a: &CsrMatrix<T>) -> Vec<usize> {
         }
     }
     order.reverse();
+    order
+}
+
+/// Minimum-Degree-Ordnung der Matrix `a` (Muster von `A + Aᵀ`): in jedem Schritt wird der Knoten mit dem kleinsten Grad im
+/// Eliminationsgraphen eliminiert und seine Nachbarn zu einer Clique verbunden. `perm[neu] = alt`. Aufwand etwa `O(n² + Fill)`,
+/// gedacht für Matrizen bis zu einigen zehntausend Unbekannten.
+pub fn minimum_degree_ordering<T: Real>(a: &CsrMatrix<T>) -> Vec<usize> {
+    use alloc::collections::BTreeSet;
+    let n = a.rows();
+    let mut adj: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); n];
+    for i in 0..n {
+        for (j, _) in a.row(i) {
+            if i != j {
+                adj[i].insert(j);
+                adj[j].insert(i);
+            }
+        }
+    }
+    let mut done = vec![false; n];
+    let mut order = Vec::with_capacity(n);
+    for _ in 0..n {
+        let mut best = usize::MAX;
+        for v in 0..n {
+            if !done[v] && (best == usize::MAX || adj[v].len() < adj[best].len()) {
+                best = v;
+            }
+        }
+        let nbrs: Vec<usize> = adj[best].iter().copied().collect();
+        for &u in &nbrs {
+            adj[u].remove(&best);
+        }
+        for (x, &u) in nbrs.iter().enumerate() {
+            for &w in &nbrs[x + 1..] {
+                adj[u].insert(w);
+                adj[w].insert(u);
+            }
+        }
+        adj[best].clear();
+        done[best] = true;
+        order.push(best);
+    }
     order
 }
 
@@ -185,6 +228,7 @@ impl<T: Real> SparseLdl<T> {
         let perm: Vec<usize> = match ordering {
             Ordering::Natural => (0..n).collect(),
             Ordering::ReverseCuthillMcKee => rcm_ordering(a),
+            Ordering::MinimumDegree => minimum_degree_ordering(a),
         };
         let permuted;
         let c: &CsrMatrix<T> = if ordering == Ordering::Natural {
