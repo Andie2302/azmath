@@ -6,6 +6,7 @@
 //! |---|---|
 //! | [`simplex`] | `min cᵀx` unter `A·x ≤ / = / ≥ b`, `x ≥ 0` (Zwei-Phasen-Simplex, dichtes Tableau) |
 //! | [`interior_point_qp`] | konvexes QP `min ½xᵀQx + cᵀx` unter `A·x = b`, `G·x ≤ h` (primal-duales Innere-Punkte-Verfahren) |
+//! | [`sqp`] | nichtlineares Programm `min f(x)`, `c(x) = 0`, `c(x) ≤ 0` (SQP mit BFGS und ℓ₁-Merit-Funktion) |
 //! | [`interior_point_lp`] | LP `min cᵀx`, `A·x = b`, `x ≥ 0` per Innere-Punkte-Verfahren |
 //!
 //! Die Minimierung ohne Nebenbedingungen (BFGS, L-BFGS, Newton, Levenberg-Marquardt) steht in
@@ -13,9 +14,11 @@
 
 mod qp;
 mod simplex;
+mod sqp;
 
 pub use qp::{QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp};
 pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex};
+pub use sqp::{SqpOptions, SqpResult, SqpStatus, sqp};
 
 use core::fmt;
 
