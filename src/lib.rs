@@ -22,6 +22,8 @@
 //! | [`special`] | Gamma-, Beta-, Fehlerfunktion, unvollständige Funktionen, Besselfunktionen |
 //! | [`scalar`] | `Scalar`-Trait (reell/komplex), LU für beliebige `Scalar` |
 //! | `matfun` | Matrixfunktionen: `expm`, `sqrtm`, `logm`, `powm`, Sylvester/Lyapunov (Feature `alloc`) |
+//! | [`random`] | Zufallszahlen (PCG32, xoshiro256++), Verteilungen |
+//! | [`stats`] | Mittelwert, Varianz, Kovarianz, Quantile, Monte-Carlo-Integration |
 //! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
 
 #![no_std]
@@ -51,8 +53,10 @@ pub mod ode;
 #[cfg(feature = "alloc")]
 pub mod opt;
 pub mod optimize;
+pub mod random;
 pub mod roots;
 pub mod scalar;
 pub mod sparse;
 pub mod special;
+pub mod stats;
 pub use complex::*;

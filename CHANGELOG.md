@@ -24,6 +24,8 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`scalar`:** `Scalar`-Trait (f32, f64, `Complex`), `ScalarLu` (LU mit Teilpivotisierung, reell und komplex).
 - **`matfun`:** `expm` (Padé 13), `sqrtm` (Denman-Beavers), `logm`, `powm`, `sylvester`, `lyapunov` (Feature `alloc`).
 - **`autodiff`:** Rückwärtsmodus (`Tape`, `Var`, `gradient_ad`, Feature `alloc`).
+- **`random`:** `Pcg32`, `Xoshiro256pp`, `Rng` (gleichverteilt, normal, exponential, `below`, `shuffle`).
+- **`stats`:** `mean`, `variance`, `std_dev`, `covariance`, `correlation`, Quantile, Median, `mc_integrate`.
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 
