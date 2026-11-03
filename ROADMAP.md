@@ -100,7 +100,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **QP** konvex, dicht (`interior_point_qp`, Mehrotra) – Baustein für SQP | L | Simplex/Innere-Punkte, KKT-Löser |
 | ⚠️ | **NLP: SQP** ✅ (BFGS, ℓ₁-Merit, QP über Innere Punkte; ohne Wiederherstellungsphase und Maratos-Korrektur) | XL | QP, Linesearch, **Autodiff (Hessians)**, BFGS |
 | ⚠️ | **NLP: Innere-Punkte** ✅ (`interior_point_nlp`, exakte Hessematrix, ℓ₁-Merit statt Filter, ohne Wiederherstellungsphase) | XL | Sparse LDLᵀ, Filter-Linesearch, Autodiff |
-| ⚠️ | **MILP: Branch-and-Bound** ✅ (`branch_and_bound`, ohne Warmstart); Branch-and-Cut ⬜ | L–XL | Simplex (Warmstart), `alloc` |
+| ✅ | **MILP: Branch-and-Bound** (`branch_and_bound`) und **Branch-and-Cut** mit Gomory-Schnitten und Warmstart (`branch_and_cut`) | L–XL | Simplex (Warmstart), `alloc` |
 
 ### G. Geometrie und Rotationen
 | | Eintrag | Aufwand | Hängt ab von |
