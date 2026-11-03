@@ -13,7 +13,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | Modul | Inhalt |
 |---|---|
 | `azmath::Real` | `Real`-Trait, Backends (`std`, `libm`, `micromath`) |
-| `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal, Matrixnormen, Äquilibrierung, Orthonormalisierung, Polarzerlegung, Gauß-Elimination |
+| `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal, nichtsymmetrische Eigenwerte, Matrixnormen, Äquilibrierung, Orthonormalisierung, Polarzerlegung, Gauß-Elimination |
 | `azmath::roots` | Nullstellen in einer Veränderlichen |
 | `azmath::integrate` | numerische Integration |
 | `azmath::interp` | Interpolation, Splines |
@@ -172,7 +172,8 @@ Allokator.
 | `bisection` | Intervall mit Vorzeichenwechsel | langsam, aber absolut sicher |
 | `regula_falsi` | Intervall mit Vorzeichenwechsel | Einschluss, aber oft einseitig langsam |
 | `illinois` | Intervall mit Vorzeichenwechsel | Regula Falsi ohne Stagnation, Ordnung ≈ 1,44 |
-| `aberth`, `durand_kerner` | Polynom-Koeffizienten (reell oder komplex) | **alle** komplexen Nullstellen gleichzeitig |
+| `aberth`, `durand_kerner`, `jenkins_traub` | Polynom-Koeffizienten (reell oder komplex) | **alle** komplexen Nullstellen |
+| `companion_roots` | Polynom-Koeffizienten (reell) | alle Nullstellen als Eigenwerte der Begleitmatrix |
 | `newton` | Funktion, Ableitung, Startwert | quadratisch konvergent, kann divergieren |
 | `secant` | zwei Startwerte | ohne Ableitung, überlinear konvergent |
 

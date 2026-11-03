@@ -16,7 +16,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Grundlage | `Real` für `f32`/`f64` mit den Backends `std`, `libm`, `micromath`; `no_std`, optional `alloc` |
 | Lineare Algebra, direkt | LU (Pivot), Gauß-Elimination (`gauss_solve`, `rank`, `row_echelon`), Cholesky, QR (Householder), Dreieckslöser, Tridiagonal (Thomas, zyklisch), SVD, symmetrische Eigenwerte (Jacobi) |
 | Lineare Algebra, iterativ | CG, BiCGSTAB, GMRES(m), Jacobi-Vorkonditionierer, Potenzmethode, inverse Iteration |
-| Nullstellen (1D) | Bisektion, Brent, Newton, Sekante, Regula Falsi, Illinois; Polynome: Aberth-Ehrlich, Durand-Kerner (komplex) |
+| Nullstellen (1D) | Bisektion, Brent, Newton, Sekante, Regula Falsi, Illinois; Polynome: Aberth-Ehrlich, Durand-Kerner, Jenkins-Traub, Begleitmatrix (komplex) |
 | Nichtlineare Systeme (Vertrauensbereich) | Powell-Dogleg (Newton-/Cauchy-Schritt), robust bei schlechtem Startwert und singulärer Jacobi-Matrix |
 | Nichtlineare Systeme (quasi-Newton) | Broyden (inverse Rang-1-Updates, Jacobi-Matrix nur am Start) |
 | Nichtsymmetrische Eigenwerte | `Matrix::eigenvalues` (Balancieren, Hessenberg, QR mit Doppelshift), `hessenberg_form`, Polynom-Nullstellen über die Begleitmatrix |
@@ -65,7 +65,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **Regula Falsi** (+ Illinois-Variante) | S | – |
 | ✅ | **Quasi-Newton: BFGS**, **L-BFGS**, **Broyden** (Jacobi-Update) | M | Linesearch ✅, optional Autodiff |
 | ⚠️ | **Gedämpftes Newton** – grundlegend vorhanden (Schrittweiten-Halbierung); starke Wolfe-Linesearch ✅ (`line_search_wolfe`, für Minimierung); Trust-Region ✅ (`dogleg`, Powell, für Gleichungssysteme); fehlen: Trust-Region für Minimierung, Jacobi-Wiederverwendung | M | Autodiff (für exakte Jacobi) |
-| ⚠️ | **Polynom-Nullstellen**: Durand-Kerner ✅, Aberth-Ehrlich ✅, Begleitmatrix ✅, Jenkins-Traub ⬜ | M–L | `Complex`; Begleitmatrix zusätzlich nichtsymmetrische Eigenwerte |
+| ⚠️ | **Polynom-Nullstellen**: Durand-Kerner ✅, Aberth-Ehrlich ✅, Begleitmatrix ✅, Jenkins-Traub ✅ (vereinfachte CPOLY-Fassung) | M–L | `Complex`; Begleitmatrix zusätzlich nichtsymmetrische Eigenwerte |
 | ⬜ | Minimierer ohne Ableitung (Golden Section, Nelder-Mead) | S–M | – |
 
 ### D. Differentialgleichungen
@@ -220,7 +220,7 @@ Interne Rechenkerne (z. B. `linalg::kernel`) sind `pub(crate)`.
 | **3** | Nichtlinear ausbauen: ~~BFGS/L-BFGS~~ ✅, ~~Broyden~~ ✅, ~~Linesearch~~ ✅, ~~Trust-Region (Dogleg)~~ ✅, ~~**Polynom-Nullstellen** (Durand-Kerner, Aberth)~~ ✅ | ✅ |
 | **4** | Sparse/Band ✅, Links-Vorkonditionierer/ILU ✅, Lanczos/Arnoldi ✅ (Teile ohne Tests) | ✅ |
 | **5** | Steife ODE: Adams-Bashforth ✅, **BDF** ⚠️ (fest), **Radau IIA** ⚠️ (fest), **Rodas** ⚠️ (ROS2), Ereignissuche ✅ (RK4) | ⚠️ |
-| **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus), Begleitmatrix, Jenkins-Traub | ⬜ |
+| **6** | Nichtsymmetrische Eigenwerte (QR-Algorithmus) ✅ (nur Eigenwerte), Begleitmatrix ✅, Jenkins-Traub ✅ (vereinfacht) | ✅ |
 | **7** | Optimierung: Simplex → Innere-Punkte → QP → SQP → IPOPT-artig → Branch-and-Bound/-Cut | ⬜ |
 | **8** | **IAPWS-IF97** (Regionen 1–5), danach **IAPWS-95** mit `Jet` | ⬜ |
 | **9** | PDE: Multigrid mit Neumann-Rand → FDM-Gerüst → **Navier-Stokes 2D inkompressibel** (Projektionsverfahren/SIMPLE, Druck per Multigrid); FEM; FVM; SPH | ⬜ |
