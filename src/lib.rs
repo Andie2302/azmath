@@ -15,6 +15,7 @@
 //! | [`multigrid`] | Multigrid für Poisson |
 //! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
 //! | [`complex`] | komplexe Zahlen `Complex<T>` |
+//! | [`fft`] | schnelle Fourier-Transformation (beliebige Länge) |
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
 //! | `opt` | lineare Programme (Simplex), später QP/NLP/MILP (Feature `alloc`) |
 //! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
@@ -33,6 +34,7 @@ pub use real::*;
 
 pub mod autodiff;
 pub mod complex;
+pub mod fft;
 pub mod geometry;
 pub mod integrate;
 pub mod interp;

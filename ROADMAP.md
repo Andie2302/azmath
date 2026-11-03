@@ -121,7 +121,7 @@ azmath aufbauen (siehe Abschnitt J). Damit sie das können, braucht azmath allge
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
 | ✅ | **`Real` erweitert**: `to_f64`, `is_finite`, `copysign`, `exp_m1`, `ln_1p`, `asinh/acosh/atanh`, `rem_euclid`, `exp2`, `log`, `sin_cos`, `from_usize` | S | – |
-| ⬜ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
+| ✅ | **FFT** (Radix-2, Bluestein für beliebige Länge, reelle FFT, Faltung) | M | `Complex` ✅ |
 | ⬜ | **Ableitungsfreie Minimierer** (Goldener Schnitt, Brent-Minimierung 1D, Nelder-Mead) und **numerisches Differenzieren** (Stencils, Richardson) | M | – |
 | ⬜ | **Spezialfunktionen** (`gamma`, `ln_gamma`, `erf`/`erfc`, Bessel, unvollständige Gamma-/Beta-Funktion) | M–L | `Real` ✅ |
 | ⬜ | **Dünn besetzte direkte Löser** (Cholesky/LU/LDLᵀ, Umordnung RCM/AMD) | L | Sparse ✅ |

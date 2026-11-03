@@ -17,6 +17,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`optimize`:** BFGS, L-BFGS, Wolfe-Schrittweitensuche, Broyden, Dogleg.
 - **`ode`:** Adams-Bashforth-Moulton, BDF 1–5, Radau IIA, ROS2, Hermite-Ausgabe, Ereignissuche (RK4).
 - **`opt`:** Simplex (mit Variablenschranken), Innere-Punkte-LP/QP, SQP, Innere-Punkte-NLP, Branch-and-Bound.
+- **`fft`:** FFT beliebiger Länge (Radix-2 und Bluestein), reelle FFT, Faltung, `fft_freq`.
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 
