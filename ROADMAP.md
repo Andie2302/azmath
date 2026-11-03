@@ -20,6 +20,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | Nichtlineare Systeme (Vertrauensbereich) | Powell-Dogleg (Newton-/Cauchy-Schritt), robust bei schlechtem Startwert und singulärer Jacobi-Matrix |
 | Nichtlineare Systeme (quasi-Newton) | Broyden (inverse Rang-1-Updates, Jacobi-Matrix nur am Start) |
 | Nichtsymmetrische Eigenwerte | `Matrix::eigenvalues` (Balancieren, Hessenberg, QR mit Doppelshift), `hessenberg_form`, Polynom-Nullstellen über die Begleitmatrix |
+| Lineare Programme | `opt::simplex`: Zwei-Phasen-Simplex mit `≤`, `=`, `≥`, Bland-Schutz gegen Zyklen (hinter `alloc`) |
 | Minimierung | BFGS, L-BFGS (Zweischleifen-Rekursion), starke Wolfe-Schrittweitensuche |
 | Nichtlinear (mehrdimensional) | Newton-System mit Schrittweitensteuerung (gedämpft), Gauß-Newton, Levenberg-Marquardt |
 | Integration | Trapez, Simpson, Gauß-Legendre, adaptives Gauß-Kronrod, Messdaten |
@@ -92,7 +93,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 ### F. Optimierung
 | | Eintrag | Aufwand | Hängt ab von |
 |---|---|---|---|
-| ⬜ | **LP: Simplex** (primal/dual, Beschränkungen) | M–L | LU ✅ |
+| ⚠️ | **LP: Simplex** (Zwei-Phasen, dichtes Tableau, Bland-Schutz) ✅; Variablenschranken, Dual-Simplex, Warmstart ⬜ | M–L | LU ✅ |
 | ⬜ | **LP: Innere-Punkte (Primal-Dual)** | L | Cholesky/LDLᵀ, Sparse |
 | ⬜ | **QP** (Baustein für SQP) | L | Simplex/Innere-Punkte, KKT-Löser |
 | ⬜ | **NLP: SQP** | XL | QP, Linesearch, **Autodiff (Hessians)**, BFGS |

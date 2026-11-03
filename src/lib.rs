@@ -16,6 +16,7 @@
 //! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
 //! | [`complex`] | komplexe Zahlen `Complex<T>` |
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
+//! | `opt` | lineare Programme (Simplex), später QP/NLP/MILP (Feature `alloc`) |
 //! | [`sparse`] | dünn besetzte Matrizen (CSR, COO) |
 
 #![no_std]
@@ -38,6 +39,8 @@ pub mod interp;
 pub mod linalg;
 pub mod multigrid;
 pub mod ode;
+#[cfg(feature = "alloc")]
+pub mod opt;
 pub mod optimize;
 pub mod roots;
 pub mod sparse;
