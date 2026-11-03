@@ -16,6 +16,7 @@
 //! | [`autodiff`] | Automatisches Differenzieren (`Jet`) |
 //! | [`complex`] | komplexe Zahlen `Complex<T>` |
 //! | [`diff`] | numerisches Differenzieren (Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix) |
+//! | [`fdm`] | Finite Differenzen: Fornberg-Gewichte, Ableitungs-/Laplace-Operatoren, Linienmethode |
 //! | [`fft`] | schnelle Fourier-Transformation (beliebige Länge) |
 //! | [`geometry`] | Quaternionen, Rotationen, Euler-Winkel |
 //! | `opt` | lineare Programme (Simplex), später QP/NLP/MILP (Feature `alloc`) |
@@ -41,6 +42,7 @@ pub use real::*;
 pub mod autodiff;
 pub mod complex;
 pub mod diff;
+pub mod fdm;
 pub mod fft;
 pub mod geometry;
 pub mod integrate;

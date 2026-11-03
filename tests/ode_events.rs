@@ -225,3 +225,113 @@ fn works_for_f32() {
     .unwrap();
     assert!((ev.t - (2.0f32 * 10.0 / 9.81).sqrt()).abs() < 1e-3);
 }
+
+mod rk45_events {
+    use azmath::ode::{EventDirection, OdeError, Rk45Options, rk45_event, rk45_event_work_len};
+
+    fn fall(_t: f64, y: &[f64], dy: &mut [f64]) {
+        dy[0] = y[1];
+        dy[1] = -9.81;
+    }
+
+    #[test]
+    fn ball_impact_time() {
+        let mut y = [10.0, 0.0];
+        let mut work = [0.0; rk45_event_work_len(2)];
+        let ev = rk45_event(
+            fall,
+            |_t, y: &[f64]| y[0],
+            0.0,
+            5.0,
+            &mut y,
+            Rk45Options::with_tolerance(1e-10, 1e-12),
+            EventDirection::Falling,
+            1e-12,
+            10,
+            &mut work,
+        )
+        .unwrap()
+        .unwrap();
+        assert!((ev.t - (20.0f64 / 9.81).sqrt()).abs() < 1e-8);
+        assert!(y[0].abs() < 1e-7);
+    }
+
+    #[test]
+    fn maximum_of_height() {
+        // Wurf nach oben: v = 0 im Scheitel (Richtung Falling)
+        let mut y = [0.0, 9.81];
+        let mut work = [0.0; rk45_event_work_len(2)];
+        let ev = rk45_event(
+            fall,
+            |_t, y: &[f64]| y[1],
+            0.0,
+            5.0,
+            &mut y,
+            Rk45Options::with_tolerance(1e-10, 1e-12),
+            EventDirection::Falling,
+            1e-12,
+            8,
+            &mut work,
+        )
+        .unwrap()
+        .unwrap();
+        assert!((ev.t - 1.0).abs() < 1e-8);
+        assert!((y[0] - 9.81 / 2.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn no_event_and_wrong_direction() {
+        let mut work = [0.0; rk45_event_work_len(2)];
+        let mut y = [10.0, 0.0];
+        let r = rk45_event(
+            fall,
+            |_t, y: &[f64]| y[0],
+            0.0,
+            1.0,
+            &mut y,
+            Rk45Options::default(),
+            EventDirection::Falling,
+            1e-10,
+            4,
+            &mut work,
+        )
+        .unwrap();
+        assert!(r.is_none());
+        assert!((y[0] - (10.0 - 0.5 * 9.81)).abs() < 1e-5);
+        let mut y = [10.0, 0.0];
+        let r = rk45_event(
+            fall,
+            |_t, y: &[f64]| y[0],
+            0.0,
+            5.0,
+            &mut y,
+            Rk45Options::default(),
+            EventDirection::Rising,
+            1e-10,
+            4,
+            &mut work,
+        )
+        .unwrap();
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn invalid_input() {
+        let mut y = [1.0, 0.0];
+        let mut work = [0.0; 3];
+        let e = rk45_event(
+            fall,
+            |_t, y: &[f64]| y[0],
+            0.0,
+            1.0,
+            &mut y,
+            Rk45Options::default(),
+            EventDirection::Either,
+            1e-10,
+            4,
+            &mut work,
+        )
+        .unwrap_err();
+        assert_eq!(e, OdeError::InvalidInput);
+    }
+}

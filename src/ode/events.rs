@@ -1,4 +1,7 @@
-use super::{OdeError, all_finite, finite, from_usize, rk4_step, rk4_work_len};
+use super::{
+    OdeError, Rk45Options, all_finite, finite, from_usize, rk4_step, rk4_work_len, rk45,
+    rk45_work_len,
+};
 use crate::Real;
 use crate::roots::{RootError, RootOptions, brent};
 
@@ -159,6 +162,107 @@ pub fn rk4_event<T: Real>(
             y.copy_from_slice(tmp);
             return Ok(Some(Event {
                 t: t + root.root * h,
+                g_value: root.f_value,
+                steps_before: i,
+            }));
+        }
+        g_prev = g_new;
+    }
+    Ok(None)
+}
+
+/// Benötigter Arbeitsspeicher für [`rk45_event`] bei `n` Zustandsgrößen.
+pub const fn rk45_event_work_len(n: usize) -> usize {
+    rk45_work_len(n) + 2 * n
+}
+
+/// Wie [`rk4_event`], aber mit dem adaptiven Verfahren [`rk45`].
+///
+/// Das Intervall `[t0, t1]` wird in `segments` gleich lange Abschnitte geteilt; jeder wird mit `rk45` integriert und an
+/// den Abschnittsgrenzen auf einen Vorzeichenwechsel von `g` geprüft (zwei Nulldurchgänge innerhalb **eines** Abschnitts
+/// bleiben unbemerkt). Die Nullstelle wird mit [`brent`] auf `t ↦ g(t, y(t))` bestimmt, wobei `y(t)` jeweils durch
+/// erneute Integration vom Abschnittsanfang entsteht (kein Interpolationsfehler). Bei einem Ereignis steht in `y` der
+/// Zustand zum Ereigniszeitpunkt, `steps_before` ist der Index des Abschnitts. Sonst steht in `y` der Endzustand und die
+/// Rückgabe ist `None`.
+///
+/// `work`: mindestens [`rk45_event_work_len`]`(n)`.
+///
+/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`], [`OdeError::EventNotLocated`] sowie die Fehler von `rk45`.
+#[allow(clippy::too_many_arguments)]
+pub fn rk45_event<T: Real>(
+    mut f: impl FnMut(T, &[T], &mut [T]),
+    mut g: impl FnMut(T, &[T]) -> T,
+    t0: T,
+    t1: T,
+    y: &mut [T],
+    opts: Rk45Options<T>,
+    direction: EventDirection,
+    tol: T,
+    segments: usize,
+    work: &mut [T],
+) -> Result<Option<Event<T>>, OdeError> {
+    let n = y.len();
+    if n == 0 || segments == 0 || work.len() < rk45_event_work_len(n) {
+        return Err(OdeError::InvalidInput);
+    }
+    if !finite(t0) || !finite(t1) || !all_finite(y) {
+        return Err(OdeError::NotFinite);
+    }
+    let (rk_work, rest) = work.split_at_mut(rk45_work_len(n));
+    let (y_a, rest) = rest.split_at_mut(n);
+    let y_trial = &mut rest[..n];
+
+    let h = (t1 - t0) / from_usize::<T>(segments);
+    let mut g_prev = g(t0, y);
+    if !finite(g_prev) {
+        return Err(OdeError::NotFinite);
+    }
+    for i in 0..segments {
+        let ta = t0 + h * from_usize::<T>(i);
+        let tb = if i + 1 == segments {
+            t1
+        } else {
+            t0 + h * from_usize::<T>(i + 1)
+        };
+        y_a.copy_from_slice(y);
+        rk45(&mut f, ta, tb, y, opts, rk_work, |_, _| {})?;
+        let g_new = g(tb, y);
+        if !finite(g_new) {
+            return Err(OdeError::NotFinite);
+        }
+        let rising = g_prev < T::ZERO && g_new >= T::ZERO;
+        let falling = g_prev > T::ZERO && g_new <= T::ZERO;
+        let hit = match direction {
+            EventDirection::Rising => rising,
+            EventDirection::Falling => falling,
+            EventDirection::Either => rising || falling,
+        };
+        if hit {
+            let mut failure: Option<OdeError> = None;
+            let root = {
+                let phi = |s: T| {
+                    y_trial.copy_from_slice(y_a);
+                    match rk45(&mut f, ta, s, y_trial, opts, rk_work, |_, _| {}) {
+                        Ok(_) => g(s, y_trial),
+                        Err(e) => {
+                            failure = Some(e);
+                            T::NAN
+                        }
+                    }
+                };
+                brent(phi, ta, tb, RootOptions::new(tol, 200))
+            };
+            if let Some(e) = failure {
+                return Err(e);
+            }
+            let root = root.map_err(|e| match e {
+                RootError::NotFinite => OdeError::NotFinite,
+                _ => OdeError::EventNotLocated,
+            })?;
+            y.copy_from_slice(y_a);
+            rk45(&mut f, ta, root.root, y, opts, rk_work, |_, _| {})?;
+            return Ok(Some(Event {
+                t: root.root,
                 g_value: root.f_value,
                 steps_before: i,
             }));

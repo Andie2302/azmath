@@ -48,6 +48,7 @@
 //! Ergebnisse `std` oder `libm` verwenden.
 
 mod adams;
+mod adaptive;
 mod bdf;
 mod events;
 mod explicit;
@@ -57,8 +58,15 @@ mod rk45;
 mod rosenbrock;
 
 pub use adams::{adams_bashforth_moulton, adams_work_len};
+pub use adaptive::{
+    AdaptiveOptions, AdaptiveResult, adaptive_work_len, radau5_adaptive, radau5_adaptive_fd,
+    ros2_adaptive, ros2_adaptive_fd,
+};
 pub use bdf::{bdf, bdf_fd, bdf_work_len};
-pub use events::{Event, EventDirection, event_work_len, hermite_interpolate, rk4_event};
+pub use events::{
+    Event, EventDirection, event_work_len, hermite_interpolate, rk4_event, rk45_event,
+    rk45_event_work_len,
+};
 pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len};
 pub use implicit::{
     implicit_euler, implicit_euler_fd, implicit_trapezoid, implicit_trapezoid_fd, implicit_work_len,

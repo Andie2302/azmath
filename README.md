@@ -25,6 +25,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::scalar` | `Scalar`-Trait für reelle und komplexe Zahlen; `ScalarLu` löst auch komplexe Gleichungssysteme (`alloc`) |
 | `azmath::matfun` | Matrixfunktionen `expm`, `sqrtm`, `logm`, `powm`, Sylvester/Lyapunov (`alloc`) |
 | `azmath::random`, `azmath::stats` | PCG32/xoshiro256++, Verteilungen; Momente, Kovarianz, Quantile, Monte-Carlo-Integration |
+| `azmath::fdm` | Finite Differenzen: Fornberg-Gewichte, Ableitungs- und Laplace-Operatoren, Linienmethode |
 | `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky mit RCM-Umordnung (`SparseLdl`, `SparseCholesky`) |
 | `azmath::diff` | numerisches Differenzieren: Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix |
 | `azmath::special` | Gamma-, Beta-, Fehlerfunktion, unvollständige Gamma-/Beta-Funktion, Besselfunktion `Jₙ` |
