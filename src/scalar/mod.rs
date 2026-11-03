@@ -23,7 +23,10 @@ mod sparse;
 #[cfg(feature = "alloc")]
 pub use cholesky::ScalarCholesky;
 #[cfg(feature = "alloc")]
-pub use eigen::{complex_eigenvalues, complex_eigenvector, hermitian_eigenvalues};
+pub use eigen::{
+    ComplexEigen, ComplexSchur, complex_eigen, complex_eigenvalues, complex_eigenvector,
+    complex_schur, hermitian_eigenvalues, real_eigen,
+};
 #[cfg(feature = "alloc")]
 pub use lu::ScalarLu;
 #[cfg(feature = "alloc")]

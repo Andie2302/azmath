@@ -7,8 +7,13 @@
 //! | [`logm`] | inverses Skalieren und Quadrieren (wiederholte Wurzeln) mit Reihe für `log(I + X)` |
 //! | [`powm`] | ganzzahlige Potenz durch binäres Potenzieren |
 //! | [`sylvester`], [`lyapunov`] | `A·X + X·B = C` über die Kronecker-Form (für kleine Dimensionen) |
+//! | [`care`], [`dare`] | algebraische Riccati-Gleichungen (Vorzeichenfunktion bzw. Verdopplungsalgorithmus) |
 //!
 //! Alle Funktionen verlangen quadratische Matrizen und geben sonst [`LinalgError::DimensionMismatch`] zurück.
+
+mod riccati;
+
+pub use riccati::{care, dare};
 
 use crate::Real;
 use crate::linalg::{DynMatrix, DynVector, LinalgError};
@@ -34,21 +39,21 @@ fn map2<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>, f: impl Fn(T, T) -> T) -> D
     DynMatrix::new(a.rows(), a.cols(), data).expect("gleiche Größe")
 }
 
-fn add<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>) -> DynMatrix<T> {
+pub(crate) fn add<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>) -> DynMatrix<T> {
     map2(a, b, |x, y| x + y)
 }
 
-fn sub<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>) -> DynMatrix<T> {
+pub(crate) fn sub<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>) -> DynMatrix<T> {
     map2(a, b, |x, y| x - y)
 }
 
-fn scale<T: Real>(a: &DynMatrix<T>, s: T) -> DynMatrix<T> {
+pub(crate) fn scale<T: Real>(a: &DynMatrix<T>, s: T) -> DynMatrix<T> {
     let data: Vec<T> = a.as_slice().iter().map(|&x| x * s).collect();
     DynMatrix::new(a.rows(), a.cols(), data).expect("gleiche Größe")
 }
 
 /// Spaltensummennorm ‖A‖₁.
-fn norm1<T: Real>(a: &DynMatrix<T>) -> T {
+pub(crate) fn norm1<T: Real>(a: &DynMatrix<T>) -> T {
     let mut best = T::ZERO;
     for j in 0..a.cols() {
         let mut s = T::ZERO;
@@ -60,7 +65,7 @@ fn norm1<T: Real>(a: &DynMatrix<T>) -> T {
     best
 }
 
-fn mm<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>) -> DynMatrix<T> {
+pub(crate) fn mm<T: Real>(a: &DynMatrix<T>, b: &DynMatrix<T>) -> DynMatrix<T> {
     a.matmul(b).expect("gleiche Größe")
 }
 

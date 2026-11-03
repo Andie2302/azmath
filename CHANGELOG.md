@@ -34,6 +34,7 @@ Format: nach Versionen, neueste zuerst. Noch nicht veröffentlicht.
 - **`special`:** `elliptic_k`, `elliptic_e`, `bessel_i`.
 - **`geometry`:** `Se3`, `compose_chain`, `DualQuaternion` (Verkettung, Inverse, `exp`/`log`, Interpolation).
 - **`special`:** `bessel_y`, `bessel_k`. **`poly`:** `bvls` (beschränkte kleinste Quadrate).
+- **`scalar`:** `complex_schur`, `complex_eigen`, `real_eigen` (Eigenvektoren nichtsymmetrischer Matrizen). **`matfun`:** `care`, `dare` (Riccati).
 - **`Real`:** `to_f64`, `is_finite`, `copysign`, `sin_cos`, `exp2`, `log`, `exp_m1`, `ln_1p`, `asinh`, `acosh`, `atanh`,
   `rem_euclid`, `from_usize`.
 

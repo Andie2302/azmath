@@ -124,3 +124,46 @@ fn errors() {
     // sqrt von −1 (negative Achse) konvergiert nicht
     assert!(sqrtm(&mat(1, 1, &[-1.0])).is_err());
 }
+
+#[test]
+fn riccati_equations() {
+    use azmath::matfun::{care, dare};
+    // skalar: a = 0, b = 1, q = 1, r = 1  ⇒  −x² + 1 = 0, x = 1
+    let one = mat(1, 1, &[1.0]);
+    let x = care(&mat(1, 1, &[0.0]), &one, &one, &one).unwrap();
+    assert!((x[(0, 0)] - 1.0).abs() < 1e-9);
+    // 2×2 Doppelintegrator: Residuum prüfen
+    let a = mat(2, 2, &[0.0, 1.0, 0.0, 0.0]);
+    let b = mat(2, 1, &[0.0, 1.0]);
+    let q = mat(2, 2, &[1.0, 0.0, 0.0, 1.0]);
+    let r = mat(1, 1, &[1.0]);
+    let x = care(&a, &b, &q, &r).unwrap();
+    let at_x = a.transpose().matmul(&x).unwrap();
+    let xa = x.matmul(&a).unwrap();
+    let xb = x.matmul(&b).unwrap();
+    let xbbx = xb.matmul(&xb.transpose()).unwrap();
+    for i in 0..2 {
+        for j in 0..2 {
+            let res = at_x[(i, j)] + xa[(i, j)] - xbbx[(i, j)] + q[(i, j)];
+            assert!(res.abs() < 1e-8, "({i},{j}) {res}");
+        }
+    }
+    assert!(x[(0, 0)] > 0.0 && (x[(0, 1)] - x[(1, 0)]).abs() < 1e-10);
+    // diskret: a = 1, b = 1, q = 1, r = 1  ⇒  x = x − x²/(1 + x) + 1, x = (1 + √5)/2
+    let xd = dare(&one, &one, &one, &one).unwrap();
+    assert!((xd[(0, 0)] - (1.0 + 5f64.sqrt()) / 2.0).abs() < 1e-9);
+    // 2×2 diskret: Residuum
+    let ad = mat(2, 2, &[1.0, 0.1, 0.0, 1.0]);
+    let bd = mat(2, 1, &[0.005, 0.1]);
+    let xd = dare(&ad, &bd, &q, &r).unwrap();
+    let atxa = ad.transpose().matmul(&xd).unwrap().matmul(&ad).unwrap();
+    let atxb = ad.transpose().matmul(&xd).unwrap().matmul(&bd).unwrap();
+    let s = bd.transpose().matmul(&xd).unwrap().matmul(&bd).unwrap()[(0, 0)] + 1.0;
+    for i in 0..2 {
+        for j in 0..2 {
+            let res = atxa[(i, j)] - atxb[(i, 0)] * atxb[(j, 0)] / s + q[(i, j)] - xd[(i, j)];
+            assert!(res.abs() < 1e-7, "({i},{j}) {res}");
+        }
+    }
+    assert!(care(&a, &b, &q, &mat(2, 2, &[1.0, 0.0, 0.0, 1.0])).is_err());
+}

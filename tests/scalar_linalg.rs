@@ -226,3 +226,50 @@ fn csr_matvec_and_gmres() {
     let zero = gmres_scalar(&a, &vec![C::ZERO; n], 10, 1e-8, 10).unwrap();
     assert_eq!(zero.iterations, 0);
 }
+
+#[test]
+fn schur_and_eigen_decomposition() {
+    let mut rng = Pcg32::new(31, 7);
+    for n in [1usize, 2, 5, 9] {
+        let a = rand_matrix(&mut rng, n, n);
+        let s = complex_schur(n, &a).unwrap();
+        // T oberes Dreieck, Z unitär, A = Z T Zᴴ
+        for i in 0..n {
+            for j in 0..i {
+                assert_eq!(s.t[i * n + j], C::ZERO);
+            }
+        }
+        let zh: Vec<C> = (0..n * n)
+            .map(|idx| s.z[(idx % n) * n + idx / n].conj())
+            .collect();
+        let back = matmul(&matmul(&s.z, &s.t, n, n, n), &zh, n, n, n);
+        assert!(maxdiff(&back, &a) < 1e-10, "n = {n}");
+        let zz = matmul(&s.z, &zh, n, n, n);
+        for i in 0..n {
+            for j in 0..n {
+                let e = if i == j { C::ONE } else { C::ZERO };
+                assert!((zz[i * n + j] - e).abs() < 1e-11);
+            }
+        }
+        let eig = complex_eigen(n, &a).unwrap();
+        for k in 0..n {
+            let v: Vec<C> = (0..n).map(|i| eig.vectors[i * n + k]).collect();
+            let av = matmul(&a, &v, n, n, 1);
+            let res = (0..n)
+                .map(|i| (av[i] - eig.values[k] * v[i]).abs())
+                .fold(0.0, f64::max);
+            assert!(res < 1e-9, "n = {n}, k = {k}, res = {res}");
+        }
+    }
+}
+
+#[test]
+fn real_matrix_eigen() {
+    use azmath::linalg::DynMatrix;
+    let a = DynMatrix::new(3, 3, vec![0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 2.0]).unwrap();
+    let e = real_eigen(&a).unwrap();
+    let mut re: Vec<f64> = e.values.iter().map(|z| z.re).collect();
+    re.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    assert!(re[0].abs() < 1e-12 && re[1].abs() < 1e-12 && (re[2] - 2.0).abs() < 1e-12);
+    assert!(real_eigen(&DynMatrix::<f64>::zeros(2, 3)).is_err());
+}
