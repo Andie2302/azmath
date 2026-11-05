@@ -251,8 +251,9 @@ impl<T: Real, const M: usize, const N: usize> Matrix<T, M, N> {
     }
 
     /// Kleinste-Quadrate-Lösung von `min ‖self · x − b‖₂` (per QR).
+    /// [`LinalgError::NotFinite`] auch bei ungültiger rechter Seite oder nichtendlichem Ergebnis.
     pub fn least_squares(&self, b: &Vector<T, M>) -> Result<Vector<T, N>, LinalgError> {
-        Ok(self.qr()?.solve(b))
+        self.qr()?.try_solve(b)
     }
 }
 

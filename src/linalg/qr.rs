@@ -1,4 +1,6 @@
-use super::kernel::{qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm, qr_solve};
+use super::kernel::{
+    qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm, qr_solve, qr_solve_checked,
+};
 use super::{LinalgError, Matrix, Vector};
 use crate::Real;
 
@@ -32,6 +34,8 @@ impl<T: Real, const M: usize, const N: usize> QrDecomposition<T, M, N> {
     }
 
     /// Löst `min ‖A·x − b‖₂` (für quadratische `A` genau `A·x = b`).
+    ///
+    /// Ohne Prüfung der rechten Seite oder des Ergebnisses; für Fehlerdiagnosen siehe [`Self::try_solve`].
     pub fn solve(&self, b: &Vector<T, M>) -> Vector<T, N> {
         let mut y = b.data;
         let mut x = Vector::<T, N>::zeros();
@@ -46,11 +50,47 @@ impl<T: Real, const M: usize, const N: usize> QrDecomposition<T, M, N> {
         x
     }
 
+    /// Wie [`Self::solve`], aber mit Fehlerprüfung.
+    ///
+    /// [`LinalgError::NotFinite`] bei NaN/Unendlich in `b`, nichtendlichen
+    /// Zwischenergebnissen oder einer nicht darstellbaren Lösung.
+    pub fn try_solve(&self, b: &Vector<T, M>) -> Result<Vector<T, N>, LinalgError> {
+        let mut y = b.data;
+        let mut x = Vector::<T, N>::zeros();
+        qr_solve_checked(
+            self.qr.data.as_flattened(),
+            M,
+            N,
+            &self.tau,
+            &mut y,
+            &mut x.data,
+        )?;
+        Ok(x)
+    }
+
     /// Euklidische Norm des Residuums `‖A·x − b‖₂` der Kleinste-Quadrate-Lösung.
+    /// Für Fehlerdiagnosen siehe [`Self::try_residual_norm`].
     pub fn residual_norm(&self, b: &Vector<T, M>) -> T {
         let mut y = b.data;
         qr_apply_qt(self.qr.data.as_flattened(), M, N, &self.tau, &mut y);
         qr_residual_norm(&y, N)
+    }
+
+    /// Geprüfte Variante von [`Self::residual_norm`].
+    ///
+    /// [`LinalgError::NotFinite`] bei NaN/Unendlich in `b` oder nichtendlichen
+    /// Zwischenergebnissen bzw. einer nicht darstellbaren Residuumsnorm.
+    pub fn try_residual_norm(&self, b: &Vector<T, M>) -> Result<T, LinalgError> {
+        if b.data.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
+        let mut y = b.data;
+        qr_apply_qt(self.qr.data.as_flattened(), M, N, &self.tau, &mut y);
+        let norm = qr_residual_norm(&y, N);
+        if y.iter().any(|v| !v.is_finite()) || !norm.is_finite() {
+            return Err(LinalgError::NotFinite);
+        }
+        Ok(norm)
     }
 
     /// Die obere Dreiecksmatrix `R` (`N x N`).

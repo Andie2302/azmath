@@ -8,8 +8,8 @@ use super::LinalgError;
 use super::iterative::{self, IterOptions, IterResult, Preconditioner};
 use super::kernel::{
     check_diagonal, cholesky_decompose, cholesky_determinant, cholesky_solve, lu_decompose,
-    lu_determinant, lu_solve, qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm, qr_solve,
-    triangular_solve,
+    lu_determinant, lu_solve, qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm,
+    qr_solve_checked, triangular_solve,
 };
 use crate::Real;
 
@@ -545,14 +545,15 @@ impl<T: Real> DynQr<T> {
         Ok(Self { m, n, qr, tau })
     }
 
-    /// Löst `min ‖A·x − b‖₂`; Fehler, wenn die Länge von `b` nicht `m` ist.
+    /// Löst `min ‖A·x − b‖₂`; Fehler bei falscher Länge von `b`.
+    /// [`LinalgError::NotFinite`] bei nichtendlicher rechter Seite oder nichtendlichem Ergebnis.
     pub fn solve(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
         if b.len() != self.m {
             return Err(LinalgError::DimensionMismatch);
         }
         let mut y = b.data.clone();
         let mut x = DynVector::zeros(self.n);
-        qr_solve(&self.qr, self.m, self.n, &self.tau, &mut y, &mut x.data);
+        qr_solve_checked(&self.qr, self.m, self.n, &self.tau, &mut y, &mut x.data)?;
         Ok(x)
     }
 
@@ -561,9 +562,16 @@ impl<T: Real> DynQr<T> {
         if b.len() != self.m {
             return Err(LinalgError::DimensionMismatch);
         }
+        if b.data.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
         let mut y = b.data.clone();
         qr_apply_qt(&self.qr, self.m, self.n, &self.tau, &mut y);
-        Ok(qr_residual_norm(&y, self.n))
+        let norm = qr_residual_norm(&y, self.n);
+        if y.iter().any(|v| !v.is_finite()) || !norm.is_finite() {
+            return Err(LinalgError::NotFinite);
+        }
+        Ok(norm)
     }
 
     /// Die obere Dreiecksmatrix `R` (`n x n`).

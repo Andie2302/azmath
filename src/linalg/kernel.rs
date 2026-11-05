@@ -261,40 +261,49 @@ pub fn qr_decompose<T: Real>(
     }
 
     for k in 0..n {
-        let mut norm2 = T::ZERO;
+        let mut scale = T::ZERO;
         for i in k..m {
-            norm2 += a[i * n + k] * a[i * n + k];
+            scale = scale.max(a[i * n + k].abs());
         }
-        // Auf norm2 prüfen (exakte Arithmetik): sqrt(0) ist bei Näherungs-Backends nicht exakt 0.
-        if norm2 == T::ZERO {
+        // Exakte Nullprüfung vor sqrt (auch für Näherungs-Backends).
+        if scale == T::ZERO {
             tau[k] = T::ZERO;
             continue;
         }
+        let mut norm2 = T::ZERO;
+        for i in k..m {
+            let value = a[i * n + k] / scale;
+            norm2 += value * value;
+        }
         let norm = norm2.sqrt();
-        let akk = a[k * n + k];
+        let akk = a[k * n + k] / scale;
         let alpha = if akk > T::ZERO { -norm } else { norm };
         let v0 = akk - alpha;
-        let mut vn2 = v0 * v0;
-        for i in (k + 1)..m {
-            vn2 += a[i * n + k] * a[i * n + k];
-        }
-        let t = T::from_f64(2.0) * v0 * v0 / vn2;
+        let t = T::ONE - akk / alpha;
         tau[k] = t;
         for i in (k + 1)..m {
-            a[i * n + k] /= v0;
+            a[i * n + k] = (a[i * n + k] / scale) / v0;
         }
         for j in (k + 1)..n {
-            let mut s = a[k * n + j];
-            for i in (k + 1)..m {
-                s += a[i * n + k] * a[i * n + j];
-            }
-            s *= t;
-            a[k * n + j] -= s;
-            for i in (k + 1)..m {
-                a[i * n + j] -= s * a[i * n + k];
+            let (s, scale) = reflector_projection(
+                k,
+                m,
+                t,
+                |i| if i == k { T::ONE } else { a[i * n + k] },
+                |i| a[i * n + j],
+            );
+            for i in k..m {
+                let w = if i == k { T::ONE } else { a[i * n + k] };
+                a[i * n + j] = reflector_entry(a[i * n + j], w, s, scale);
+                if !a[i * n + j].is_finite() {
+                    return Err(LinalgError::NotFinite);
+                }
             }
         }
-        a[k * n + k] = alpha;
+        a[k * n + k] = alpha * scale;
+        if !a[k * n + k].is_finite() {
+            return Err(LinalgError::NotFinite);
+        }
     }
 
     let mut rmax = T::ZERO;
@@ -311,19 +320,65 @@ pub fn qr_decompose<T: Real>(
     Ok(())
 }
 
+/// Berechnet tau*w^T*b; bei überlaufender Zwischensumme skaliert neu rechnen.
+fn reflector_projection<T: Real>(
+    k: usize,
+    m: usize,
+    tau: T,
+    w: impl Fn(usize) -> T,
+    b: impl Fn(usize) -> T,
+) -> (T, T) {
+    let mut s = T::ZERO;
+    for i in k..m {
+        s += w(i) * b(i);
+    }
+    s *= tau;
+    if s.is_finite() {
+        return (s, T::ONE);
+    }
+    let mut scale = T::ZERO;
+    for i in k..m {
+        if !b(i).is_finite() {
+            return (s, T::ONE);
+        }
+        scale = scale.max(b(i).abs());
+    }
+    if scale == T::ZERO {
+        return (s, T::ONE);
+    }
+    s = T::ZERO;
+    for i in k..m {
+        s += w(i) * (b(i) / scale);
+    }
+    (s * tau, scale)
+}
+
+fn reflector_entry<T: Real>(b: T, w: T, projection: T, scale: T) -> T {
+    if w == T::ZERO {
+        return b;
+    }
+    if scale == T::ONE {
+        b - projection * w
+    } else {
+        (b / scale - projection * w) * scale
+    }
+}
+
 /// Wendet eine Householder-Spiegelung `H_k` auf `b` an.
 fn apply_reflector<T: Real>(a: &[T], n: usize, m: usize, tau: &[T], k: usize, b: &mut [T]) {
     if tau[k] == T::ZERO {
         return;
     }
-    let mut s = b[k];
-    for i in (k + 1)..m {
-        s += a[i * n + k] * b[i];
-    }
-    s *= tau[k];
-    b[k] -= s;
-    for i in (k + 1)..m {
-        b[i] -= s * a[i * n + k];
+    let (s, scale) = reflector_projection(
+        k,
+        m,
+        tau[k],
+        |i| if i == k { T::ONE } else { a[i * n + k] },
+        |i| b[i],
+    );
+    for i in k..m {
+        let w = if i == k { T::ONE } else { a[i * n + k] };
+        b[i] = reflector_entry(b[i], w, s, scale);
     }
 }
 
@@ -354,11 +409,26 @@ pub fn qr_solve<T: Real>(a: &[T], m: usize, n: usize, tau: &[T], y: &mut [T], x:
     }
 }
 
+/// Geprüfte Variante von qr_solve: ungültige rechte Seiten und nichtendliche Ergebnisse ablehnen.
+pub fn qr_solve_checked<T: Real>(
+    a: &[T],
+    m: usize,
+    n: usize,
+    tau: &[T],
+    y: &mut [T],
+    x: &mut [T],
+) -> Result<(), LinalgError> {
+    if y.iter().any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
+    }
+    qr_solve(a, m, n, tau, y, x);
+    if y.iter().chain(x.iter()).any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
+    }
+    Ok(())
+}
+
 /// Euklidische Norm des Residuums aus `Qᵀ·b` (Einträge `n..m`).
 pub fn qr_residual_norm<T: Real>(y: &[T], n: usize) -> T {
-    let mut s = T::ZERO;
-    for &v in &y[n..] {
-        s += v * v;
-    }
-    s.sqrt()
+    super::norm::frobenius(&y[n..])
 }
