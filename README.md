@@ -7,43 +7,43 @@ Desktop wie auf Mikrocontrollern verwenden.
 
 ## Aufbau
 
-Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate ist `#![no_std]`; die Features
-(`std`, `libm`, `micromath`, `alloc`) gelten für alle Module gemeinsam.
+Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate ist `#![no_std]`; die Features (`std`,
+`libm`, `micromath`, `alloc`) gelten für alle Module gemeinsam.
 
-| Modul | Inhalt |
-|---|---|
-| `azmath::Real` | `Real`-Trait, Backends (`std`, `libm`, `micromath`) |
-| `azmath::linalg` | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal, nichtsymmetrische Eigenwerte, Matrixnormen, Äquilibrierung, Orthonormalisierung, Polarzerlegung, Gauß-Elimination |
-| `azmath::roots` | Nullstellen in einer Veränderlichen |
-| `azmath::integrate` | numerische Integration |
-| `azmath::interp` | Interpolation, Splines |
-| `azmath::optimize` | Newton, Gauß-Newton, Levenberg-Marquardt, Broyden, Dogleg, BFGS, L-BFGS, Wolfe-Schrittweitensuche |
-| `azmath::ode` | gewöhnliche Differentialgleichungen (Runge-Kutta, Adams, BDF, Radau IIA, Rosenbrock, Ereignissuche) |
-| `azmath::multigrid` | Multigrid für Poisson |
-| `azmath::complex` | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie) |
-| `azmath::opt` | lineare Programme (Zwei-Phasen-Simplex, auch mit Variablenschranken), konvexe QPs und LPs per Innere-Punkte-Verfahren, nichtlineare Programme per SQP und Innere-Punkte-Verfahren, gemischt-ganzzahlige LPs per Branch-and-Bound (Feature `alloc`) |
-| `azmath::scalar` | `Scalar`-Trait für reelle und komplexe Zahlen; `ScalarLu` löst auch komplexe Gleichungssysteme (`alloc`) |
-| `azmath::matfun` | Matrixfunktionen `expm`, `sqrtm`, `logm`, `powm`, Sylvester/Lyapunov (`alloc`) |
-| `azmath::random`, `azmath::stats` | PCG32/xoshiro256++, Verteilungen; Momente, Kovarianz, Quantile, Monte-Carlo-Integration |
-| `azmath::fdm` | Finite Differenzen: Fornberg-Gewichte, Ableitungs- und Laplace-Operatoren, Linienmethode |
-| `azmath::poly` | Polynome, `polyfit`, Tschebyscheff-Reihen, gewichtete/Ridge/nichtnegative kleinste Quadrate (`alloc`) |
-| `azmath::fem`, `azmath::fvm` | Finite Elemente (P1, 1D/2D, `alloc`) und Finite Volumen (Rusanov, MUSCL, 1D) |
-| `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky/LU (`SparseLdl`, `SparseCholesky`, `SparseLu`) mit RCM- und Minimum-Degree-Umordnung |
-| `azmath::diff` | numerisches Differenzieren: Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix |
-| `azmath::special` | Gamma-, Beta-, Fehlerfunktion, unvollständige Gamma-/Beta-Funktion, Besselfunktion `Jₙ` |
-| `azmath::fft` | schnelle Fourier-Transformation für beliebige Längen (Radix-2, Bluestein), reelle FFT, Faltung |
-| `azmath::geometry` | Quaternionen, Rotationsmatrizen (Rodrigues, `exp_so3`/`log_so3`), `slerp`, Euler-Winkel mit Gimbal-Lock-Erkennung |
-| `azmath::autodiff` | Automatisches Differenzieren (`Jet`, exakte Jacobi-/Hessematrizen) |
+| Modul                             | Inhalt                                                                                                                                                                                                                                             |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `azmath::Real`                    | `Real`-Trait, Backends (`std`, `libm`, `micromath`)                                                                                                                                                                                                |
+| `azmath::linalg`                  | Zerlegungen, iterative Löser, Eigenwerte, SVD, Tridiagonal, nichtsymmetrische Eigenwerte, Matrixnormen, Äquilibrierung, Orthonormalisierung, Polarzerlegung, Gauß-Elimination                                                                      |
+| `azmath::roots`                   | Nullstellen in einer Veränderlichen                                                                                                                                                                                                                |
+| `azmath::integrate`               | numerische Integration                                                                                                                                                                                                                             |
+| `azmath::interp`                  | Interpolation, Splines                                                                                                                                                                                                                             |
+| `azmath::optimize`                | Newton, Gauß-Newton, Levenberg-Marquardt, Broyden, Dogleg, BFGS, L-BFGS, Wolfe-Schrittweitensuche                                                                                                                                                  |
+| `azmath::ode`                     | gewöhnliche Differentialgleichungen (Runge-Kutta, Adams, BDF, Radau IIA, Rosenbrock, Ereignissuche)                                                                                                                                                |
+| `azmath::multigrid`               | Multigrid für Poisson                                                                                                                                                                                                                              |
+| `azmath::complex`                 | komplexe Zahlen `Complex<T>` (Arithmetik, Polarform, `sqrt`, `exp`, `ln`, Potenzen, Trigonometrie)                                                                                                                                                 |
+| `azmath::opt`                     | lineare Programme (Zwei-Phasen-Simplex, auch mit Variablenschranken), konvexe QPs und LPs per Innere-Punkte-Verfahren, nichtlineare Programme per SQP und Innere-Punkte-Verfahren, gemischt-ganzzahlige LPs per Branch-and-Bound (Feature `alloc`) |
+| `azmath::scalar`                  | `Scalar`-Trait für reelle und komplexe Zahlen; `ScalarLu` löst auch komplexe Gleichungssysteme (`alloc`)                                                                                                                                           |
+| `azmath::matfun`                  | Matrixfunktionen `expm`, `sqrtm`, `logm`, `powm`, Sylvester/Lyapunov (`alloc`)                                                                                                                                                                     |
+| `azmath::random`, `azmath::stats` | PCG32/xoshiro256++, Verteilungen; Momente, Kovarianz, Quantile, Monte-Carlo-Integration                                                                                                                                                            |
+| `azmath::fdm`                     | Finite Differenzen: Fornberg-Gewichte, Ableitungs- und Laplace-Operatoren, Linienmethode                                                                                                                                                           |
+| `azmath::poly`                    | Polynome, `polyfit`, Tschebyscheff-Reihen, gewichtete/Ridge/nichtnegative kleinste Quadrate (`alloc`)                                                                                                                                              |
+| `azmath::fem`, `azmath::fvm`      | Finite Elemente (P1, 1D/2D, `alloc`) und Finite Volumen (Rusanov, MUSCL, 1D)                                                                                                                                                                       |
+| `azmath::sparse`                  | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky/LU (`SparseLdl`, `SparseCholesky`, `SparseLu`) mit RCM- und Minimum-Degree-Umordnung                |
+| `azmath::diff`                    | numerisches Differenzieren: Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix                                                                                                                                                             |
+| `azmath::special`                 | Gamma-, Beta-, Fehlerfunktion, unvollständige Gamma-/Beta-Funktion, Besselfunktion `Jₙ`                                                                                                                                                            |
+| `azmath::fft`                     | schnelle Fourier-Transformation für beliebige Längen (Radix-2, Bluestein), reelle FFT, Faltung                                                                                                                                                     |
+| `azmath::geometry`                | Quaternionen, Rotationsmatrizen (Rodrigues, `exp_so3`/`log_so3`), `slerp`, Euler-Winkel mit Gimbal-Lock-Erkennung                                                                                                                                  |
+| `azmath::autodiff`                | Automatisches Differenzieren (`Jet`, exakte Jacobi-/Hessematrizen)                                                                                                                                                                                 |
 
 Tests liegen in `tests/`, Beispiele in `examples/`.
 
 ## Features / Backends
 
-| Feature     | Backend      | `f32` | `f64` | Hinweis                                           |
-|-------------|--------------|:-----:|:-----:|---------------------------------------------------|
-| `std`       | Standardbib. |  ✅   |  ✅   | **Default**, genaueste Ergebnisse                 |
-| `libm`      | [`libm`]     |  ✅   |  ✅   | `no_std`, genau                                   |
-| `micromath` | [`micromath`]|  ✅   |  ❌   | `no_std`, schnell, aber nur eine Näherung         |
+| Feature     | Backend       | `f32` | `f64` | Hinweis                                   |
+|-------------|---------------|:-----:|:-----:|-------------------------------------------|
+| `std`       | Standardbib.  |  ✅   |  ✅   | **Default**, genaueste Ergebnisse         |
+| `libm`      | [`libm`]      |  ✅   |  ✅   | `no_std`, genau                           |
+| `micromath` | [`micromath`] |  ✅   |  ❌   | `no_std`, schnell, aber nur eine Näherung |
 
 Zusätzlich gibt es das Feature **`alloc`** (dynamisch große Matrizen und Vektoren, siehe
 [Lineare Algebra](#lineare-algebra)). Es ist unabhängig von den Backends und braucht nur einen Allokator.
@@ -124,13 +124,13 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   `DynJacobi`, eigene über das Trait `Preconditioner`); bequem auch als `Matrix::solve_cg` und
   `solve_pcg`. Abbruch bei relativer Residuumsnorm `‖b − A·x‖ ≤ tol · ‖b‖`
   (`IterOptions`), sonst `LinalgError::NoConvergence`.
-- **BiCGSTAB** (`bicgstab`, `pbicgstab`, `Matrix::solve_bicgstab`): für beliebige, auch
-  **nichtsymmetrische** reguläre Systeme, ebenfalls matrixfrei (benötigt nur `A·x`, kein `Aᵀ·x`)
+- **BiCGSTAB** (`bicgstab`, `pbicgstab`, `Matrix::solve_bicgstab`): für beliebige, auch **nichtsymmetrische** reguläre
+  Systeme, ebenfalls matrixfrei (benötigt nur `A·x`, kein `Aᵀ·x`)
   und mit Vorkonditionierer. Arbeitsspeicher: `8·n`. In seltenen Fällen bricht das Verfahren
   zusammen (`LinalgError::Breakdown`). Bei sehr schlecht konditionierten Matrizen sagt das
   Residuum mehr aus als der Fehler der Lösung selbst.
-- **Eigenwerte und SVD** (`azmath::linalg::eigen`): `Matrix::symmetric_eigen` liefert **alle** Eigenwerte
-  (aufsteigend) und orthonormale Eigenvektoren einer symmetrischen Matrix (zyklisches Jacobi-Verfahren,
+- **Eigenwerte und SVD** (`azmath::linalg::eigen`): `Matrix::symmetric_eigen` liefert **alle** Eigenwerte (aufsteigend)
+  und orthonormale Eigenvektoren einer symmetrischen Matrix (zyklisches Jacobi-Verfahren,
   sehr genau auch für kleine Eigenwerte). `Matrix::svd` berechnet die dünne SVD `A = U·Σ·Vᵀ` (`M ≥ N`,
   einseitiges Jacobi-Verfahren) samt `rank()`, `condition_number()`, `pseudo_inverse()` und `solve()`, der
   Lösung **kleinster Norm** auch bei Rangmangel (wo QR `Singular` meldet). Matrixfrei gibt es
@@ -141,13 +141,13 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
 - **Tridiagonal** (`solve_tridiagonal`, `solve_cyclic_tridiagonal`): Thomas-Algorithmus in `O(n)`, auch
   mit zyklischen Ecken (Sherman-Morrison); stabil für diagonaldominante bzw. symmetrisch positiv
   definite Matrizen, sonst besser LU. Grundlage der Splines.
-- **GMRES(m)** (`gmres`, `pgmres`, `gmres_work_len`, mit `alloc` auch `DynMatrix::solve_gmres`): für
+- **GMRES (m)** (`gmres`, `pgmres`, `gmres_work_len`, mit `alloc` auch `DynMatrix::solve_gmres`): für
   beliebige reguläre Systeme, **monoton und ohne Zusammenbruch**, auch bei symmetrisch indefiniten
   und schiefsymmetrischen Matrizen, bei denen CG (`NotPositiveDefinite`) und BiCGSTAB (`Breakdown`)
   versagen. Matrixfrei, eine Anwendung von `A` pro Iteration, mit **Rechts-Vorkonditionierer**
   (wirkt auf die Spalten, Jacobi hilft also gegen ungleichmäßige Spaltenskalierung). Es speichert
   `restart + 1` Basisvektoren; ein kleines `restart` spart Speicher, kostet aber Iterationen (bei der
-  1D-Konvektions-Diffusion mit `n = 100`: volles GMRES 100 Anwendungen von `A`, GMRES(20) etwa 500,
+  1D-Konvektions-Diffusion mit `n = 100`: volles GMRES 100 Anwendungen von `A`, GMRES (20) etwa 500,
   BiCGSTAB 214). Der Arbeitsspeicher kommt als Slice (`gmres_work_len(n, restart)` als `const fn`),
   für feste `Matrix`-Typen gibt es daher keine Komfortmethode.
 - Mit `--features alloc`: `DynMatrix<T>`, `DynVector<T>`, `DynLu<T>`, `DynCholesky<T>` und
@@ -167,8 +167,8 @@ let x = a.solve(&b).unwrap(); // x = 1, y = 3
 
 Der LU-Löser verwendet nur `+ - * /`, `abs` und `max`. Diese sind in allen Backends exakt, die
 Näherungen von `micromath` wirken sich hier also nicht aus. **Cholesky und QR benötigen dagegen
-`sqrt`**: mit `micromath` (bewusst schnell, aber ungenau) können die Ergebnisse deutlich abweichen
-(`sqrt(0)` ist dort z. B. nur ≈ 8e-20). Für genaue Werte `std` oder `libm` verwenden.
+`sqrt`**: mit `micromath` (bewusst schnell, aber ungenau) können die Ergebnisse deutlich abweichen (`sqrt(0)` ist dort
+z. B. nur ≈ 8e-20). Für genaue Werte `std` oder `libm` verwenden.
 
 ## Nullstellen
 
@@ -176,16 +176,16 @@ Das Modul `azmath::roots` löst `f(x) = 0` für Funktionen einer Veränderlichen
 werden als Closures übergeben, alle Verfahren sind generisch über `Real` und brauchen keinen
 Allokator.
 
-| Funktion | Braucht | Eigenschaft |
-|---|---|---|
-| `brent` | Intervall mit Vorzeichenwechsel | schnell **und** sicher, die erste Wahl |
-| `bisection` | Intervall mit Vorzeichenwechsel | langsam, aber absolut sicher |
-| `regula_falsi` | Intervall mit Vorzeichenwechsel | Einschluss, aber oft einseitig langsam |
-| `illinois` | Intervall mit Vorzeichenwechsel | Regula Falsi ohne Stagnation, Ordnung ≈ 1,44 |
-| `aberth`, `durand_kerner`, `jenkins_traub` | Polynom-Koeffizienten (reell oder komplex) | **alle** komplexen Nullstellen |
-| `companion_roots` | Polynom-Koeffizienten (reell) | alle Nullstellen als Eigenwerte der Begleitmatrix |
-| `newton` | Funktion, Ableitung, Startwert | quadratisch konvergent, kann divergieren |
-| `secant` | zwei Startwerte | ohne Ableitung, überlinear konvergent |
+| Funktion                                   | Braucht                                    | Eigenschaft                                       |
+|--------------------------------------------|--------------------------------------------|---------------------------------------------------|
+| `brent`                                    | Intervall mit Vorzeichenwechsel            | schnell **und** sicher, die erste Wahl            |
+| `bisection`                                | Intervall mit Vorzeichenwechsel            | langsam, aber absolut sicher                      |
+| `regula_falsi`                             | Intervall mit Vorzeichenwechsel            | Einschluss, aber oft einseitig langsam            |
+| `illinois`                                 | Intervall mit Vorzeichenwechsel            | Regula Falsi ohne Stagnation, Ordnung ≈ 1,44      |
+| `aberth`, `durand_kerner`, `jenkins_traub` | Polynom-Koeffizienten (reell oder komplex) | **alle** komplexen Nullstellen                    |
+| `companion_roots`                          | Polynom-Koeffizienten (reell)              | alle Nullstellen als Eigenwerte der Begleitmatrix |
+| `newton`                                   | Funktion, Ableitung, Startwert             | quadratisch konvergent, kann divergieren          |
+| `secant`                                   | zwei Startwerte                            | ohne Ableitung, überlinear konvergent             |
 
 Abbruch bei Intervallbreite bzw. Schritt `≤ tol · max(1, |x|)` (`RootOptions`, Standard: `8·ε`
 und 500 Iterationen). Das Ergebnis (`RootResult`) enthält Nullstelle, `f(x)` und Iterationszahl;
@@ -209,13 +209,13 @@ Hinweis: Funktionen wie `cos` in der Closure am besten als `Real::cos(x)` aufruf
 Das Modul `azmath::integrate` berechnet `∫ₐᵇ f(x) dx`. Die Funktion wird als Closure übergeben,
 alle Verfahren sind generisch über `Real` und brauchen keinen Allokator.
 
-| Funktion | Art | Eigenschaft |
-|---|---|---|
-| `adaptive` | adaptiv | Gauß-Kronrod (G7/K15) mit Fehlerschätzung, die erste Wahl |
-| `gauss_legendre` | feste Regel | 1 bis 5 Punkte pro Teilintervall, exakt bis Grad `2k−1` |
-| `simpson` | feste Regel | exakt bis Grad 3, Fehler ∝ h⁴ |
-| `trapezoid` | feste Regel | exakt für Geraden, Fehler ∝ h² |
-| `trapezoid_samples`, `simpson_samples`, `trapezoid_xy` | Messdaten | Integral aus Stützwerten (gleichmäßig bzw. beliebig verteilt) |
+| Funktion                                               | Art         | Eigenschaft                                                   |
+|--------------------------------------------------------|-------------|---------------------------------------------------------------|
+| `adaptive`                                             | adaptiv     | Gauß-Kronrod (G7/K15) mit Fehlerschätzung, die erste Wahl     |
+| `gauss_legendre`                                       | feste Regel | 1 bis 5 Punkte pro Teilintervall, exakt bis Grad `2k−1`       |
+| `simpson`                                              | feste Regel | exakt bis Grad 3, Fehler ∝ h⁴                                 |
+| `trapezoid`                                            | feste Regel | exakt für Geraden, Fehler ∝ h²                                |
+| `trapezoid_samples`, `simpson_samples`, `trapezoid_xy` | Messdaten   | Integral aus Stützwerten (gleichmäßig bzw. beliebig verteilt) |
 
 `adaptive` teilt jeweils das Intervall mit dem größten Fehler, bis die Gesamtabweichung unter
 `max(abs_tol, rel_tol · |I|)` liegt (`IntegrateOptions`, Standard: `ε` und `ε^0,75`). Es wertet die
@@ -244,19 +244,19 @@ Singularität teilen.
 Das Modul `azmath::optimize` löst nichtlineare Gleichungssysteme und nichtlineare
 Ausgleichsprobleme `min ‖r(x)‖₂`.
 
-| Funktion | Problem | Verfahren |
-|---|---|---|
-| `newton_system` | `F(x) = 0`, `n` Gleichungen und Unbekannte | Newton mit Schrittweitensteuerung (QR) |
-| `gauss_newton` | `min ‖r(x)‖` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
-| `levenberg_marquardt` | `min ‖r(x)‖` | gedämpft, robust bei schlechtem Startwert und Rangmangel |
+| Funktion              | Problem                                    | Verfahren                                                |
+|-----------------------|--------------------------------------------|----------------------------------------------------------|
+| `newton_system`       | `F(x) = 0`, `n` Gleichungen und Unbekannte | Newton mit Schrittweitensteuerung (QR)                   |
+| `gauss_newton`        | `min ‖r(x)‖` mit `m ≥ n` Residuen          | Gauß-Newton (QR) mit Schrittweitensteuerung              |
+| `levenberg_marquardt` | `min ‖r(x)‖`                               | gedämpft, robust bei schlechtem Startwert und Rangmangel |
 
-Zu jedem gibt es eine Variante `*_fd` mit Jacobi-Matrix aus Vorwärtsdifferenzen
-(`numerical_jacobian`). Die Funktionen arbeiten **auf Slices** und brauchen keinen Allokator: Der
+Zu jedem gibt es eine Variante `*_fd` mit Jacobi-Matrix aus Vorwärtsdifferenzen (`numerical_jacobian`). Die Funktionen
+arbeiten **auf Slices** und brauchen keinen Allokator: Der
 Arbeitsspeicher wird übergeben (`*_work_len`, als `const fn` auch für Arrays nutzbar). Dadurch
 passen sie zu festen Größen wie zu zur Laufzeit bekannten Datenmengen (Kurvenanpassung).
 `x` ist Startwert und Ergebnis; das Ergebnis (`OptimizeResult`) nennt Iterationen, Residuumsnorm und
-den Abbruchgrund (`Termination`: `Residual`, `Step`, `Gradient`, `Cost`). Fehler
-(`OptimizeError`, `#[non_exhaustive]`): `InvalidInput`, `NotFinite`, `SingularJacobian`,
+den Abbruchgrund (`Termination`: `Residual`, `Step`, `Gradient`, `Cost`). Fehler (`OptimizeError`, `#[non_exhaustive]`):
+`InvalidInput`, `NotFinite`, `SingularJacobian`,
 `NoConvergence`.
 
 ```rust
@@ -288,19 +288,19 @@ Das Modul `azmath::ode` löst Anfangswertprobleme `y' = f(t, y)`, `y(t₀) = y�
 rückwärts in der Zeit. Wie bei `optimize` arbeiten die Funktionen auf Slices ohne Allokator: Der
 Zustand wird in-place fortgeschrieben, der Arbeitsspeicher übergeben (`*_work_len` als `const fn`).
 
-| Funktion | Art | Ordnung | Geeignet für |
-|---|---|---|---|
-| `rk45` | explizit, **adaptiv** (Dormand-Prince) | 5(4) | die erste Wahl für nicht steife Probleme |
-| `rk4`, `rk4_step` | explizit, feste Schrittweite | 4 | glatte Probleme mit bekannter Schrittweite |
-| `euler` | explizit, feste Schrittweite | 1 | Demonstrationen |
-| `implicit_euler` | implizit (Newton), feste Schrittweite | 1 | **steife** Probleme, L-stabil |
-| `implicit_trapezoid` | implizit (Newton), feste Schrittweite | 2 | steife Probleme, genauer, aber nur A-stabil |
+| Funktion             | Art                                    | Ordnung | Geeignet für                                |
+|----------------------|----------------------------------------|---------|---------------------------------------------|
+| `rk45`               | explizit, **adaptiv** (Dormand-Prince) | 5(4)    | die erste Wahl für nicht steife Probleme    |
+| `rk4`, `rk4_step`    | explizit, feste Schrittweite           | 4       | glatte Probleme mit bekannter Schrittweite  |
+| `euler`              | explizit, feste Schrittweite           | 1       | Demonstrationen                             |
+| `implicit_euler`     | implizit (Newton), feste Schrittweite  | 1       | **steife** Probleme, L-stabil               |
+| `implicit_trapezoid` | implizit (Newton), feste Schrittweite  | 2       | steife Probleme, genauer, aber nur A-stabil |
 
 Ein **Observer** `|t, y| …` wird mit dem Anfangszustand und nach jedem (akzeptierten) Schritt
 aufgerufen, um den Verlauf aufzuzeichnen, ohne dass das Verfahren Speicher belegt. `rk45` steuert die
 Schrittweite über `Rk45Options` (`rtol`, `atol`, `h_init`, `h_max`, `max_steps`); die impliziten Verfahren
-lösen je Schritt mit `optimize::newton_system` (analytische Jacobi-Matrix oder `*_fd`). Fehler
-(`OdeError`, `#[non_exhaustive]`): `InvalidInput`, `NotFinite`, `StepSizeTooSmall`,
+lösen je Schritt mit `optimize::newton_system` (analytische Jacobi-Matrix oder `*_fd`). Fehler (`OdeError`,
+`#[non_exhaustive]`): `InvalidInput`, `NotFinite`, `StepSizeTooSmall`,
 `MaxStepsExceeded`, `NewtonFailed`.
 
 ```rust
@@ -330,16 +330,16 @@ Funktionen. Alle Verfahren arbeiten auf Slices ohne Allokator: `CubicSpline` und
 die Daten und legen ihre Koeffizienten in einem übergebenen Slice ab; mit `alloc` gibt es die
 besitzenden Varianten `CubicSplineBuf` und `PchipBuf`.
 
-| Typ / Funktion | Eigenschaft |
-|---|---|
-| `linear`, `locate` | stückweise linear, die sicherste Wahl; `locate` findet das Teilintervall (binäre Suche) |
-| `CubicSpline` | zweimal stetig differenzierbar; Randbedingungen `Natural`, `Clamped`, `NotAKnot`, `Periodic` |
-| `Pchip` | stückweise kubisch und **monoton** (kein Überschwingen), nur einmal stetig differenzierbar |
-| `lagrange` | ein Polynom durch alle Punkte (Neville); nur für wenige, gut verteilte Punkte |
+| Typ / Funktion     | Eigenschaft                                                                                  |
+|--------------------|----------------------------------------------------------------------------------------------|
+| `linear`, `locate` | stückweise linear, die sicherste Wahl; `locate` findet das Teilintervall (binäre Suche)      |
+| `CubicSpline`      | zweimal stetig differenzierbar; Randbedingungen `Natural`, `Clamped`, `NotAKnot`, `Periodic` |
+| `Pchip`            | stückweise kubisch und **monoton** (kein Überschwingen), nur einmal stetig differenzierbar   |
+| `lagrange`         | ein Polynom durch alle Punkte (Neville); nur für wenige, gut verteilte Punkte                |
 
 Splines liefern `value`, `derivative`, `second_derivative` und das exakte `integral`. Außerhalb der
-Stützstellen wird extrapoliert (das letzte Polynom fortgesetzt; `contains` prüft den Bereich). Fehler
-(`InterpError`, `#[non_exhaustive]`): `InvalidInput`, `NotIncreasing`, `NotFinite`, `NotPeriodic`,
+Stützstellen wird extrapoliert (das letzte Polynom fortgesetzt; `contains` prüft den Bereich). Fehler (`InterpError`,
+`#[non_exhaustive]`): `InvalidInput`, `NotIncreasing`, `NotFinite`, `NotPeriodic`,
 `Singular`.
 
 ```rust
@@ -358,22 +358,22 @@ Polynome bis Grad 3 und ist ein guter Standard, wenn man den Rand nicht kennt. E
 genauesten, wenn die Steigungen bekannt sind; natürlich passt, wenn die Krümmung am Rand 0 ist. Alle
 drei konvergieren asymptotisch mit `h⁴` (bei groben Gittern kann not-a-knot wegen des Randfehlers
 besser oder schlechter als die anderen sein). Ein Polynom durch viele gleichmäßige Punkte zeigt das
-Runge-Phänomen (Beispiel: 1/(1+25x²) mit 11 Punkten, Fehler 1,9 bei Spline 0,001).
+Runge-Phänomen (Beispiel: 1/ (1+25x²) mit 11 Punkten, Fehler 1,9 bei Spline 0,001).
 
 ## Multigrid
 
-Das Modul `azmath::multigrid` löst die Poisson-Gleichung `−Δu = f` mit Dirichlet-Rand auf dem Einheitsintervall
-(1D) bzw. Einheitsquadrat (2D, 5-Punkte-Stern) mit **geometrischem Multigrid**: Rechenaufwand `O(N)` und eine
-von der Gittergröße **unabhängige** Konvergenzrate. Gemessen bei `−Δu = 1` mit Gauß-Seidel V(2,2) auf Gittern
+Das Modul `azmath::multigrid` löst die Poisson-Gleichung `−Δu = f` mit Dirichlet-Rand auf dem Einheitsintervall (1D)
+bzw. Einheitsquadrat (2D, 5-Punkte-Stern) mit **geometrischem Multigrid**: Rechenaufwand `O(N)` und eine
+von der Gittergröße **unabhängige** Konvergenzrate. Gemessen bei `−Δu = 1` mit Gauß-Seidel V (2,2) auf Gittern
 von `7×7` bis `127×127`: durchgehend 12 Zyklen bis `1e-12`, während CG von 9 auf 264 Iterationen wächst.
 
-| Funktion / Typ | Aufgabe |
-|---|---|
-| `solve_1d`, `solve_2d` | Löser bis zur relativen Residuumstoleranz (`SolveOptions`) |
-| `cycle_1d`, `cycle_2d` | ein einzelner V- oder W-Zyklus |
-| `MultigridPreconditioner` | symmetrischer Zyklus als Vorkonditionierer für `pcg`; konstant etwa 7 Iterationen |
-| `Poisson1d`, `Poisson2d` | der Operator als `LinearOperator` (für CG, Eigenwerte, …) |
-| `solve_1d_vec`, `solve_2d_vec` | wie die Löser, mit eigener Speicherverwaltung (`alloc`) |
+| Funktion / Typ                 | Aufgabe                                                                           |
+|--------------------------------|-----------------------------------------------------------------------------------|
+| `solve_1d`, `solve_2d`         | Löser bis zur relativen Residuumstoleranz (`SolveOptions`)                        |
+| `cycle_1d`, `cycle_2d`         | ein einzelner V- oder W-Zyklus                                                    |
+| `MultigridPreconditioner`      | symmetrischer Zyklus als Vorkonditionierer für `pcg`; konstant etwa 7 Iterationen |
+| `Poisson1d`, `Poisson2d`       | der Operator als `LinearOperator` (für CG, Eigenwerte, …)                         |
+| `solve_1d_vec`, `solve_2d_vec` | wie die Löser, mit eigener Speicherverwaltung (`alloc`)                           |
 
 Bausteine: Glätter `GaussSeidel` (vorwärts vor, rückwärts nach der Grobgitterkorrektur, damit der Zyklus
 symmetrisch bleibt) oder `WeightedJacobi(ω)` (1D: `2/3`, 2D: `4/5`), Restriktion per Full Weighting, lineare bzw.
@@ -424,28 +424,28 @@ cargo run --example 16_eigen_svd
 cargo run --release --example 17_multigrid
 ```
 
-| Beispiel                    | Inhalt                                              |
-|-----------------------------|-----------------------------------------------------|
-| `01_generic_functions`      | Generische Funktionen für `f32` und `f64`           |
-| `02_f32_ops`                | Arithmetik, Rundung, Trigonometrie mit `f32`        |
-| `03_f64_ops`                | Quadratische Gleichung, `exp`, `ln`, `powf` in `f64`|
-| `04_backends`               | Anzeige und Vergleich der Backends                  |
-| `05_convert`                | `from_f64` und Einheitenumrechnung                  |
-| `06_linear_system`          | LU-Löser, Determinante, Inverse (mit `alloc`: dynamisch) |
-| `07_least_squares`          | Ausgleichsgerade und Polynomfit mit QR, Cholesky       |
-| `08_conjugate_gradient`     | CG matrixfrei (Poisson) und Jacobi-Vorkonditionierer   |
-| `09_roots`                  | Nullstellen: Bisektion, Brent, Newton, Sekante, Kepler |
-| `10_bicgstab`               | BiCGSTAB für nichtsymmetrische Systeme                 |
-| `11_integrate`              | Integration: feste Regeln, adaptiv, Messdaten          |
-| `12_curve_fit`              | Kurvenanpassung (LM, Gauß-Newton) und Newton-System    |
-| `13_ode`                    | ODE: RK45, RK4, Euler, steifes Problem mit implizitem Euler |
-| `14_gmres`                  | GMRES(m): schiefsymmetrisch, Neustart-Kosten, Vorkonditionierer |
-| `15_interpolation`          | Interpolation: Runge-Phänomen, Randbedingungen, PCHIP, Integral |
-| `16_eigen_svd`              | Eigenwerte (Jacobi, Potenzmethode), SVD, PCA, Rangmangel |
-| `17_multigrid`              | Multigrid: gitterunabhängige Konvergenz, Vorkonditionierer, O(h²) |
-| `18_autodiff`               | Autodiff: exakte Jacobi-Matrix für Levenberg-Marquardt, Hessematrix |
-| `19_rotations`              | Rotationen: Quaternionen, slerp, Euler-Winkel mit Gimbal Lock, Drift beheben |
-| `20_sparse`                 | Sparse: CSR, CG mit IC(0)/SSOR, Lanczos-Eigenwerte (`--features alloc`) |
+| Beispiel                | Inhalt                                                                       |
+|-------------------------|------------------------------------------------------------------------------|
+| `01_generic_functions`  | Generische Funktionen für `f32` und `f64`                                    |
+| `02_f32_ops`            | Arithmetik, Rundung, Trigonometrie mit `f32`                                 |
+| `03_f64_ops`            | Quadratische Gleichung, `exp`, `ln`, `powf` in `f64`                         |
+| `04_backends`           | Anzeige und Vergleich der Backends                                           |
+| `05_convert`            | `from_f64` und Einheitenumrechnung                                           |
+| `06_linear_system`      | LU-Löser, Determinante, Inverse (mit `alloc`: dynamisch)                     |
+| `07_least_squares`      | Ausgleichsgerade und Polynomfit mit QR, Cholesky                             |
+| `08_conjugate_gradient` | CG matrixfrei (Poisson) und Jacobi-Vorkonditionierer                         |
+| `09_roots`              | Nullstellen: Bisektion, Brent, Newton, Sekante, Kepler                       |
+| `10_bicgstab`           | BiCGSTAB für nichtsymmetrische Systeme                                       |
+| `11_integrate`          | Integration: feste Regeln, adaptiv, Messdaten                                |
+| `12_curve_fit`          | Kurvenanpassung (LM, Gauß-Newton) und Newton-System                          |
+| `13_ode`                | ODE: RK45, RK4, Euler, steifes Problem mit implizitem Euler                  |
+| `14_gmres`              | GMRES(m): schiefsymmetrisch, Neustart-Kosten, Vorkonditionierer              |
+| `15_interpolation`      | Interpolation: Runge-Phänomen, Randbedingungen, PCHIP, Integral              |
+| `16_eigen_svd`          | Eigenwerte (Jacobi, Potenzmethode), SVD, PCA, Rangmangel                     |
+| `17_multigrid`          | Multigrid: gitterunabhängige Konvergenz, Vorkonditionierer, O(h²)            |
+| `18_autodiff`           | Autodiff: exakte Jacobi-Matrix für Levenberg-Marquardt, Hessematrix          |
+| `19_rotations`          | Rotationen: Quaternionen, slerp, Euler-Winkel mit Gimbal Lock, Drift beheben |
+| `20_sparse`             | Sparse: CSR, CG mit IC(0)/SSOR, Lanczos-Eigenwerte (`--features alloc`)      |
 
 ## Tests
 

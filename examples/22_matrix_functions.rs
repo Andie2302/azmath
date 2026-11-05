@@ -34,8 +34,16 @@ fn main() {
     // expm(Generator) MUSS die exakte 2D-Drehmatrix im Bogenmaß ergeben
     let rotation = expm(&generator).unwrap();
     println!("Matrix-Exponential von [[0, -1], [1, 0]]:");
-    println!("  Erhalten:   [{:.6}, {:.6}]", rotation[(0, 0)], rotation[(0, 1)]);
-    println!("              [{:.6}, {:.6}]", rotation[(1, 0)], rotation[(1, 1)]);
+    println!(
+        "  Erhalten:   [{:.6}, {:.6}]",
+        rotation[(0, 0)],
+        rotation[(0, 1)]
+    );
+    println!(
+        "              [{:.6}, {:.6}]",
+        rotation[(1, 0)],
+        rotation[(1, 1)]
+    );
     println!("  Analytisch: [{:.6}, {:.6}]", theta.cos(), -theta.sin());
     println!("              [{:.6}, {:.6}]", theta.sin(), theta.cos());
 
@@ -47,8 +55,10 @@ fn main() {
     println!("\nMatrix-Wurzel (Halber Drehwinkel):");
     println!("  Erhalten (0.5 rad): cos = {:.6}", wurzel[(0, 0)]);
     println!("  Wahr (cos(0.5)):         = {:.6}", 0.5f64.cos());
-    println!("  Matrix-Hauptlogarithmus Fehler: {:e}", max_diff(&log_matrix, &generator));
-
+    println!(
+        "  Matrix-Hauptlogarithmus Fehler: {:e}",
+        max_diff(&log_matrix, &generator)
+    );
 
     println!("\n--- 2. LQR-Regelungstechnik (Riccati-Löser `care`) ---");
     // Ein inverses Pendel (Segway), das balanciert werden muss.
@@ -62,7 +72,7 @@ fn main() {
             10.0, 0.0, // Schwerkraft zieht den Winkel nach außen (instabil!)
         ],
     )
-        .unwrap();
+    .unwrap();
 
     // B-Matrix beschreibt, wie der Motor (Eingriff) auf das System wirkt
     let b = DynMatrix::new(
@@ -73,7 +83,7 @@ fn main() {
             1.0, // Motor beschleunigt den Winkel
         ],
     )
-        .unwrap();
+    .unwrap();
 
     // Q-Matrix: Strafgewichte für Abweichungen (wir wollen den Winkel stark strafen)
     let q = DynMatrix::new(2, 2, vec![1.0, 0.0, 0.0, 10.0]).unwrap();
@@ -93,10 +103,16 @@ fn main() {
     let x_a = x.matmul(&a).unwrap();
     let x_b = x.matmul(&b).unwrap();
     let r_inv = r.inverse().unwrap();
-    let kkt_drift = x_b.matmul(&r_inv).unwrap().matmul(&x_b.transpose()).unwrap();
+    let kkt_drift = x_b
+        .matmul(&r_inv)
+        .unwrap()
+        .matmul(&x_b.transpose())
+        .unwrap();
 
     // Residuum zusammenrechnen: (AᵀX + XA + Q) - (X B R⁻¹ Bᵀ X)
-    let residual = at_x.as_slice().iter()
+    let residual = at_x
+        .as_slice()
+        .iter()
         .zip(x_a.as_slice())
         .zip(q.as_slice())
         .zip(kkt_drift.as_slice())

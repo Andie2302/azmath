@@ -12,8 +12,7 @@ use azmath::{
     Real,
     complex::Complex,
     roots::{
-        aberth, illinois, jenkins_traub, jenkins_traub_work_len, polyval, regula_falsi,
-        RootOptions,
+        RootOptions, aberth, illinois, jenkins_traub, jenkins_traub_work_len, polyval, regula_falsi,
     },
 };
 
@@ -67,7 +66,10 @@ fn main() {
     let mut roots_ab = vec![Complex::ZERO; grad_unity];
 
     let res_ab = aberth(&coeffs_unity, &mut roots_ab, opts).unwrap();
-    println!("\nAberth-Ehrlich (Wurzeln von x⁴ - 1, {} Runden):", res_ab.iterations);
+    println!(
+        "\nAberth-Ehrlich (Wurzeln von x⁴ - 1, {} Runden):",
+        res_ab.iterations
+    );
     for (i, z) in roots_ab.iter().enumerate() {
         println!("  Wurzel {}: {:5.1} + {:5.1}i", i + 1, z.re, z.im);
     }

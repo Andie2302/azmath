@@ -187,7 +187,10 @@ fn dimension_mismatch_1x3_to_2() {
     let (rp, ci, v) = ([0usize, 3], [0usize, 1, 2], [1.0, 2.0, 3.0]);
     let a = CsrView::new(1, 3, &rp, &ci, &v).unwrap();
     let mut y = [0.0; 2]; // Erwartet 1, bereitgestellt 2
-    assert_eq!(a.matvec(&[5.0, 6.0, 7.0], &mut y), Err(SparseError::DimensionMismatch));
+    assert_eq!(
+        a.matvec(&[5.0, 6.0, 7.0], &mut y),
+        Err(SparseError::DimensionMismatch)
+    );
 }
 
 /// Test case: Transpose dimensions check (1x3 -> 3x1)
@@ -200,5 +203,8 @@ fn transpose_dimension_check_1x3() {
     assert_eq!(yt, [5.0, 10.0, 15.0]);
 
     let mut yt_bad = [0.0; 2];
-    assert_eq!(a.matvec_transposed(&[5.0], &mut yt_bad), Err(SparseError::DimensionMismatch));
+    assert_eq!(
+        a.matvec_transposed(&[5.0], &mut yt_bad),
+        Err(SparseError::DimensionMismatch)
+    );
 }

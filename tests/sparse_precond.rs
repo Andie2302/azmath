@@ -3,10 +3,8 @@
 //! Die Tests laufen nur mit den genauen Backends `std` und `libm` und benötigen `alloc`.
 #![cfg(all(any(feature = "std", feature = "libm"), feature = "alloc"))]
 
-use azmath::linalg::iterative::{
-    IterOptions, bicgstab, cg, pbicgstab, pcg, pgmres, pgmres_left,
-};
 use azmath::linalg::LinalgError;
+use azmath::linalg::iterative::{IterOptions, bicgstab, cg, pbicgstab, pcg, pgmres, pgmres_left};
 use azmath::sparse::{CooMatrix, CsrMatrix, Ic0, Ilu0, Ssor};
 
 /// Hilfsfunktion: 2D-Poisson (5-Punkte-Stern) als CsrMatrix.
