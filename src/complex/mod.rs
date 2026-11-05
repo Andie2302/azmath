@@ -7,7 +7,7 @@
 //! Bewusst **nicht** `Real`: komplexe Zahlen haben keine Ordnung. `Complex` implementiert deshalb
 //! `PartialEq`, aber kein `PartialOrd`.
 //!
-//! **Zweige:** `arg` liegt in `(−π, π]`; `sqrt`, `ln` und `powf` verwenden den Hauptzweig.
+//! **Zweige:** `arg` liegt in `[−π, π]` (das Vorzeichen von Null bestimmt die Seite des Schnitts); `sqrt`, `ln` und `powf` verwenden den Hauptzweig.
 //!
 //! ```
 //! # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -86,7 +86,7 @@ impl<T: Real> Complex<T> {
         self.re.hypot(self.im)
     }
 
-    /// Argument (Winkel) in `(−π, π]`.
+    /// Argument (Winkel) in `[−π, π]`.
     pub fn arg(self) -> T {
         self.im.atan2(self.re)
     }
@@ -136,24 +136,33 @@ impl<T: Real> Complex<T> {
 
     /// Hauptwert der Quadratwurzel (Realteil `≥ 0`).
     pub fn sqrt(self) -> Self {
+        if self.im.is_infinite() {
+            return Self::new(T::INFINITY, self.im);
+        }
+        if self.re.is_infinite() {
+            return if self.re > T::ZERO {
+                Self::new(self.re, (self.im * T::ZERO).copysign(self.im))
+            } else {
+                Self::new(self.im.abs() * T::ZERO, T::INFINITY.copysign(self.im))
+            };
+        }
+        if self.is_nan() {
+            return Self::new(T::NAN, T::NAN);
+        }
         if self.re == T::ZERO && self.im == T::ZERO {
-            return Self::ZERO;
+            return Self::new(T::ZERO, self.im);
         }
         let two = T::from_f64(2.0);
-        let m = self.abs();
-        let t = ((m + self.re.abs()) / two).sqrt();
-        // numerisch stabil: keine Auslöschung bei re < 0
+        // Normierung vor hypot: selbst |z| muss nicht darstellbar sein.
+        // sqrt(scale) verhindert außerdem Unterlauf bei subnormalen Eingaben.
+        let scale = self.re.abs().max(self.im.abs());
+        let x = self.re / scale;
+        let y = self.im / scale;
+        let t = scale.sqrt() * ((x.hypot(y) + x.abs()) / two).sqrt();
         if self.re >= T::ZERO {
-            Self {
-                re: t,
-                im: self.im / (two * t),
-            }
+            Self::new(t, self.im / (two * t))
         } else {
-            let im = if self.im < T::ZERO { -t } else { t };
-            Self {
-                re: self.im.abs() / (two * t),
-                im,
-            }
+            Self::new(self.im.abs() / (two * t), t.copysign(self.im))
         }
     }
 
@@ -162,7 +171,7 @@ impl<T: Real> Complex<T> {
         Self::from_polar(self.re.exp(), self.im)
     }
 
-    /// Natürlicher Logarithmus, Hauptwert (Imaginärteil in `(−π, π]`).
+    /// Natürlicher Logarithmus, Hauptwert (Imaginärteil in `[−π, π]`).
     pub fn ln(self) -> Self {
         Self {
             re: self.abs().ln(),
@@ -249,24 +258,44 @@ impl<T: Real> Mul for Complex<T> {
         }
     }
 }
-/// Division nach Smith: vermeidet Überlauf/Unterlauf in `re² + im²` des Nenners.
+/// Division nach Smith mit Skalierung bei überlaufenden Zwischensummen.
+/// Nullnenner und nichtendliche Eingaben folgen der Gleitkommaarithmetik;
+/// eine vollständige Behandlung aller komplexen IEEE-Sonderfälle ist nicht garantiert.
 impl<T: Real> Div for Complex<T> {
     type Output = Self;
     fn div(self, o: Self) -> Self {
-        if o.re.abs() >= o.im.abs() {
-            let r = o.im / o.re;
-            let d = o.re + o.im * r;
-            Self {
-                re: (self.re + self.im * r) / d,
-                im: (self.im - self.re * r) / d,
-            }
+        let two = T::from_f64(2.0);
+        let (a, b, c, d) = if o.re.abs() >= o.im.abs() {
+            (self.re, self.im, o.re, o.im)
         } else {
-            let r = o.re / o.im;
-            let d = o.re * r + o.im;
-            Self {
-                re: (self.re * r + self.im) / d,
-                im: (self.im * r - self.re) / d,
-            }
+            (self.im, self.re, o.im, o.re)
+        };
+        let r = d / c;
+        let denominator = c + d * r;
+        let re = a + b * r;
+        let im = b - a * r;
+        let (re, im) = if denominator.is_infinite() && o.is_finite() {
+            // Beide Seiten halbieren, bevor die Summen gebildet werden.
+            let denominator = c / two + (d / two) * r;
+            (
+                (a / two + (b / two) * r) / denominator,
+                (b / two - (a / two) * r) / denominator,
+            )
+        } else {
+            // Auch die Zählersumme kann überlaufen, obwohl der Quotient endlich ist.
+            let quotient = |sum: T, x: T, y: T| {
+                if sum.is_infinite() && self.is_finite() {
+                    ((x / two + (y / two) * r) / denominator) * two
+                } else {
+                    sum / denominator
+                }
+            };
+            (quotient(re, a, b), quotient(im, b, -a))
+        };
+        if o.re.abs() >= o.im.abs() {
+            Self::new(re, im)
+        } else {
+            Self::new(re, -im)
         }
     }
 }
