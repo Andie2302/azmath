@@ -9,7 +9,6 @@
 
 #[cfg(any(feature = "std", feature = "libm"))]
 use azmath::{
-    Real,
     complex::Complex,
     roots::{
         RootOptions, aberth, illinois, jenkins_traub, jenkins_traub_work_len, polyval, regula_falsi,
