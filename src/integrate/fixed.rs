@@ -1,4 +1,6 @@
-use super::{IntegrateError, finite, from_usize};
+use super::{
+    IntegrateError, WeightedSum, checked, finite, from_usize, integral_scale, mul3, point,
+};
 use crate::Real;
 
 /// Zusammengesetzte Trapezregel mit `n` gleich breiten Teilintervallen.
@@ -19,17 +21,27 @@ pub fn trapezoid<T: Real>(
     if !finite(a) || !finite(b) {
         return Err(IntegrateError::NotFinite);
     }
-    let h = (b - a) / from_usize::<T>(n);
-    let mut sum = T::from_f64(0.5) * (f(a) + f(b));
-    for i in 1..n {
-        sum += f(a + h * from_usize::<T>(i));
+    if a == b {
+        return Ok(T::ZERO);
     }
-    let r = sum * h;
-    if finite(r) {
-        Ok(r)
-    } else {
-        Err(IntegrateError::NotFinite)
+    let weight = T::ONE / from_usize::<T>(n);
+    let mut sum = WeightedSum::new();
+    for i in 0..=n {
+        let x = if i == n {
+            b
+        } else {
+            point(a, b, from_usize::<T>(i) / from_usize::<T>(n))
+        };
+        sum.add(
+            f(x),
+            if i == 0 || i == n {
+                weight * T::from_f64(0.5)
+            } else {
+                weight
+            },
+        )?;
     }
+    checked(integral_scale(sum.value(), a, b))
 }
 
 /// Zusammengesetzte Simpson-Regel mit `n` Teilintervallen (`n` muss gerade sein).
@@ -50,23 +62,27 @@ pub fn simpson<T: Real>(
     if !finite(a) || !finite(b) {
         return Err(IntegrateError::NotFinite);
     }
-    let h = (b - a) / from_usize::<T>(n);
-    let mut odd = T::ZERO;
-    let mut even = T::ZERO;
-    for i in 1..n {
-        let y = f(a + h * from_usize::<T>(i));
-        if i % 2 == 1 {
-            odd += y;
+    if a == b {
+        return Ok(T::ZERO);
+    }
+    let weight = T::ONE / (T::from_f64(3.0) * from_usize::<T>(n));
+    let mut sum = WeightedSum::new();
+    for i in 0..=n {
+        let x = if i == n {
+            b
         } else {
-            even += y;
-        }
+            point(a, b, from_usize::<T>(i) / from_usize::<T>(n))
+        };
+        let factor = if i == 0 || i == n {
+            T::ONE
+        } else if i % 2 == 1 {
+            T::from_f64(4.0)
+        } else {
+            T::from_f64(2.0)
+        };
+        sum.add(f(x), weight * factor)?;
     }
-    let r = (f(a) + f(b) + T::from_f64(4.0) * odd + T::from_f64(2.0) * even) * h / T::from_f64(3.0);
-    if finite(r) {
-        Ok(r)
-    } else {
-        Err(IntegrateError::NotFinite)
-    }
+    checked(integral_scale(sum.value(), a, b))
 }
 
 /// Trapezregel für **gleichmäßig verteilte Messwerte** `y` im Abstand `h`.
@@ -76,16 +92,23 @@ pub fn trapezoid_samples<T: Real>(y: &[T], h: T) -> Result<T, IntegrateError> {
     if y.len() < 2 {
         return Err(IntegrateError::InvalidInput);
     }
-    let mut sum = T::from_f64(0.5) * (y[0] + y[y.len() - 1]);
-    for v in &y[1..y.len() - 1] {
-        sum += *v;
+    if !finite(h) {
+        return Err(IntegrateError::NotFinite);
     }
-    let r = sum * h;
-    if finite(r) {
-        Ok(r)
-    } else {
-        Err(IntegrateError::NotFinite)
+    let n = y.len() - 1;
+    let weight = T::ONE / from_usize::<T>(n);
+    let mut sum = WeightedSum::new();
+    for (i, &value) in y.iter().enumerate() {
+        sum.add(
+            value,
+            if i == 0 || i == n {
+                weight * T::from_f64(0.5)
+            } else {
+                weight
+            },
+        )?;
     }
+    checked(mul3(sum.value(), h, from_usize::<T>(n)))
 }
 
 /// Simpson-Regel für **gleichmäßig verteilte Messwerte** `y` im Abstand `h`.
@@ -94,25 +117,26 @@ pub fn trapezoid_samples<T: Real>(y: &[T], h: T) -> Result<T, IntegrateError> {
 ///
 /// Fehler: [`IntegrateError::InvalidInput`], [`IntegrateError::NotFinite`].
 pub fn simpson_samples<T: Real>(y: &[T], h: T) -> Result<T, IntegrateError> {
-    let n = y.len();
-    if n < 3 || n % 2 == 0 {
+    if y.len() < 3 || y.len() % 2 == 0 {
         return Err(IntegrateError::InvalidInput);
     }
-    let mut sum = y[0] + y[n - 1];
-    for (i, v) in y[1..n - 1].iter().enumerate() {
-        // i = 0 entspricht Stützstelle 1 (ungerade)
-        sum += if i % 2 == 0 {
-            T::from_f64(4.0) * *v
+    if !finite(h) {
+        return Err(IntegrateError::NotFinite);
+    }
+    let n = y.len() - 1;
+    let weight = T::ONE / (T::from_f64(3.0) * from_usize::<T>(n));
+    let mut sum = WeightedSum::new();
+    for (i, &value) in y.iter().enumerate() {
+        let factor = if i == 0 || i == n {
+            T::ONE
+        } else if i % 2 == 1 {
+            T::from_f64(4.0)
         } else {
-            T::from_f64(2.0) * *v
+            T::from_f64(2.0)
         };
+        sum.add(value, weight * factor)?;
     }
-    let r = sum * h / T::from_f64(3.0);
-    if finite(r) {
-        Ok(r)
-    } else {
-        Err(IntegrateError::NotFinite)
-    }
+    checked(mul3(sum.value(), h, from_usize::<T>(n)))
 }
 
 /// Trapezregel für **beliebig verteilte Messwerte**: Stützstellen `x` (aufsteigend oder
@@ -124,13 +148,15 @@ pub fn trapezoid_xy<T: Real>(x: &[T], y: &[T]) -> Result<T, IntegrateError> {
     if x.len() != y.len() || x.len() < 2 {
         return Err(IntegrateError::InvalidInput);
     }
-    let mut sum = T::ZERO;
+    if x.iter().chain(y.iter()).any(|v| !finite(*v)) {
+        return Err(IntegrateError::NotFinite);
+    }
+    let mut total = WeightedSum::new();
     for i in 1..x.len() {
-        sum += T::from_f64(0.5) * (y[i] + y[i - 1]) * (x[i] - x[i - 1]);
+        let mut mean = WeightedSum::new();
+        mean.add(y[i - 1], T::from_f64(0.5))?;
+        mean.add(y[i], T::from_f64(0.5))?;
+        total.add(integral_scale(mean.value(), x[i - 1], x[i]), T::ONE)?;
     }
-    if finite(sum) {
-        Ok(sum)
-    } else {
-        Err(IntegrateError::NotFinite)
-    }
+    checked(total.value())
 }

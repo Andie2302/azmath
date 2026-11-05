@@ -1,4 +1,6 @@
-use super::{IntegralResult, IntegrateError, IntegrateOptions, finite};
+use super::{
+    IntegralResult, IntegrateError, IntegrateOptions, WeightedSum, finite, integral_scale, point,
+};
 use crate::Real;
 
 /// Gauß-Kronrod-Knoten (positive Hälfte, absteigend) der 15-Punkte-Kronrod-Regel auf `[−1, 1]`.
@@ -61,41 +63,47 @@ fn gk15<T: Real, F: FnMut(T) -> T>(
     a: T,
     b: T,
 ) -> Result<Segment<T>, IntegrateError> {
-    let center = T::from_f64(0.5) * (a + b);
-    let half = T::from_f64(0.5) * (b - a);
-
+    let half = T::from_f64(0.5);
+    let center = point(a, b, half);
+    if center <= a || center >= b {
+        return Err(IntegrateError::NoConvergence);
+    }
     let fc = f(center);
     *evals += 1;
-    if !finite(fc) {
+    let mut kronrod = WeightedSum::new();
+    let mut gauss = WeightedSum::new();
+    let mut resabs = WeightedSum::new();
+    kronrod.add(fc, T::from_f64(WGK[7]) * half)?;
+    gauss.add(fc, T::from_f64(WG[3]) * half)?;
+    resabs.add(fc.abs(), T::from_f64(WGK[7]) * half)?;
+    for j in 0..7 {
+        let node = T::from_f64(XGK[j]);
+        for t in [(T::ONE - node) * half, (T::ONE + node) * half] {
+            let x = point(a, b, t);
+            if x <= a || x >= b {
+                return Err(IntegrateError::NoConvergence);
+            }
+            let value = f(x);
+            *evals += 1;
+            kronrod.add(value, T::from_f64(WGK[j]) * half)?;
+            resabs.add(value.abs(), T::from_f64(WGK[j]) * half)?;
+            if j % 2 == 1 {
+                gauss.add(value, T::from_f64(WG[j / 2]) * half)?;
+            }
+        }
+    }
+    let value = integral_scale(kronrod.value(), a, b);
+    let error = (value - integral_scale(gauss.value(), a, b)).abs();
+    let resabs = integral_scale(resabs.value(), a, b);
+    if !finite(value) || !finite(error) || !finite(resabs) {
         return Err(IntegrateError::NotFinite);
     }
-    let mut kronrod = T::from_f64(WGK[7]) * fc;
-    let mut gauss = T::from_f64(WG[3]) * fc;
-    let mut resabs = T::from_f64(WGK[7]) * fc.abs();
-
-    for j in 0..7 {
-        let dx = half * T::from_f64(XGK[j]);
-        let f1 = f(center - dx);
-        let f2 = f(center + dx);
-        *evals += 2;
-        if !finite(f1) || !finite(f2) {
-            return Err(IntegrateError::NotFinite);
-        }
-        let sum = f1 + f2;
-        kronrod += T::from_f64(WGK[j]) * sum;
-        resabs += T::from_f64(WGK[j]) * (f1.abs() + f2.abs());
-        // Gauß-Knoten sind XGK[1], XGK[3], XGK[5]
-        if j % 2 == 1 {
-            gauss += T::from_f64(WG[j / 2]) * sum;
-        }
-    }
-
     Ok(Segment {
         a,
         b,
-        value: kronrod * half,
-        error: ((kronrod - gauss) * half).abs(),
-        resabs: resabs * half,
+        value,
+        error,
+        resabs,
         splittable: true,
     })
 }
@@ -124,7 +132,9 @@ fn gk15<T: Real, F: FnMut(T) -> T>(
 ///
 /// Fehler: [`IntegrateError::NoConvergence`] (Toleranz mit `max_intervals`/`max_evals` nicht
 /// erreichbar, zum Beispiel bei `1/x` über 0), [`IntegrateError::NotFinite`] (NaN/Unendlich in
-/// den Grenzen oder in `f`).
+/// den Grenzen oder in `f`), [`IntegrateError::InvalidInput`] (negative/nichtendliche
+/// Toleranzen oder `max_intervals = 0`). Ein Budget unter 15 erlaubt bei nichtleerem
+/// Intervall keine erste Regel. Rundungsstillstand oberhalb der Toleranz ergibt `NoConvergence`.
 ///
 /// ```
 /// # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -142,6 +152,14 @@ pub fn adaptive<T: Real>(
     b: T,
     opts: IntegrateOptions<T>,
 ) -> Result<IntegralResult<T>, IntegrateError> {
+    if !finite(opts.abs_tol)
+        || !finite(opts.rel_tol)
+        || opts.abs_tol < T::ZERO
+        || opts.rel_tol < T::ZERO
+        || opts.max_intervals == 0
+    {
+        return Err(IntegrateError::InvalidInput);
+    }
     if !finite(a) || !finite(b) {
         return Err(IntegrateError::NotFinite);
     }
@@ -151,6 +169,9 @@ pub fn adaptive<T: Real>(
             error_estimate: T::ZERO,
             evaluations: 0,
         });
+    }
+    if opts.max_evals < 15 {
+        return Err(IntegrateError::NoConvergence);
     }
     // Intern immer aufsteigend rechnen und am Ende das Vorzeichen setzen.
     let (lo, hi, sign) = if a < b {
@@ -188,32 +209,23 @@ pub fn adaptive<T: Real>(
         // Teilbares Intervall mit dem größten Fehler oberhalb des Rundungsrauschens suchen.
         let mut worst: Option<usize> = None;
         let mut worst_err = T::ZERO;
-        let mut stuck = false;
         for (i, s) in segs[..n].iter().enumerate() {
-            if s.error > s.noise() {
-                if !s.splittable {
-                    stuck = true;
-                } else if s.error > worst_err {
-                    worst = Some(i);
-                    worst_err = s.error;
-                }
+            if s.splittable && s.error > s.noise() && s.error > worst_err {
+                worst = Some(i);
+                worst_err = s.error;
             }
         }
-
         let Some(i) = worst else {
-            // Nur noch Rundungsrauschen (konvergiert) oder nicht mehr teilbare Intervalle.
-            return if stuck {
-                Err(IntegrateError::NoConvergence)
-            } else {
-                finish(sign * value, error, evals)
-            };
+            // Rundungsrauschen oder nicht mehr teilbare Intervalle rechtfertigen keinen
+            // Erfolg, wenn der Fehlerschätzer die geforderte Toleranz überschreitet.
+            return Err(IntegrateError::NoConvergence);
         };
         if n >= capacity || evals + 30 > opts.max_evals {
             return Err(IntegrateError::NoConvergence);
         }
 
         let (sa, sb) = (segs[i].a, segs[i].b);
-        let mid = T::from_f64(0.5) * (sa + sb);
+        let mid = point(sa, sb, T::from_f64(0.5));
         if !(sa < mid && mid < sb) {
             segs[i].splittable = false;
             continue;
@@ -229,7 +241,7 @@ fn finish<T: Real>(
     error_estimate: T,
     evaluations: usize,
 ) -> Result<IntegralResult<T>, IntegrateError> {
-    if finite(value) {
+    if finite(value) && finite(error_estimate) && error_estimate >= T::ZERO {
         Ok(IntegralResult {
             value,
             error_estimate,

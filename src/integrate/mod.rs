@@ -56,14 +56,14 @@ use crate::Real;
 /// Einstellungen für das adaptive Verfahren [`adaptive`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IntegrateOptions<T> {
-    /// Absolute Toleranz für den Fehler.
+    /// Absolute Toleranz für den Fehler (endlich und nichtnegativ).
     pub abs_tol: T,
-    /// Relative Toleranz (bezogen auf den Betrag des Integrals).
+    /// Relative Toleranz (bezogen auf den Betrag des Integrals; endlich und nichtnegativ).
     pub rel_tol: T,
-    /// Maximale Anzahl gleichzeitiger Teilintervalle (höchstens 256; größere Werte werden
+    /// Maximale Anzahl gleichzeitiger Teilintervalle (mindestens 1, höchstens 256; größere Werte werden
     /// gekappt).
     pub max_intervals: usize,
-    /// Maximale Anzahl an Funktionsauswertungen.
+    /// Maximale Anzahl an Funktionsauswertungen (für ein nichtleeres Intervall mindestens 15).
     pub max_evals: usize,
 }
 
@@ -145,4 +145,91 @@ pub(crate) fn finite<T: Real>(x: T) -> bool {
 /// `i` als `T`.
 pub(crate) fn from_usize<T: Real>(i: usize) -> T {
     T::from_f64(i as f64)
+}
+
+/// Punkt im Intervall ohne überlaufende Differenz bei verschiedenen Vorzeichen.
+pub(crate) fn point<T: Real>(a: T, b: T, t: T) -> T {
+    if (a < T::ZERO) == (b < T::ZERO) {
+        a + (b - a) * t
+    } else {
+        (T::ONE - t) * a + t * b
+    }
+}
+
+pub(crate) fn half_width<T: Real>(a: T, b: T) -> T {
+    let half = T::from_f64(0.5);
+    let width = b - a;
+    if finite(width) {
+        width * half
+    } else {
+        b * half - a * half
+    }
+}
+
+/// Kleinsten und größten Faktor zuerst multiplizieren, um unnötigen Wertebereichsverlust zu vermeiden.
+pub(crate) fn mul3<T: Real>(mut a: T, mut b: T, mut c: T) -> T {
+    if a.abs() > b.abs() {
+        core::mem::swap(&mut a, &mut b);
+    }
+    if b.abs() > c.abs() {
+        core::mem::swap(&mut b, &mut c);
+    }
+    if a.abs() > b.abs() {
+        core::mem::swap(&mut a, &mut b);
+    }
+    (a * c) * b
+}
+
+pub(crate) fn integral_scale<T: Real>(mean: T, a: T, b: T) -> T {
+    let width = b - a;
+    if finite(width) {
+        mean * width
+    } else {
+        mul3(mean, half_width(a, b), T::from_f64(2.0))
+    }
+}
+
+/// Skalierte, kompensierte gewichtete Summe; die Gewichte werden vor der Rückskalierung angewendet.
+pub(crate) struct WeightedSum<T> {
+    scale: T,
+    sum: T,
+    correction: T,
+}
+impl<T: Real> WeightedSum<T> {
+    pub(crate) fn new() -> Self {
+        Self {
+            scale: T::ZERO,
+            sum: T::ZERO,
+            correction: T::ZERO,
+        }
+    }
+    pub(crate) fn add(&mut self, value: T, weight: T) -> Result<(), IntegrateError> {
+        if !finite(value) || !finite(weight) {
+            return Err(IntegrateError::NotFinite);
+        }
+        if value.abs() > self.scale {
+            let ratio = self.scale / value.abs();
+            self.sum *= ratio;
+            self.correction *= ratio;
+            self.scale = value.abs();
+        }
+        if self.scale != T::ZERO {
+            let term = (value / self.scale) * weight - self.correction;
+            let next = self.sum + term;
+            self.correction = (next - self.sum) - term;
+            self.sum = next;
+        }
+        Ok(())
+    }
+    pub(crate) fn value(&self) -> T {
+        self.scale * self.sum
+    }
+}
+
+pub(crate) fn checked<T: Real>(value: T) -> Result<T, IntegrateError> {
+    if finite(value) {
+        Ok(value)
+    } else {
+        Err(IntegrateError::NotFinite)
+    }
 }

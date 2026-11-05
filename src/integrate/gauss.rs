@@ -1,4 +1,4 @@
-use super::{IntegrateError, finite, from_usize};
+use super::{IntegrateError, WeightedSum, checked, finite, from_usize, integral_scale, point};
 use crate::Real;
 
 /// Knoten (≥ 0) und Gewichte der Gauß-Legendre-Regeln der Ordnung 1 bis 5 auf `[−1, 1]`.
@@ -50,26 +50,25 @@ pub fn gauss_legendre<T: Real>(
     if !finite(a) || !finite(b) {
         return Err(IntegrateError::NotFinite);
     }
+    if a == b {
+        return Ok(T::ZERO);
+    }
     let rule = RULES[order - 1];
-    let h = (b - a) / from_usize::<T>(panels);
-    let half = T::from_f64(0.5) * h;
-    let mut total = T::ZERO;
+    let count = from_usize::<T>(panels);
+    let half = T::from_f64(0.5);
+    let mut total = WeightedSum::new();
     for p in 0..panels {
-        let mid = a + h * (from_usize::<T>(p) + T::from_f64(0.5));
-        let mut s = T::ZERO;
         for &(node, weight) in rule {
-            let (x, w) = (T::from_f64(node), T::from_f64(weight));
+            let x = T::from_f64(node);
+            let w = T::from_f64(weight) * half / count;
             if node == 0.0 {
-                s += w * f(mid);
+                total.add(f(point(a, b, (from_usize::<T>(p) + half) / count)), w)?;
             } else {
-                s += w * (f(mid - half * x) + f(mid + half * x));
+                for t in [(T::ONE - x) * half, (T::ONE + x) * half] {
+                    total.add(f(point(a, b, (from_usize::<T>(p) + t) / count)), w)?;
+                }
             }
         }
-        total += s * half;
     }
-    if finite(total) {
-        Ok(total)
-    } else {
-        Err(IntegrateError::NotFinite)
-    }
+    checked(integral_scale(total.value(), a, b))
 }

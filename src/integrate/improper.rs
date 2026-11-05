@@ -1,12 +1,13 @@
 //! Tanh-Sinh-Quadratur für Endpunktsingularitäten sowie halb- und ganz unendliche Intervalle.
 
-use super::{IntegralResult, IntegrateError, finite};
+use super::{IntegralResult, IntegrateError, finite, half_width, mul3, point};
 use crate::Real;
 
 /// Integral von `f` über `[a, b]` mit der doppelt-exponentiellen Tanh-Sinh-Regel auf relative Genauigkeit `tol`.
 ///
 /// Wertet `f` nie an den Endpunkten aus; algebraische und logarithmische Singularitäten dort sind erlaubt
-/// (`∫₀¹ 1/√x dx`, `∫₀¹ ln x dx`). Nicht endliche Funktionswerte werden übergangen. Das Intervall wird bis zu 10-mal
+/// (`∫₀¹ 1/√x dx`, `∫₀¹ ln x dx`). Nichtendliche Werte an inneren Stützstellen ergeben
+/// [`IntegrateError::NotFinite`]. Das Intervall wird bis zu 10-mal
 /// verfeinert.
 ///
 /// Fehler: [`IntegrateError::NotFinite`] (Grenzen), [`IntegrateError::InvalidInput`] (`a ≥ b`),
@@ -25,6 +26,9 @@ pub fn tanh_sinh<T: Real>(
     b: T,
     tol: T,
 ) -> Result<IntegralResult<T>, IntegrateError> {
+    if !finite(tol) || tol < T::ZERO {
+        return Err(IntegrateError::InvalidInput);
+    }
     if !finite(a) || !finite(b) {
         return Err(IntegrateError::NotFinite);
     }
@@ -32,14 +36,17 @@ pub fn tanh_sinh<T: Real>(
         return Err(IntegrateError::InvalidInput);
     }
     let half = T::from_f64(0.5);
-    let c = (a + b) * half;
-    let hw = (b - a) * half;
+    let c = point(a, b, half);
+    if c <= a || c >= b {
+        return Err(IntegrateError::NoConvergence);
+    }
+    let hw = half_width(a, b);
     let pi2 = T::PI * half;
     let t_max = T::from_f64(6.0);
     let mut evals = 0usize;
 
     // Beitrag der Parameter ±t (t > 0: zwei Punkte symmetrisch zu den Endpunkten; t = 0: Mittelpunkt)
-    let mut term = |t: T, f: &mut dyn FnMut(T) -> T| -> T {
+    let mut term = |t: T, f: &mut dyn FnMut(T) -> T| -> Result<T, IntegrateError> {
         let u = pi2 * t.sinh();
         let cu = u.cosh();
         let w = pi2 * t.cosh() / (cu * cu);
@@ -47,10 +54,15 @@ pub fn tanh_sinh<T: Real>(
         if t == T::ZERO {
             evals += 1;
             let v = f(c);
-            if finite(v) {
-                s += w * v * hw;
+            if !finite(v) {
+                return Err(IntegrateError::NotFinite);
             }
-            return s;
+            s += mul3(w, v, hw);
+            return if finite(s) {
+                Ok(s)
+            } else {
+                Err(IntegrateError::NotFinite)
+            };
         }
         let dist = hw * (-u).exp() / cu; // Abstand zum Endpunkt
         for x in [a + dist, b - dist] {
@@ -59,18 +71,23 @@ pub fn tanh_sinh<T: Real>(
             }
             evals += 1;
             let v = f(x);
-            if finite(v) {
-                s += w * v * hw;
+            if !finite(v) {
+                return Err(IntegrateError::NotFinite);
             }
+            s += mul3(w, v, hw);
         }
-        s
+        if finite(s) {
+            Ok(s)
+        } else {
+            Err(IntegrateError::NotFinite)
+        }
     };
 
     let mut h = T::ONE;
-    let mut sum = term(T::ZERO, &mut f);
+    let mut sum = term(T::ZERO, &mut f)?;
     let mut k = T::ONE;
     while k * h <= t_max {
-        sum += term(k * h, &mut f);
+        sum += term(k * h, &mut f)?;
         k += T::ONE;
     }
     let mut prev = sum * h;
@@ -80,13 +97,16 @@ pub fn tanh_sinh<T: Real>(
         let mut k = T::ONE;
         let mut add = T::ZERO;
         while k * h <= t_max {
-            add += term(k * h, &mut f);
+            add += term(k * h, &mut f)?;
             k += T::from_f64(2.0);
         }
         sum += add;
         est = sum * h;
         let err = (est - prev).abs();
-        if err <= tol * est.abs().max(T::EPSILON) || err <= T::EPSILON * T::from_f64(4.0) {
+        if !finite(est) || !finite(err) {
+            return Err(IntegrateError::NotFinite);
+        }
+        if err <= tol * est.abs().max(T::EPSILON) {
             return Ok(IntegralResult {
                 value: est,
                 error_estimate: err,
@@ -105,6 +125,9 @@ pub fn integrate_semi_infinite<T: Real>(
     a: T,
     tol: T,
 ) -> Result<IntegralResult<T>, IntegrateError> {
+    if !finite(a) {
+        return Err(IntegrateError::NotFinite);
+    }
     tanh_sinh(
         |t| {
             let om = T::ONE - t;

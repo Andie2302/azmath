@@ -216,18 +216,26 @@ fn adaptive_handles_peaks_and_oscillation() {
 }
 
 #[test]
-fn antisymmetric_integrand_fools_symmetric_rules() {
-    // sin(50x) ist um den Mittelpunkt π/2 exakt antisymmetrisch: die symmetrischen Knoten heben sich
-    // auf, G7 und K15 liefern beide 0 und der Fehlerschätzer meldet "fertig" nach 15 Auswertungen.
-    // Das Ergebnis 0 stimmt hier (das Integral ist 0), aber der Schätzer hat nichts gesehen.
-    let r = adaptive(|x: f64| Real::sin(50.0 * x), 0.0, PI, opts()).unwrap();
-    assert_eq!(r.evaluations, 15);
+fn antisymmetric_integrand_still_must_meet_the_reported_error_criterion() {
+    // Antisymmetrische Beiträge können bis zum Rundungsniveau auslöschen.
+    // Erfolg ist nur zulässig, wenn der gemeldete Fehler die Toleranz erfüllt;
+    // Rundungsrauschen rechtfertigt sonst NoConvergence.
+    let o = opts();
+    match adaptive(|x: f64| Real::sin(50.0 * x), 0.0, PI, o) {
+        Ok(r) => {
+            assert!(r.error_estimate <= o.abs_tol.max(o.rel_tol * r.value.abs()));
+            close(r.value, 0.0, 1e-12);
+        }
+        Err(e) => assert_eq!(e, IntegrateError::NoConvergence),
+    }
     // Ohne diese Symmetrie wird dieselbe Funktion korrekt aufgelöst (siehe oben). Abhilfe:
-    // das Intervall unsymmetrisch teilen.
-    let a = adaptive(|x: f64| Real::sin(50.0 * x), 0.0, 1.0, opts())
+    // das Intervall unsymmetrisch teilen. Für das stark auslöschende Integral
+    // eine absolute Toleranz passend zur unten geprüften Genauigkeit anfordern.
+    let split_opts = IntegrateOptions::new(1e-13, 1e-12);
+    let a = adaptive(|x: f64| Real::sin(50.0 * x), 0.0, 1.0, split_opts)
         .unwrap()
         .value;
-    let b = adaptive(|x: f64| Real::sin(50.0 * x), 1.0, PI, opts())
+    let b = adaptive(|x: f64| Real::sin(50.0 * x), 1.0, PI, split_opts)
         .unwrap()
         .value;
     close(a + b, 0.0, 1e-12);
