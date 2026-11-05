@@ -16,7 +16,7 @@ impl<T: Real, const N: usize> LuDecomposition<T, N> {
     /// Berechnet die Zerlegung von `a`.
     ///
     /// Fehler: [`LinalgError::Singular`] bei (numerisch) singulärer Matrix,
-    /// [`LinalgError::NotFinite`] bei NaN oder unendlichen Einträgen.
+    /// [`LinalgError::NotFinite`] bei NaN/unendlichen Einträgen oder Überlauf der Zerlegung.
     pub fn new(a: &Matrix<T, N, N>) -> Result<Self, LinalgError> {
         let mut lu = *a;
         let mut perm = [0usize; N];

@@ -66,15 +66,9 @@ impl<T: Real, const R: usize, const C: usize> Matrix<T, R, C> {
         out
     }
 
-    /// Größter Betrag aller Elemente (Maximumnorm).
+    /// Größter Betrag aller Elemente (Maximumnorm); NaN wird weitergegeben.
     pub fn max_abs(&self) -> T {
-        let mut m = T::ZERO;
-        for row in &self.data {
-            for &v in row {
-                m = m.max(v.abs());
-            }
-        }
-        m
+        super::norm::max_abs(self.data.as_flattened())
     }
 }
 

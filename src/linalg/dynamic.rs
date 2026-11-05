@@ -59,9 +59,9 @@ impl<T: Real> DynVector<T> {
         Ok(s)
     }
 
-    /// Größter Betrag aller Elemente (Maximumnorm).
+    /// Größter Betrag aller Elemente (Maximumnorm); NaN wird weitergegeben.
     pub fn max_abs(&self) -> T {
-        self.data.iter().fold(T::ZERO, |m, v| m.max(v.abs()))
+        super::norm::max_abs(&self.data)
     }
 
     /// `self += alpha · x` (in-place); Fehler bei unterschiedlicher Länge.
@@ -186,9 +186,9 @@ impl<T: Real> DynMatrix<T> {
         Ok(out)
     }
 
-    /// Größter Betrag aller Elemente (Maximumnorm).
+    /// Größter Betrag aller Elemente (Maximumnorm); NaN wird weitergegeben.
     pub fn max_abs(&self) -> T {
-        self.data.iter().fold(T::ZERO, |m, v| m.max(v.abs()))
+        super::norm::max_abs(&self.data)
     }
 
     /// LU-Zerlegung; die Matrix muss quadratisch sein.
@@ -400,7 +400,7 @@ impl<T: Real> DynLu<T> {
     ///
     /// Fehler: [`LinalgError::DimensionMismatch`] bei nicht quadratischer Matrix,
     /// [`LinalgError::Singular`] bei (numerisch) singulärer Matrix,
-    /// [`LinalgError::NotFinite`] bei NaN oder unendlichen Einträgen.
+    /// [`LinalgError::NotFinite`] bei NaN/unendlichen Einträgen oder Überlauf der LU-Zerlegung.
     pub fn new(a: &DynMatrix<T>) -> Result<Self, LinalgError> {
         if a.rows != a.cols {
             return Err(LinalgError::DimensionMismatch);

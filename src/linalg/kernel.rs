@@ -126,6 +126,9 @@ pub fn lu_decompose<T: Real>(
             a[i * n + k] = f;
             for j in (k + 1)..n {
                 a[i * n + j] -= f * a[k * n + j];
+                if !a[i * n + j].is_finite() {
+                    return Err(LinalgError::NotFinite);
+                }
             }
         }
     }

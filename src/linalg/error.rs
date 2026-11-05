@@ -6,7 +6,7 @@ use core::fmt;
 pub enum LinalgError {
     /// Die Matrix ist singulär bzw. bei QR rangdefizient (oder numerisch nicht davon zu unterscheiden).
     Singular,
-    /// Die Matrix enthält NaN oder unendliche Werte.
+    /// Die Eingaben oder ein geprüftes Zwischenergebnis enthalten NaN oder unendliche Werte.
     NotFinite,
     /// Die Dimensionen der Operanden passen nicht zusammen.
     DimensionMismatch,

@@ -21,12 +21,14 @@ fn max_nan<T: Real>(a: T, b: T) -> T {
     }
 }
 
+/// Maximumnorm eines Slices; NaN wird unabhängig von seiner Position weitergegeben.
+pub(crate) fn max_abs<T: Real>(a: &[T]) -> T {
+    a.iter().fold(T::ZERO, |m, x| max_nan(m, x.abs()))
+}
+
 /// Frobenius-Norm eines Slices; skaliert mit dem größten Betrag gegen Über- und Unterlauf.
 pub(crate) fn frobenius<T: Real>(a: &[T]) -> T {
-    let mut m = T::ZERO;
-    for &x in a {
-        m = max_nan(m, x.abs());
-    }
+    let m = max_abs(a);
     if m.is_nan() || m.is_infinite() || m == T::ZERO {
         return m;
     }

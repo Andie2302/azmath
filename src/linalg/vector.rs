@@ -58,23 +58,19 @@ impl<T: Real, const N: usize> Vector<T, N> {
         s
     }
 
-    /// Quadrat der euklidischen Länge.
+    /// Quadrat der euklidischen Länge (kann über- oder unterlaufen).
     pub fn norm_squared(&self) -> T {
         self.dot(self)
     }
 
-    /// Euklidische Länge.
+    /// Euklidische Länge, skaliert gegen vermeidbaren Über- und Unterlauf.
     pub fn norm(&self) -> T {
-        self.norm_squared().sqrt()
+        super::norm::frobenius(&self.data)
     }
 
-    /// Größter Betrag aller Elemente (Maximumnorm).
+    /// Größter Betrag aller Elemente (Maximumnorm); NaN wird weitergegeben.
     pub fn max_abs(&self) -> T {
-        let mut m = T::ZERO;
-        for &v in &self.data {
-            m = m.max(v.abs());
-        }
-        m
+        super::norm::max_abs(&self.data)
     }
 
     /// `self += alpha · x` (in-place, ohne Zwischenvektor).
