@@ -6,6 +6,8 @@ use core::fmt;
 pub enum LinalgError {
     /// Die Matrix ist singulär bzw. bei QR rangdefizient (oder numerisch nicht davon zu unterscheiden).
     Singular,
+    /// Ungültiger numerischer Parameter (etwa eine negative oder nichtendliche Toleranz).
+    InvalidInput,
     /// Die Eingaben oder ein geprüftes Zwischenergebnis enthalten NaN oder unendliche Werte.
     NotFinite,
     /// Die Dimensionen der Operanden passen nicht zusammen.
@@ -23,6 +25,7 @@ pub enum LinalgError {
 impl fmt::Display for LinalgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
+            LinalgError::InvalidInput => "Ungültiger numerischer Parameter",
             LinalgError::Singular => "Matrix ist singulär",
             LinalgError::NotFinite => "Matrix enthält NaN oder unendliche Werte",
             LinalgError::DimensionMismatch => "Dimensionen passen nicht zusammen",

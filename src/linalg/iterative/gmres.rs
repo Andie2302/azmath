@@ -1,5 +1,8 @@
 use super::super::{LinalgError, LinearOperator};
-use super::{Identity, IterOptions, IterResult, Preconditioner, axpy, dot};
+use super::{
+    Identity, IterOptions, IterResult, Preconditioner, axpy, converged, dot, finite, norm,
+    residual, validate,
+};
 use crate::Real;
 
 /// Benötigter Arbeitsspeicher für [`gmres`]/[`pgmres`] bei Dimension `n` und Neustartlänge
@@ -17,7 +20,9 @@ pub const fn gmres_work_len(n: usize, restart: usize) -> usize {
 /// GMRES mit Neustart (GMRES(m)) für `A·x = b` mit beliebiger regulärer Matrix `A`.
 ///
 /// Minimiert in jedem Schritt die Residuumsnorm über dem Krylov-Raum, konvergiert deshalb monoton
-/// und bricht nicht zusammen. Es braucht pro Iteration nur eine Anwendung von `A` und funktioniert
+/// in exakter Arithmetik für reguläre Systeme ohne Zusammenbruch. Rundungsfehler und
+/// Stagnation können die erreichbare Genauigkeit begrenzen. Es braucht pro Arnoldi-Schritt
+/// eine Anwendung von `A` (zusätzlich zu Residuenprüfungen) und funktioniert
 /// auch für symmetrisch **indefinite** und **schiefsymmetrische** Matrizen, bei denen CG und
 /// BiCGSTAB versagen. Dafür speichert es `restart + 1` Basisvektoren; nach `restart` Schritten wird
 /// neu gestartet (kleineres `restart`: weniger Speicher, aber langsamere oder stagnierende
@@ -28,12 +33,12 @@ pub const fn gmres_work_len(n: usize, restart: usize) -> usize {
 /// - `b`: rechte Seite, `x`: Startnäherung beim Aufruf und Lösung beim Rückgabe.
 /// - `restart`: Neustartlänge, mindestens 1. `work`: mindestens [`gmres_work_len`]`(n, restart)`
 ///   Elemente.
-/// - Abbruch bei `‖b − A·x‖ ≤ tol · ‖b‖`; `IterResult::iterations` zählt die Anwendungen von `A`.
+/// - Abbruch bei `‖b − A·x‖ ≤ tol · ‖b‖`; `IterResult::iterations` zählt die Arnoldi-Schritte (zusätzliche Residuenprüfungen nicht mitgezählt).
 ///
 /// Fehler: [`LinalgError::DimensionMismatch`] (auch bei `restart = 0` oder zu kleinem `work`),
 /// [`LinalgError::NotFinite`], [`LinalgError::Singular`] (die Matrix ist singulär, das
 /// Verfahren findet keine Lösung), [`LinalgError::NoConvergence`] (`x` enthält dann die letzte
-/// Näherung).
+/// Näherung). [`LinalgError::InvalidInput`] bei negativer oder nichtendlicher Toleranz.
 ///
 /// ```
 /// # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -93,6 +98,7 @@ where
     {
         return Err(LinalgError::DimensionMismatch);
     }
+    validate(b, x, opts)?;
     if n == 0 {
         return Ok(IterResult {
             iterations: 0,
@@ -102,18 +108,21 @@ where
     let k = restart.min(n);
 
     let bad = |v: T| v.is_nan() || v.is_infinite();
-    let bnorm = dot(b, b).sqrt();
+    let bnorm = norm(b);
     if bad(bnorm) {
         return Err(LinalgError::NotFinite);
     }
     if bnorm == T::ZERO {
         x.fill(T::ZERO);
+        let rn = residual(a, b, x, &mut work[..n])?;
+        if rn != T::ZERO {
+            return Err(LinalgError::NoConvergence);
+        }
         return Ok(IterResult {
             iterations: 0,
-            residual_norm: T::ZERO,
+            residual_norm: rn,
         });
     }
-    let stop = opts.tol * bnorm;
 
     // Arbeitsspeicher aufteilen
     let (basis, rest) = work.split_at_mut((k + 1) * n);
@@ -128,15 +137,11 @@ where
     let mut iters = 0usize;
     loop {
         // w = b − A·x  (wahres Residuum)
-        a.apply(x, w);
-        for (wi, bi) in w.iter_mut().zip(b) {
-            *wi = *bi - *wi;
-        }
-        let beta = dot(w, w).sqrt();
+        let beta = residual(a, b, x, w)?;
         if bad(beta) {
             return Err(LinalgError::NotFinite);
         }
-        if beta <= stop {
+        if converged(beta, bnorm, opts.tol) {
             return Ok(IterResult {
                 iterations: iters,
                 residual_norm: beta,
@@ -159,7 +164,9 @@ where
             let (head, tail) = basis.split_at_mut((j + 1) * n);
             let vj = &head[j * n..];
             m.apply(vj, z);
+            finite(z)?;
             a.apply(z, w);
+            finite(w)?;
             iters += 1;
 
             // Modifiziertes Gram-Schmidt gegen v₀ … v_j
@@ -169,12 +176,12 @@ where
                 h[i * k + j] = hij;
                 axpy(-hij, vi, w);
             }
-            let hnext = dot(w, w).sqrt();
+            let hnext = norm(w);
             if bad(hnext) {
                 return Err(LinalgError::NotFinite);
             }
             h[(j + 1) * k + j] = hnext;
-            let lucky = hnext <= T::MIN_POSITIVE;
+            let lucky = hnext == T::ZERO;
             if !lucky {
                 // v_{j+1} = w/h_{j+1,j}
                 for (vn, wi) in tail[..n].iter_mut().zip(w.iter()) {
@@ -190,7 +197,10 @@ where
             }
             // neue Rotation, die h_{j+1,j} annulliert
             let (p, q) = (h[j * k + j], h[(j + 1) * k + j]);
-            let denom = (p * p + q * q).sqrt();
+            let denom = p.hypot(q);
+            if !denom.is_finite() {
+                return Err(LinalgError::NotFinite);
+            }
             if denom == T::ZERO {
                 cs[j] = T::ONE;
                 sn[j] = T::ZERO;
@@ -204,7 +214,7 @@ where
             g[j] = cs[j] * g[j];
             cols = j + 1;
 
-            if g[j + 1].abs() <= stop || lucky || iters >= opts.max_iter {
+            if converged(g[j + 1].abs(), bnorm, opts.tol) || lucky || iters >= opts.max_iter {
                 break;
             }
         }
@@ -288,12 +298,22 @@ where
     M: Preconditioner<T> + ?Sized,
 {
     let n = b.len();
-    if work.len() < pgmres_left_work_len(n, restart) {
+    if restart == 0
+        || a.rows() != n
+        || a.cols() != n
+        || x.len() != n
+        || work.len() < pgmres_left_work_len(n, restart)
+    {
         return Err(LinalgError::DimensionMismatch);
     }
+    validate(b, x, opts)?;
     let (tmp, rest) = work.split_at_mut(n);
     let (b_hat, rest) = rest.split_at_mut(n);
     m.apply(b, b_hat);
+    finite(b_hat)?;
+    if norm(b_hat) == T::ZERO && norm(b) != T::ZERO {
+        return Err(LinalgError::Breakdown);
+    }
     let op = LeftPreconditioned {
         a,
         m,
