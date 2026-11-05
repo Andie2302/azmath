@@ -1,7 +1,7 @@
 use core::ops::{Add, Index, IndexMut, Mul, Neg, Sub};
 
 use super::iterative::{self, IterOptions, IterResult, Preconditioner};
-use super::kernel::{check_diagonal, triangular_solve};
+use super::kernel::{triangular_solve, triangular_solve_checked};
 use super::{Cholesky, LinalgError, LuDecomposition, QrDecomposition, Vector};
 use crate::Real;
 
@@ -117,21 +117,31 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
         x
     }
 
-    /// Wie `triangular`, prüft vorher aber, dass keine Diagonale 0 oder NaN ist.
+    /// Geprüfte Variante mit Prüfung der verwendeten Einträge und des Ergebnisses.
     fn triangular_checked(
         &self,
         b: &Vector<T, N>,
         upper: bool,
         transpose: bool,
     ) -> Result<Vector<T, N>, LinalgError> {
-        check_diagonal(self.data.as_flattened(), N)?;
-        Ok(self.triangular(b, upper, transpose, false))
+        let mut x = *b;
+        triangular_solve_checked(
+            self.data.as_flattened(),
+            N,
+            upper,
+            transpose,
+            false,
+            &mut x.data,
+        )?;
+        Ok(x)
     }
 
     /// Löst `L·x = b` für die untere Dreiecksmatrix `self` (Vorwärtssubstitution).
     ///
     /// Die Einträge oberhalb der Diagonalen werden ignoriert. Fehler:
-    /// [`LinalgError::Singular`], wenn ein Diagonalelement 0 oder NaN ist.
+    /// [`LinalgError::Singular`], wenn ein Diagonalelement 0 oder NaN ist;
+    /// [`LinalgError::NotFinite`] bei sonstigen nichtendlichen verwendeten Einträgen,
+    /// ungültiger rechter Seite oder nichtendlichem Ergebnis.
     pub fn solve_lower(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
         self.triangular_checked(b, false, false)
     }
@@ -139,21 +149,42 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
     /// Löst `U·x = b` für die obere Dreiecksmatrix `self` (Rückwärtssubstitution).
     ///
     /// Die Einträge unterhalb der Diagonalen werden ignoriert. Fehler:
-    /// [`LinalgError::Singular`], wenn ein Diagonalelement 0 oder NaN ist.
+    /// [`LinalgError::Singular`], wenn ein Diagonalelement 0 oder NaN ist;
+    /// [`LinalgError::NotFinite`] bei sonstigen nichtendlichen verwendeten Einträgen,
+    /// ungültiger rechter Seite oder nichtendlichem Ergebnis.
     pub fn solve_upper(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
         self.triangular_checked(b, true, false)
     }
 
     /// Wie [`solve_lower`](Self::solve_lower), aber mit Einheitsdiagonale: die Diagonale von
     /// `self` wird nicht gelesen und als 1 angenommen (wie bei `L` der LU-Zerlegung).
+    /// Ohne Fehlerprüfung; siehe [`Self::try_solve_lower_unit`].
     pub fn solve_lower_unit(&self, b: &Vector<T, N>) -> Vector<T, N> {
         // Mit Einheitsdiagonale ist das System immer lösbar.
         self.triangular(b, false, false, true)
     }
 
     /// Wie [`solve_upper`](Self::solve_upper), aber mit Einheitsdiagonale.
+    /// Ohne Fehlerprüfung; siehe [`Self::try_solve_upper_unit`].
     pub fn solve_upper_unit(&self, b: &Vector<T, N>) -> Vector<T, N> {
         self.triangular(b, true, false, true)
+    }
+
+    /// Geprüfte Variante von [`Self::solve_lower_unit`].
+    ///
+    /// Die gespeicherte Diagonale wird ignoriert. [`LinalgError::NotFinite`] bei
+    /// nichtendlichen verwendeten Einträgen, ungültiger rechter Seite oder nichtendlichem Ergebnis.
+    pub fn try_solve_lower_unit(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        let mut x = *b;
+        triangular_solve_checked(self.data.as_flattened(), N, false, false, true, &mut x.data)?;
+        Ok(x)
+    }
+
+    /// Geprüfte Variante von [`Self::solve_upper_unit`]; Fehler wie bei [`Self::try_solve_lower_unit`].
+    pub fn try_solve_upper_unit(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        let mut x = *b;
+        triangular_solve_checked(self.data.as_flattened(), N, true, false, true, &mut x.data)?;
+        Ok(x)
     }
 
     /// Löst `Lᵀ·x = b`, wobei `self` die untere Dreiecksmatrix `L` ist (ohne `L` zu transponieren).
@@ -225,8 +256,9 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
     }
 
     /// Löst `self · x = b` für symmetrisch positiv definite Matrizen (per Cholesky).
+    /// [`LinalgError::NotFinite`] auch bei ungültiger rechter Seite oder nichtendlichem Ergebnis.
     pub fn solve_spd(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
-        Ok(self.cholesky()?.solve(b))
+        self.cholesky()?.try_solve(b)
     }
 
     /// Determinante. Für singuläre Matrizen `0`, bei NaN/Unendlich NaN.

@@ -7,9 +7,9 @@ use core::ops::{Index, IndexMut};
 use super::LinalgError;
 use super::iterative::{self, IterOptions, IterResult, Preconditioner};
 use super::kernel::{
-    check_diagonal, cholesky_decompose, cholesky_determinant, cholesky_solve, lu_decompose,
+    cholesky_decompose, cholesky_determinant, cholesky_solve, cholesky_solve_checked, lu_decompose,
     lu_determinant, lu_solve, qr_apply_q, qr_apply_qt, qr_decompose, qr_residual_norm,
-    qr_solve_checked, triangular_solve,
+    qr_solve_checked, triangular_solve_checked,
 };
 use crate::Real;
 
@@ -211,11 +211,8 @@ impl<T: Real> DynMatrix<T> {
         if self.rows != self.cols || b.len() != self.rows {
             return Err(LinalgError::DimensionMismatch);
         }
-        if !unit {
-            check_diagonal(&self.data, self.rows)?;
-        }
         let mut x = b.clone();
-        triangular_solve(&self.data, self.rows, upper, transpose, unit, &mut x.data);
+        triangular_solve_checked(&self.data, self.rows, upper, transpose, unit, &mut x.data)?;
         Ok(x)
     }
 
@@ -223,7 +220,9 @@ impl<T: Real> DynMatrix<T> {
     ///
     /// Die Einträge oberhalb der Diagonalen werden ignoriert. Fehler:
     /// [`LinalgError::DimensionMismatch`] (nicht quadratisch oder falsche Länge von `b`),
-    /// [`LinalgError::Singular`] (Diagonalelement 0 oder NaN).
+    /// [`LinalgError::Singular`] (Diagonalelement 0 oder NaN),
+    /// [`LinalgError::NotFinite`] (sonstige nichtendliche verwendete Einträge,
+    /// ungültige rechte Seite oder nichtendliches Ergebnis).
     pub fn solve_lower(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
         self.solve_triangular(b, false, false, false)
     }
@@ -485,12 +484,13 @@ impl<T: Real> DynCholesky<T> {
     }
 
     /// Löst `A·x = b`; Fehler, wenn die Länge von `b` nicht passt.
+    /// [`LinalgError::NotFinite`] bei ungültiger rechter Seite oder nichtendlichem Rechenergebnis.
     pub fn solve(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
         if b.len() != self.n {
             return Err(LinalgError::DimensionMismatch);
         }
         let mut x = DynVector::zeros(self.n);
-        cholesky_solve(&self.l, self.n, &b.data, &mut x.data);
+        cholesky_solve_checked(&self.l, self.n, &b.data, &mut x.data)?;
         Ok(x)
     }
 

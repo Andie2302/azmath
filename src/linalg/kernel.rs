@@ -40,7 +40,19 @@ pub fn triangular_solve<T: Real>(
             for j in 0..i {
                 s -= at(i, j) * x[j];
             }
-            x[i] = if unit { s } else { s / at(i, i) };
+            x[i] = if unit {
+                s
+            } else if !s.is_finite() && at(i, i).abs() > T::ONE {
+                // Die ungeteilte Zeilensumme kann überlaufen, obwohl x_i endlich ist.
+                let d = at(i, i);
+                let mut divided = x[i] / d;
+                for j in 0..i {
+                    divided -= (at(i, j) / d) * x[j];
+                }
+                divided
+            } else {
+                s / at(i, i)
+            };
         }
     } else {
         // E ist obere Dreiecksmatrix: Rückwärtssubstitution
@@ -49,18 +61,64 @@ pub fn triangular_solve<T: Real>(
             for j in (i + 1)..n {
                 s -= at(i, j) * x[j];
             }
-            x[i] = if unit { s } else { s / at(i, i) };
+            x[i] = if unit {
+                s
+            } else if !s.is_finite() && at(i, i).abs() > T::ONE {
+                let d = at(i, i);
+                let mut divided = x[i] / d;
+                for j in (i + 1)..n {
+                    divided -= (at(i, j) / d) * x[j];
+                }
+                divided
+            } else {
+                s / at(i, i)
+            };
         }
     }
 }
 
-/// Prüft, dass keine Diagonale 0 oder NaN ist (sonst ist das Dreieckssystem nicht eindeutig lösbar).
+/// Prüft die Diagonale: 0/NaN ergibt Singular (bestehender Vertrag), Unendlich ergibt NotFinite.
 pub fn check_diagonal<T: Real>(a: &[T], n: usize) -> Result<(), LinalgError> {
     for i in 0..n {
         let d = a[i * n + i];
         if d == T::ZERO || d.is_nan() {
             return Err(LinalgError::Singular);
         }
+        if d.is_infinite() {
+            return Err(LinalgError::NotFinite);
+        }
+    }
+    Ok(())
+}
+
+/// Geprüfter Dreieckslöser; ignorierte Einträge (einschließlich Einheitsdiagonale) werden nicht geprüft.
+pub fn triangular_solve_checked<T: Real>(
+    a: &[T],
+    n: usize,
+    upper: bool,
+    transpose: bool,
+    unit: bool,
+    x: &mut [T],
+) -> Result<(), LinalgError> {
+    if !unit {
+        check_diagonal(a, n)?;
+    }
+    for i in 0..n {
+        for j in 0..n {
+            if (if upper { j >= i } else { j <= i })
+                && !(unit && i == j)
+                && !a[i * n + j].is_finite()
+            {
+                return Err(LinalgError::NotFinite);
+            }
+        }
+    }
+    if x.iter().any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
+    }
+    triangular_solve(a, n, upper, transpose, unit, x);
+    if x.iter().any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
     }
     Ok(())
 }
@@ -188,13 +246,25 @@ pub fn cholesky_decompose<T: Real>(a: &mut [T], n: usize) -> Result<(), LinalgEr
         }
     }
 
+    let factor_scale = if scale > T::ZERO && scale < T::MIN_POSITIVE / T::EPSILON {
+        for v in a.iter_mut() {
+            *v /= scale;
+        }
+        max_diag /= scale;
+        scale.sqrt()
+    } else {
+        T::ONE
+    };
     let pd_tol = nf * T::EPSILON * max_diag;
     for j in 0..n {
         let mut s = a[j * n + j];
         for k in 0..j {
             s -= a[j * n + k] * a[j * n + k];
         }
-        if s.is_nan() || s <= pd_tol {
+        if !s.is_finite() {
+            return Err(LinalgError::NotFinite);
+        }
+        if s <= pd_tol {
             return Err(LinalgError::NotPositiveDefinite);
         }
         let d = s.sqrt();
@@ -205,10 +275,16 @@ pub fn cholesky_decompose<T: Real>(a: &mut [T], n: usize) -> Result<(), LinalgEr
                 t -= a[i * n + k] * a[j * n + k];
             }
             a[i * n + j] = t / d;
+            if !a[i * n + j].is_finite() {
+                return Err(LinalgError::NotFinite);
+            }
         }
     }
 
     for i in 0..n {
+        for j in 0..=i {
+            a[i * n + j] *= factor_scale;
+        }
         for j in (i + 1)..n {
             a[i * n + j] = T::ZERO;
         }
@@ -222,6 +298,18 @@ pub fn cholesky_solve<T: Real>(l: &[T], n: usize, b: &[T], x: &mut [T]) {
     x.copy_from_slice(b);
     triangular_solve(l, n, false, false, false, x); // L·y = b
     triangular_solve(l, n, false, true, false, x); // Lᵀ·x = y
+}
+
+/// Geprüfte Cholesky-Lösung mit Prüfung beider Substitutionen.
+pub fn cholesky_solve_checked<T: Real>(
+    l: &[T],
+    n: usize,
+    b: &[T],
+    x: &mut [T],
+) -> Result<(), LinalgError> {
+    x.copy_from_slice(b);
+    triangular_solve_checked(l, n, false, false, false, x)?;
+    triangular_solve_checked(l, n, false, true, false, x)
 }
 
 /// Determinante aus `L`: Quadrat des Produkts der Diagonale.

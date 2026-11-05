@@ -1,4 +1,6 @@
-use super::kernel::{cholesky_decompose, cholesky_determinant, cholesky_solve};
+use super::kernel::{
+    cholesky_decompose, cholesky_determinant, cholesky_solve, cholesky_solve_checked,
+};
 use super::{LinalgError, Matrix, Vector};
 use crate::Real;
 
@@ -30,11 +32,20 @@ impl<T: Real, const N: usize> Cholesky<T, N> {
         &self.l
     }
 
-    /// Löst `A·x = b`.
+    /// Löst `A·x = b` ohne Fehlerprüfung; siehe [`Self::try_solve`] für Fehlerdiagnosen.
     pub fn solve(&self, b: &Vector<T, N>) -> Vector<T, N> {
         let mut x = Vector::<T, N>::zeros();
         cholesky_solve(self.l.data.as_flattened(), N, &b.data, &mut x.data);
         x
+    }
+
+    /// Löst `A·x = b` mit Prüfung der rechten Seite und beider Substitutionen.
+    ///
+    /// [`LinalgError::NotFinite`] bei NaN/Unendlich in `b` oder nichtendlichen Rechenergebnissen.
+    pub fn try_solve(&self, b: &Vector<T, N>) -> Result<Vector<T, N>, LinalgError> {
+        let mut x = Vector::<T, N>::zeros();
+        cholesky_solve_checked(self.l.data.as_flattened(), N, &b.data, &mut x.data)?;
+        Ok(x)
     }
 
     /// Determinante von `A`.
