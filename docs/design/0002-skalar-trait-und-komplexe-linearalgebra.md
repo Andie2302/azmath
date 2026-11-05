@@ -1,6 +1,7 @@
 # Entwurf 0002: Skalar-Trait und komplexe lineare Algebra
 
-**Status:** teilweise umgesetzt (Schritte 1–5 in minimaler Form, `azmath::scalar`) · **Abhängig von:** `Real`, `Complex<T>`, `linalg`, `sparse`
+**Status:** teilweise umgesetzt (Schritte 1–5 in minimaler Form, `azmath::scalar`) · **Abhängig von:** `Real`,
+`Complex<T>`, `linalg`, `sparse`
 
 ## 1. Frage
 
@@ -11,13 +12,13 @@ und ohne die bestehende API zu brechen?
 
 ## 2. Was die Algorithmen wirklich brauchen
 
-| Operation | Real | Komplex | Folgerung |
-|---|---|---|---|
-| `+ − × ÷`, `0`, `1` | ja | ja | Körper-Grundlage |
-| Pivotwahl / Größenvergleich | `abs`, `<` | `modulus` (reell) | Betrag liefert immer `Real` |
-| Skalarprodukt, Normen | `x·y` | `conj(x)·y` | `conj` nötig |
-| Hermitesche statt symmetrische Struktur | `Aᵀ` | `Aᴴ` | `adjoint` statt `transpose` |
-| Toleranzen, `EPSILON`, `sqrt` von Normen | `T` | `T::Real` | assoziierter Typ |
+| Operation                                | Real       | Komplex           | Folgerung                   |
+|------------------------------------------|------------|-------------------|-----------------------------|
+| `+ − × ÷`, `0`, `1`                      | ja         | ja                | Körper-Grundlage            |
+| Pivotwahl / Größenvergleich              | `abs`, `<` | `modulus` (reell) | Betrag liefert immer `Real` |
+| Skalarprodukt, Normen                    | `x·y`      | `conj(x)·y`       | `conj` nötig                |
+| Hermitesche statt symmetrische Struktur  | `Aᵀ`       | `Aᴴ`              | `adjoint` statt `transpose` |
+| Toleranzen, `EPSILON`, `sqrt` von Normen | `T`        | `T::Real`         | assoziierter Typ            |
 
 Reell sind also nur Beträge, Toleranzen und Wurzeln von Normen; alles andere ist Körperarithmetik plus Konjugation.
 
@@ -41,8 +42,10 @@ pub trait Scalar: Copy + PartialEq + Add<Output=Self> + Sub<Output=Self> + Mul<O
 }
 ```
 
-- **`impl<T: Real> Scalar for T`** ist wegen der Kohärenzregeln nicht gleichzeitig mit `impl Scalar for Complex<T>` möglich.
-  Deshalb: Implementierung **einzeln** für `f32`, `f64` und `Complex<T: Real>` (sowie `Jet`, falls gewünscht). `Real` bleibt
+- **`impl<T: Real> Scalar for T`** ist wegen der Kohärenzregeln nicht gleichzeitig mit `impl Scalar for Complex<T>`
+  möglich.
+  Deshalb: Implementierung **einzeln** für `f32`, `f64` und `Complex<T: Real>` (sowie `Jet`, falls gewünscht). `Real`
+  bleibt
   unverändert und wird **kein** Subtrait von `Scalar`.
 - Kein Bruch bestehender API: vorhandene Funktionen behalten `T: Real`.
 
@@ -51,7 +54,8 @@ pub trait Scalar: Copy + PartialEq + Add<Output=Self> + Sub<Output=Self> + Mul<O
 1. **`Scalar`** in `src/scalar/`, Implementierungen für `f32`, `f64`, `Complex<f32|f64>`, Tests der Axiome.
 2. **Komplexe dichte Löser** als neue Funktionen/Typen neben den reellen, nicht als Umbau:
    `lu_solve_c`-artige Namen vermeiden; stattdessen generische interne Kerne `*_scalar<T: Scalar>`, auf die die reellen
-   Funktionen später verweisen können. Zuerst: LU mit Teilpivotisierung (Pivot nach `modulus`), Rückwärts-/Vorwärtssubstitution,
+   Funktionen später verweisen können. Zuerst: LU mit Teilpivotisierung (Pivot nach `modulus`),
+   Rückwärts-/Vorwärtssubstitution,
    Determinante, Inverse.
 3. **QR (Householder)** und **Cholesky (hermitesch)** komplex.
 4. **Eigenwerte komplexer Matrizen:** Hessenberg + komplexes QR-Verfahren (Einzelschritt mit Wilkinson-Shift), danach
@@ -62,13 +66,13 @@ pub trait Scalar: Copy + PartialEq + Add<Output=Self> + Sub<Output=Self> + Mul<O
 
 ## 5. Entscheidungen / offene Punkte
 
-| Punkt | Entscheidung |
-|---|---|
-| `Real: Scalar`? | nein (Kohärenz, kein Bruch) |
-| Duplizierter Code reell/komplex | akzeptiert; gemeinsame Kerne generisch über `Scalar`, reelle Wrapper bleiben |
-| Skalarprodukt-Konvention | linear im zweiten Argument, konjugiert im ersten (`xᴴy`) |
+| Punkt                            | Entscheidung                                                                         |
+|----------------------------------|--------------------------------------------------------------------------------------|
+| `Real: Scalar`?                  | nein (Kohärenz, kein Bruch)                                                          |
+| Duplizierter Code reell/komplex  | akzeptiert; gemeinsame Kerne generisch über `Scalar`, reelle Wrapper bleiben         |
+| Skalarprodukt-Konvention         | linear im zweiten Argument, konjugiert im ersten (`xᴴy`)                             |
 | `Matrix<T,R,C>` / `DynMatrix<T>` | Schranke auf `Scalar` lockern, wo nur Körperarithmetik nötig ist (Speicher, Produkt) |
-| Offen | Soll `Jet<Complex<T>, N>` unterstützt werden? Vorerst nein. |
+| Offen                            | Soll `Jet<Complex<T>, N>` unterstützt werden? Vorerst nein.                          |
 
 ## 6. Nicht-Ziele
 
