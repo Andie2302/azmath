@@ -13,7 +13,8 @@ pub const fn numerical_jacobian_work_len(m: usize, n: usize) -> usize {
 /// - `work`: Arbeitsspeicher mit mindestens [`numerical_jacobian_work_len`]`(m, n)` Einträgen.
 ///
 /// Die Schrittweite ist `√ε · max(1, |xₖ|)`; der Fehler ist von der Ordnung dieser Schrittweite
-/// (bei `f64` etwa `1e-8` relativ). Ist die analytische Ableitung bekannt, ist sie vorzuziehen.
+/// (bei `f64` etwa `1e-8` relativ). Bei nichtendlicher Vorwärtsauswertung wird rückwärts
+/// differenziert; sind beide Richtungen ungültig, enthält die betreffende Spalte `NaN`. Ist die analytische Ableitung bekannt, ist sie vorzuziehen.
 ///
 /// # Panics
 ///
@@ -36,12 +37,27 @@ pub fn numerical_jacobian<T: Real>(
     let sqrt_eps = T::EPSILON.sqrt();
     for k in 0..n {
         let step = sqrt_eps * T::ONE.max(x[k].abs());
-        xp[k] = x[k] + step;
-        // tatsächlich ausgeführter Schritt (vermeidet Rundungsfehler im Nenner)
-        let h = xp[k] - x[k];
-        residual(xp, r1);
-        for i in 0..m {
-            jac[i * n + k] = (r1[i] - r0[i]) / h;
+        let mut ok = false;
+        for direction in [T::ONE, -T::ONE] {
+            xp[k] = x[k] + direction * step;
+            let h = xp[k] - x[k];
+            if !super::finite(xp[k]) || !super::finite(h) || h == T::ZERO {
+                continue;
+            }
+            r1.fill(T::NAN);
+            residual(xp, r1);
+            if r1.iter().chain(r0.iter()).all(|&v| super::finite(v)) {
+                for i in 0..m {
+                    jac[i * n + k] = crate::interp::slope(T::ZERO, h, r0[i], r1[i]);
+                }
+                ok = true;
+                break;
+            }
+        }
+        if !ok {
+            for i in 0..m {
+                jac[i * n + k] = T::NAN;
+            }
         }
         xp[k] = x[k];
     }

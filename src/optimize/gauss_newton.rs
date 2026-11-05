@@ -1,6 +1,6 @@
 use super::{
-    Jac, NoJacobian, OptimizeError, OptimizeOptions, OptimizeResult, Termination, dot,
-    eval_jacobian, finite, norm,
+    Jac, NoJacobian, OptimizeError, OptimizeOptions, OptimizeResult, Termination, eval_jacobian,
+    finite, norm,
 };
 use crate::Real;
 use crate::linalg::LinalgError;
@@ -25,12 +25,14 @@ fn gn_core<T, R, J>(
     m: usize,
     opts: OptimizeOptions<T>,
     work: &mut [T],
+    root: bool,
 ) -> Result<OptimizeResult<T>, OptimizeError>
 where
     T: Real,
     R: FnMut(&[T], &mut [T]),
     J: FnMut(&[T], &mut [T]),
 {
+    super::validate_options(opts)?;
     let n = x.len();
     if n == 0 || m < n || work.len() < gauss_newton_work_len(m, n) {
         return Err(OptimizeError::InvalidInput);
@@ -49,13 +51,13 @@ where
     let fd = &mut rest[..m + n];
 
     residual(x, r);
-    let mut cost = dot(r, r);
+    let mut cost = norm(r);
     if !finite(cost) {
         return Err(OptimizeError::NotFinite);
     }
 
-    for iter in 0..opts.max_iter {
-        let rn = cost.sqrt();
+    for iter in 0..=opts.max_iter {
+        let rn = cost;
         if rn <= opts.tol_f {
             return Ok(OptimizeResult {
                 iterations: iter,
@@ -64,28 +66,35 @@ where
             });
         }
 
+        if iter == opts.max_iter {
+            break;
+        }
         eval_jacobian(&mut residual, &mut jac, x, r, jm, fd);
+        if jm.iter().any(|&v| !finite(v)) {
+            return Err(OptimizeError::NotFinite);
+        }
 
         // Gradient Jᵀr
-        let mut ginf = T::ZERO;
-        for k in 0..n {
-            let mut s = T::ZERO;
-            for i in 0..m {
-                s += jm[i * n + k] * r[i];
+        if !root {
+            let mut ginf = T::ZERO;
+            for k in 0..n {
+                let mut s = T::ZERO;
+                for i in 0..m {
+                    s += jm[i * n + k] * r[i];
+                }
+                if !finite(s) {
+                    return Err(OptimizeError::NotFinite);
+                }
+                ginf = ginf.max(s.abs());
             }
-            if !finite(s) {
-                return Err(OptimizeError::NotFinite);
+            if ginf <= opts.tol_g * (T::ONE + rn) {
+                return Ok(OptimizeResult {
+                    iterations: iter,
+                    residual_norm: rn,
+                    termination: Termination::Gradient,
+                });
             }
-            ginf = ginf.max(s.abs());
         }
-        if ginf <= opts.tol_g * (T::ONE + rn) {
-            return Ok(OptimizeResult {
-                iterations: iter,
-                residual_norm: rn,
-                termination: Termination::Gradient,
-            });
-        }
-
         // Gauß-Newton-Schritt: min ‖J·δ + r‖  (per QR)
         match qr_decompose(jm, m, n, tau) {
             Ok(()) => {}
@@ -101,19 +110,7 @@ where
             return Err(OptimizeError::NotFinite);
         }
 
-        // Voller Schritt bereits winzig: übernehmen und fertig
-        if step <= opts.tol_x * (norm(x) + opts.tol_x) {
-            for (xk, dk) in x.iter_mut().zip(dx.iter()) {
-                *xk += *dk;
-            }
-            residual(x, r);
-            return Ok(OptimizeResult {
-                iterations: iter + 1,
-                residual_norm: norm(r),
-                termination: Termination::Step,
-            });
-        }
-
+        // Auch kleine Schritte werden erst nach erfolgreicher Auswertung übernommen.
         // Schrittweitensteuerung: halbieren, bis das Residuum nicht mehr wächst
         let mut t = T::ONE;
         let mut accepted = false;
@@ -123,8 +120,12 @@ where
             for k in 0..n {
                 x_try[k] = x[k] + t * dx[k];
             }
+            if x_try.iter().any(|&v| !finite(v)) {
+                t *= T::from_f64(0.5);
+                continue;
+            }
             residual(x_try, r_try);
-            let c = dot(r_try, r_try);
+            let c = norm(r_try);
             if finite(c) && c <= cost + noise {
                 x.copy_from_slice(x_try);
                 r.copy_from_slice(r_try);
@@ -137,10 +138,16 @@ where
         if !accepted {
             return Err(OptimizeError::NoConvergence);
         }
+        if cost <= opts.tol_f {
+            return super::root_result(iter + 1, cost, opts);
+        }
         if t * step <= opts.tol_x * (norm(x) + opts.tol_x) {
+            if root {
+                return Err(OptimizeError::NoConvergence);
+            }
             return Ok(OptimizeResult {
                 iterations: iter + 1,
-                residual_norm: cost.sqrt(),
+                residual_norm: cost,
                 termination: Termination::Step,
             });
         }
@@ -171,7 +178,7 @@ pub fn gauss_newton<T: Real>(
     opts: OptimizeOptions<T>,
     work: &mut [T],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
-    gn_core(residual, Jac::Analytic(jacobian), x, m, opts, work)
+    gn_core(residual, Jac::Analytic(jacobian), x, m, opts, work, false)
 }
 
 /// Wie [`gauss_newton`], bestimmt die Jacobi-Matrix aber selbst per Vorwärtsdifferenzen
@@ -183,7 +190,15 @@ pub fn gauss_newton_fd<T: Real>(
     opts: OptimizeOptions<T>,
     work: &mut [T],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
-    gn_core(residual, Jac::Numeric::<NoJacobian<T>>, x, m, opts, work)
+    gn_core(
+        residual,
+        Jac::Numeric::<NoJacobian<T>>,
+        x,
+        m,
+        opts,
+        work,
+        false,
+    )
 }
 
 /// Newton-Verfahren für das nichtlineare Gleichungssystem `F(x) = 0` mit `n` Gleichungen und
@@ -195,6 +210,11 @@ pub fn gauss_newton_fd<T: Real>(
 ///
 /// - `f(x, out)` schreibt `F(x)`; `jacobian(x, j)` die `n × n`-Jacobi-Matrix zeilenweise.
 /// - `work`: mindestens [`newton_work_len`]`(n)` Elemente.
+///
+/// Erfolg nur bei `‖F(x)‖₂ ≤ tol_f` ([`Termination::Residual`]). Anders als bei
+/// [`gauss_newton`] ergeben stationäre Punkte oder kleine Schritte mit größerem Residuum
+/// [`OptimizeError::NoConvergence`]. `tol_g` wird bei Gleichungslösern nicht verwendet.
+/// Alle Toleranzen müssen endlich und nichtnegativ sein.
 ///
 /// Fehler wie bei [`gauss_newton`].
 ///
@@ -224,7 +244,7 @@ pub fn newton_system<T: Real>(
     work: &mut [T],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
     let n = x.len();
-    gn_core(f, Jac::Analytic(jacobian), x, n, opts, work)
+    gn_core(f, Jac::Analytic(jacobian), x, n, opts, work, true)
 }
 
 /// Wie [`newton_system`], bestimmt die Jacobi-Matrix aber selbst per Vorwärtsdifferenzen.
@@ -235,5 +255,5 @@ pub fn newton_system_fd<T: Real>(
     work: &mut [T],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
     let n = x.len();
-    gn_core(f, Jac::Numeric::<NoJacobian<T>>, x, n, opts, work)
+    gn_core(f, Jac::Numeric::<NoJacobian<T>>, x, n, opts, work, true)
 }

@@ -12,13 +12,21 @@ pub const fn broyden_work_len(n: usize) -> usize {
 /// Invertiert die `n × n`-Matrix `j` per Gauß-Jordan mit Spaltenpivotsuche. `aug` hat Platz für `n × 2n`,
 /// das Ergebnis steht in `inv`. `false` bei (numerisch) singulärer Matrix.
 pub(crate) fn invert<T: Real>(j: &[T], n: usize, aug: &mut [T], inv: &mut [T]) -> bool {
+    if j.iter().any(|&v| !finite(v)) {
+        return false;
+    }
     let w = 2 * n;
-    let mut scale = T::ZERO;
+    let scale = T::ONE;
     for r in 0..n {
+        let row_scale = j[r * n..(r + 1) * n]
+            .iter()
+            .fold(T::ZERO, |s, v| s.max(v.abs()));
+        if row_scale == T::ZERO {
+            return false;
+        }
         for c in 0..n {
-            aug[r * w + c] = j[r * n + c];
-            aug[r * w + n + c] = if r == c { T::ONE } else { T::ZERO };
-            scale = scale.max(j[r * n + c].abs());
+            aug[r * w + c] = j[r * n + c] / row_scale;
+            aug[r * w + n + c] = if r == c { T::ONE / row_scale } else { T::ZERO };
         }
     }
     let tol = T::from_f64(n as f64) * T::EPSILON * scale;
@@ -61,7 +69,7 @@ pub(crate) fn invert<T: Real>(j: &[T], n: usize, aug: &mut [T], inv: &mut [T]) -
             inv[r * n + c] = aug[r * w + n + c];
         }
     }
-    true
+    inv.iter().all(|&v| finite(v))
 }
 
 fn broyden_core<T, F, J>(
@@ -76,6 +84,7 @@ where
     F: FnMut(&[T], &mut [T]),
     J: FnMut(&[T], &mut [T]),
 {
+    super::validate_options(opts)?;
     let n = x.len();
     if n == 0 || work.len() < broyden_work_len(n) {
         return Err(OptimizeError::InvalidInput);
@@ -99,6 +108,9 @@ where
         return Err(OptimizeError::NotFinite);
     }
     let mut fnorm = norm(fx);
+    if !finite(fnorm) {
+        return Err(OptimizeError::NotFinite);
+    }
     let mut fresh = false; // H stammt gerade aus einer frischen Jacobi-Matrix
     for iter in 0..=opts.max_iter {
         if fnorm <= opts.tol_f {
@@ -127,19 +139,18 @@ where
         for i in 0..n {
             dx[i] = -dot(&h[i * n..(i + 1) * n], fx);
         }
-        if norm(dx) <= opts.tol_x * (norm(x) + opts.tol_x) {
-            // der volle Schritt ist unterhalb der Genauigkeit: fertig (Rundungsgrenze von ‖F‖ erreicht)
-            return Ok(OptimizeResult {
-                iterations: iter,
-                residual_norm: fnorm,
-                termination: Termination::Step,
-            });
+        if dx.iter().any(|&v| !finite(v)) {
+            return Err(OptimizeError::NotFinite);
         }
         let mut t = T::ONE;
         let mut accepted = false;
         for _ in 0..30 {
             for i in 0..n {
                 x_new[i] = x[i] + t * dx[i];
+            }
+            if x_new.iter().any(|&v| !finite(v)) {
+                t *= T::from_f64(0.5);
+                continue;
             }
             f(x_new, f_new);
             let fn_new = norm(f_new);
@@ -165,10 +176,15 @@ where
             fresh = true;
             continue;
         }
+        let accepted_norm = norm(f_new);
+        if accepted_norm <= opts.tol_f {
+            x.copy_from_slice(x_new);
+            return super::root_result(iter + 1, accepted_norm, opts);
+        }
         // Broyden-Update (inverse Form): H += (s − H·y)·(sᵀ·H) / (sᵀ·H·y)
         let mut step = T::ZERO;
         for i in 0..n {
-            dx[i] *= t; // s
+            dx[i] = x_new[i] - x[i]; // tatsächlich ausgeführter Schritt s
             y[i] = f_new[i] - fx[i];
             step = step.hypot(dx[i]);
         }
@@ -176,7 +192,7 @@ where
             hy[i] = dot(&h[i * n..(i + 1) * n], y);
         }
         let denom = dot(dx, hy);
-        if denom.abs() > T::EPSILON * step * norm(hy) {
+        if finite(denom) && denom.abs() > T::EPSILON * step * norm(hy) {
             for j in 0..n {
                 let mut s = T::ZERO;
                 for i in 0..n {
@@ -190,17 +206,18 @@ where
                     h[i * n + j] += c * w[j];
                 }
             }
-            fresh = false;
+        } else {
+            h.fill(T::NAN); // verbrauchte Näherung beim nächsten Schritt erneuern
         }
+        fresh = false;
         x.copy_from_slice(x_new);
         fx.copy_from_slice(f_new);
         fnorm = norm(fx);
+        if fnorm <= opts.tol_f {
+            return super::root_result(iter + 1, fnorm, opts);
+        }
         if step <= opts.tol_x * (norm(x) + opts.tol_x) {
-            return Ok(OptimizeResult {
-                iterations: iter + 1,
-                residual_norm: fnorm,
-                termination: Termination::Step,
-            });
+            return Err(OptimizeError::NoConvergence);
         }
     }
     Err(OptimizeError::NoConvergence)
@@ -218,7 +235,8 @@ where
 ///
 /// - `f(x, out)` schreibt `F(x)`; `jacobian(x, j)` die `n × n`-Jacobi-Matrix zeilenweise (nur für die Anfangsmatrix).
 /// - `x`: Startwert und Ergebnis. `work`: mindestens [`broyden_work_len`]`(n)` Elemente.
-/// - Abbruch über `tol_f` (`‖F‖`) oder `tol_x` (Schritt); Ergebnis wie bei den anderen Lösern ([`OptimizeResult`]).
+/// - Erfolg nur bei `‖F(x)‖₂ ≤ tol_f`. Ein kleiner Schritt mit größerem Residuum ergibt
+///   [`OptimizeError::NoConvergence`].
 ///
 /// Fehler: [`OptimizeError::InvalidInput`], [`OptimizeError::NotFinite`], [`OptimizeError::SingularJacobian`],
 /// [`OptimizeError::NoConvergence`].

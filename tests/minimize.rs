@@ -560,9 +560,11 @@ mod dogleg_tests {
         let jac = |x: &[f64], j: &mut [f64]| j[0] = 2.0 * x[0];
         let mut x = [0.0];
         let mut work = [0.0; dogleg_work_len(1)];
-        let r = dogleg(f, jac, &mut x, OptimizeOptions::default(), &mut work).unwrap();
-        assert_eq!(r.termination, Termination::Gradient);
-        assert!((r.residual_norm - 1.0).abs() < 1e-15);
+        assert_eq!(
+            dogleg(f, jac, &mut x, OptimizeOptions::default(), &mut work),
+            Err(OptimizeError::NoConvergence)
+        );
+        assert_eq!(x, [0.0]);
         // fast singulär, aber nicht null: x = 1e-3 findet die Lösung
         let mut y = [1e-3];
         dogleg(f, jac, &mut y, OptimizeOptions::default(), &mut work).unwrap();

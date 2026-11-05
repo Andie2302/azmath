@@ -26,7 +26,8 @@ pub struct BdfAdaptiveOptions<T> {
     pub max_order: usize,
     /// Höchstzahl der Schrittversuche (akzeptierte und abgelehnte).
     pub max_steps: usize,
-    /// Einstellungen für Newton in jedem Schritt.
+    /// Einstellungen für Newton in jedem Schritt; `tol_f` gilt für die durch das
+    /// führende Ableitungsgewicht geteilte Gleichung (Zustandseinheiten).
     pub newton: OptimizeOptions<T>,
 }
 
@@ -254,11 +255,13 @@ where
             let g = |z: &[T], out: &mut [T]| {
                 f(tn1, z, &mut ftmp);
                 for k in 0..n {
-                    let mut s = c0 * z[k];
+                    // In Zustandseinheiten lösen: Ableitungsgewichte wachsen wie 1/h.
+                    // Ohne Normierung wird die absolute Newton-Toleranz bei kleinen h unerreichbar.
+                    let mut s = z[k];
                     for j in 0..p {
-                        s += c[j + 1] * hist[j][k];
+                        s += (c[j + 1] / c0) * hist[j][k];
                     }
-                    out[k] = s - ftmp[k];
+                    out[k] = s - ftmp[k] / c0;
                 }
             };
             match &mut jac {
@@ -266,10 +269,10 @@ where
                     let jg = |z: &[T], out: &mut [T]| {
                         jf(tn1, z, out);
                         for v in out.iter_mut() {
-                            *v = -*v;
+                            *v = -*v / c0;
                         }
                         for k in 0..n {
-                            out[k * n + k] += c0;
+                            out[k * n + k] += T::ONE;
                         }
                     };
                     newton_system(g, jg, &mut x, opts.newton, &mut nw)

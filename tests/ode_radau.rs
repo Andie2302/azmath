@@ -247,3 +247,25 @@ fn works_for_f32() {
     .unwrap();
     assert!((y[0] - (-1.0f32).exp()).abs() < 1e-4);
 }
+
+#[test]
+fn stiff_stage_scaling_also_works_with_numerical_jacobian() {
+    // Bekannte Lösung sin(t); Stufen-Jacobi-Einträge sind etwa 10^5.
+    let f = |t: f64, y: &[f64], out: &mut [f64]| out[0] = -1e6 * (y[0] - t.sin()) + t.cos();
+    let mut y = [0.0];
+    let mut work = [f64::NAN; radau_work_len(1)];
+    radau5_fd(
+        f,
+        0.0,
+        1.0,
+        &mut y,
+        10,
+        OptimizeOptions::default(),
+        &mut work,
+        |t, y| {
+            assert!((y[0] - t.sin()).abs() < 1e-6);
+        },
+    )
+    .unwrap();
+    assert!((y[0] - 1.0f64.sin()).abs() < 1e-6);
+}

@@ -23,6 +23,7 @@ where
     F: FnMut(&[T], &mut [T]),
     J: FnMut(&[T], &mut [T]),
 {
+    super::validate_options(opts)?;
     let n = x.len();
     if n == 0 || work.len() < dogleg_work_len(n) {
         return Err(OptimizeError::InvalidInput);
@@ -52,9 +53,13 @@ where
         return Err(OptimizeError::NotFinite);
     }
     let mut fnorm = norm(fx);
+    if !finite(fnorm) {
+        return Err(OptimizeError::NotFinite);
+    }
+    let mut model_scale = T::ONE;
     let mut radius = T::ZERO;
     let mut have_jacobian = false;
-    for iter in 0..opts.max_iter {
+    for iter in 0..=opts.max_iter {
         if fnorm <= opts.tol_f {
             return Ok(OptimizeResult {
                 iterations: iter,
@@ -62,50 +67,55 @@ where
                 termination: Termination::Residual,
             });
         }
+        if iter == opts.max_iter {
+            break;
+        }
         if !have_jacobian {
             let (scratch, _) = aug.split_at_mut(2 * n);
             eval_jacobian(&mut f, &mut jac, x, fx, jm, scratch);
             if jm.iter().any(|&v| !finite(v)) {
                 return Err(OptimizeError::NotFinite);
             }
-            // g = Jᵀ·F
+            model_scale = jm
+                .iter()
+                .chain(fx.iter())
+                .fold(T::ZERO, |s, v| s.max(v.abs()));
+            for v in jm.iter_mut() {
+                *v /= model_scale;
+            }
+            // g = (J/scale)ᵀ·(F/scale)
             for k in 0..n {
                 let mut s = T::ZERO;
                 for i in 0..n {
-                    s += jm[i * n + k] * fx[i];
+                    s += jm[i * n + k] * (fx[i] / model_scale);
                 }
                 g[k] = s;
             }
             have_jacobian = true;
         }
         let gnorm = norm(g);
-        if g.iter().fold(T::ZERO, |m, v| m.max(v.abs())) <= opts.tol_g * (T::ONE + fnorm) {
-            // stationär für ‖F‖; bei singulärer Jacobi-Matrix kann hier ein Nicht-Nullpunkt stehen: residual_norm prüfen
-            return Ok(OptimizeResult {
-                iterations: iter,
-                residual_norm: fnorm,
-                termination: Termination::Gradient,
-            });
+        if !finite(gnorm) {
+            return Err(OptimizeError::NotFinite);
+        }
+        if gnorm == T::ZERO {
+            return Err(OptimizeError::NoConvergence);
         }
         // Newton-Schritt (falls J regulär)
         let newton_ok = invert(jm, n, aug, jinv);
         if newton_ok {
             for i in 0..n {
-                p_newton[i] = -dot(&jinv[i * n..(i + 1) * n], fx);
+                p_newton[i] =
+                    -(0..n).fold(T::ZERO, |s, k| s + jinv[i * n + k] * (fx[k] / model_scale));
             }
         }
-        // Cauchy-Schritt: −(gᵀg / ‖J·g‖²)·g
+        // Einheitsrichtung vermeidet das Quadrieren der (eventuell winzigen) Gradientenlänge.
         for i in 0..n {
-            jg[i] = dot(&jm[i * n..(i + 1) * n], g);
+            jg[i] = (0..n).fold(T::ZERO, |s, k| s + jm[i * n + k] * (g[k] / gnorm));
         }
-        let jg2 = dot(jg, jg);
-        let cauchy_scale = if jg2 > T::ZERO {
-            dot(g, g) / jg2
-        } else {
-            T::ONE
-        };
+        let jgnorm = norm(jg);
+        let cauchy_len = (gnorm / jgnorm) / jgnorm;
         for i in 0..n {
-            p_cauchy[i] = -cauchy_scale * g[i];
+            p_cauchy[i] = -cauchy_len * (g[i] / gnorm);
         }
         if radius == T::ZERO {
             // Anfangsradius: Newton-Länge, aber nicht über max(1, ‖x‖)
@@ -128,7 +138,7 @@ where
             let pc_len = norm(p_cauchy);
             if pc_len >= radius || !newton_ok {
                 for i in 0..n {
-                    p[i] = -radius * g[i] / gnorm;
+                    p[i] = -radius * (g[i] / gnorm);
                 }
             } else {
                 // τ ∈ (0, 1) mit ‖p_cauchy + τ·(p_newton − p_cauchy)‖ = radius
@@ -149,15 +159,21 @@ where
         for i in 0..n {
             x_new[i] = x[i] + p[i];
         }
-        f(x_new, f_new);
-        let fn_new = norm(f_new);
-        // erwartete und tatsächliche Abnahme von ‖F‖²
+        let fn_new = if x_new.iter().all(|&v| finite(v)) {
+            f(x_new, f_new);
+            norm(f_new)
+        } else {
+            T::INFINITY
+        };
+        // Abnahmen relativ zur alten Residuumsnorm statt Differenzen riesiger Quadrate.
         for i in 0..n {
-            jp[i] = dot(&jm[i * n..(i + 1) * n], p) + fx[i];
+            jp[i] = dot(&jm[i * n..(i + 1) * n], p) + fx[i] / model_scale;
         }
-        let predicted = fnorm * fnorm - dot(jp, jp);
-        let actual = fnorm * fnorm - fn_new * fn_new;
-        let rho = if finite(fn_new) && predicted > T::ZERO {
+        let model_ratio = norm(jp) / (fnorm / model_scale);
+        let actual_ratio = fn_new / fnorm;
+        let predicted = (T::ONE - model_ratio) * (T::ONE + model_ratio);
+        let actual = (T::ONE - actual_ratio) * (T::ONE + actual_ratio);
+        let rho = if finite(fn_new) && finite(predicted) && predicted > T::ZERO {
             actual / predicted
         } else {
             -T::ONE
@@ -172,12 +188,11 @@ where
             fx.copy_from_slice(f_new);
             fnorm = fn_new;
             have_jacobian = false;
+            if fnorm <= opts.tol_f {
+                return super::root_result(iter + 1, fnorm, opts);
+            }
             if step <= opts.tol_x * (norm(x) + opts.tol_x) {
-                return Ok(OptimizeResult {
-                    iterations: iter + 1,
-                    residual_norm: fnorm,
-                    termination: Termination::Step,
-                });
+                return Err(OptimizeError::NoConvergence);
             }
         } else if radius <= opts.tol_x * (norm(x) + opts.tol_x) {
             // Vertrauensbereich kollabiert: kein Fortschritt mehr möglich
@@ -198,8 +213,8 @@ where
 ///
 /// - `f(x, out)` schreibt `F(x)`; `jacobian(x, j)` die `n × n`-Jacobi-Matrix zeilenweise.
 /// - `x`: Startwert und Ergebnis. `work`: mindestens [`dogleg_work_len`]`(n)` Elemente.
-/// - Ergebnis wie bei den anderen Lösern. [`Termination::Gradient`] bedeutet einen stationären Punkt von `‖F‖`; bei
-///   singulärer Jacobi-Matrix kann das ein lokales Minimum **ohne** Nullstelle sein: dann `residual_norm` prüfen.
+/// - Erfolg nur bei `‖F(x)‖₂ ≤ tol_f` ([`Termination::Residual`]). Stationäre Punkte mit
+///   größerem Residuum und stagnierende Schritte ergeben [`OptimizeError::NoConvergence`].
 ///
 /// Fehler: [`OptimizeError::InvalidInput`], [`OptimizeError::NotFinite`], [`OptimizeError::NoConvergence`].
 pub fn dogleg<T: Real>(

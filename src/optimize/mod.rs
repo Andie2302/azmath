@@ -48,6 +48,26 @@
 //! # }
 //! ```
 //!
+//! # Gleichungslöser und Skalierung
+//!
+//! [`newton_system`], [`dogleg`] und [`broyden`] (auch `*_fd`) melden nur dann Erfolg,
+//! wenn `‖F(x)‖₂ ≤ tol_f`. Ein kleiner Schritt oder ein stationärer Punkt mit größerem
+//! Residuum bedeutet [`OptimizeError::NoConvergence`], keinen verifizierten Nullpunkt.
+//! Bei Ausgleichsproblemen dürfen [`gauss_newton`] und [`levenberg_marquardt`] dagegen
+//! weiterhin an einem Minimum mit Restfehler enden (`Step`, `Gradient`, `Cost`).
+//!
+//! `tol_f` ist absolut und gilt für die vom Callback gelieferten Residuen. Gleichungen in
+//! unterschiedlichen Einheiten deshalb ausdrücklich skalieren, zum Beispiel
+//! `F₁ = (p − p_ziel)/p_skala`, `F₂ = (h − h_ziel)/h_skala`; die Jacobi-Zeilen müssen
+//! dieselben Faktoren erhalten. Stark unterschiedlich große Unbekannte zusätzlich durch
+//! typische Größen teilen und die Jacobi-Spalten entsprechend anpassen. Kleine Residuen
+//! garantieren bei einer schlecht konditionierten Jacobi-Matrix keine genauen Unbekannten.
+//! Ergebnisse deshalb zusätzlich in die ursprünglichen Gleichungen einsetzen.
+//!
+//! Die Standardtoleranz für das Residuum ist wie die anderen Toleranzen `ε^0,75`
+//! (früher `ε`). Explizit strengere Toleranzen bleiben möglich; ist das Residuum wegen
+//! Rundung nicht erreichbar, melden Gleichungslöser fehlende Konvergenz.
+//!
 //! # Hinweise
 //!
 //! - Mit einer Differenzen-Jacobi-Matrix (`*_fd`) rauscht der Gradient mit etwa `√ε`; die Verfahren
@@ -91,11 +111,11 @@ use crate::Real;
 /// Einstellungen für die Verfahren in diesem Modul.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OptimizeOptions<T> {
-    /// Abbruch, wenn der Schritt klein ist: `‖Δx‖ ≤ tol_x · (‖x‖ + tol_x)`.
+    /// Bei Ausgleichsproblemen Abbruch, bei Gleichungslösern Stillstand, wenn der Schritt klein ist: `‖Δx‖ ≤ tol_x · (‖x‖ + tol_x)`.
     pub tol_x: T,
     /// Abbruch, wenn das Residuum klein ist: `‖r‖ ≤ tol_f`.
     pub tol_f: T,
-    /// Abbruch, wenn der Gradient klein ist: `‖Jᵀr‖∞ ≤ tol_g · (1 + ‖r‖)`.
+    /// Abbruch bei Ausgleichsproblemen, wenn der Gradient klein ist (Gleichungslöser ignorieren `tol_g`): `‖Jᵀr‖∞ ≤ tol_g · (1 + ‖r‖)`.
     pub tol_g: T,
     /// Maximale Anzahl an Iterationen.
     pub max_iter: usize,
@@ -114,19 +134,19 @@ impl<T: Real> OptimizeOptions<T> {
 }
 
 impl<T: Real> Default for OptimizeOptions<T> {
-    /// `tol_x = tol_g = ε^0,75` (etwa `1.8e-12` bei `f64`), `tol_f = ε`, höchstens 200 Iterationen.
+    /// Alle Toleranzen `ε^0,75` (etwa `1.8e-12` bei `f64`), höchstens 200 Iterationen.
     fn default() -> Self {
         let tol = T::EPSILON.powf(T::from_f64(0.75));
         Self {
             tol_x: tol,
-            tol_f: T::EPSILON,
+            tol_f: tol,
             tol_g: tol,
             max_iter: 200,
         }
     }
 }
 
-/// Weshalb ein Verfahren erfolgreich beendet wurde.
+/// Weshalb ein Verfahren erfolgreich beendet wurde. Gleichungslöser verwenden nur `Residual`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Termination {
     /// Das Residuum ist (praktisch) 0: `‖r‖ ≤ tol_f`.
@@ -158,7 +178,8 @@ pub struct OptimizeResult<T> {
 #[non_exhaustive]
 pub enum OptimizeError {
     /// Ungültige Größen: `x` leer, `m < n`, `x` hat nicht `n` Elemente oder der
-    /// Arbeitsspeicher ist kürzer als `*_work_len`.
+    /// Arbeitsspeicher ist kürzer als `*_work_len`. Gleichungslöser und Gauß-Newton prüfen
+    /// außerdem, dass alle Toleranzen endlich und nichtnegativ sind.
     InvalidInput,
     /// NaN oder Unendlich in Residuum, Jacobi-Matrix oder Startwert.
     NotFinite,
@@ -197,7 +218,7 @@ pub(crate) fn dot<T: Real>(a: &[T], b: &[T]) -> T {
 
 /// Euklidische Norm.
 pub(crate) fn norm<T: Real>(a: &[T]) -> T {
-    dot(a, a).sqrt()
+    a.iter().fold(T::ZERO, |s, &v| s.hypot(v))
 }
 
 /// Woher die Jacobi-Matrix kommt: vom Aufrufer (analytisch) oder per Vorwärtsdifferenzen.
@@ -222,5 +243,36 @@ pub(crate) fn eval_jacobian<T: Real, R: FnMut(&[T], &mut [T]), J: FnMut(&[T], &m
     match jac {
         Jac::Analytic(j) => j(x, out),
         Jac::Numeric => numerical_jacobian(&mut *residual, x, r, out, fd),
+    }
+}
+
+/// Gemeinsame Prüfung vor jeder Callback-Auswertung.
+pub(crate) fn validate_options<T: Real>(opts: OptimizeOptions<T>) -> Result<(), OptimizeError> {
+    if [opts.tol_x, opts.tol_f, opts.tol_g]
+        .iter()
+        .any(|&v| !finite(v) || v < T::ZERO)
+    {
+        return Err(OptimizeError::InvalidInput);
+    }
+    Ok(())
+}
+
+/// Gleichungslöser melden ausschließlich ein erfülltes Residuum als Erfolg.
+pub(crate) fn root_result<T: Real>(
+    iterations: usize,
+    rn: T,
+    opts: OptimizeOptions<T>,
+) -> Result<OptimizeResult<T>, OptimizeError> {
+    if !finite(rn) {
+        return Err(OptimizeError::NotFinite);
+    }
+    if rn <= opts.tol_f {
+        Ok(OptimizeResult {
+            iterations,
+            residual_norm: rn,
+            termination: Termination::Residual,
+        })
+    } else {
+        Err(OptimizeError::NoConvergence)
     }
 }

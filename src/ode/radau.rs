@@ -30,7 +30,7 @@ fn tableau() -> ([f64; 3], [[f64; 3]; 3]) {
 /// Benötigter Arbeitsspeicher für [`radau5`] und [`radau5_fd`] bei `n` Zustandsgrößen.
 pub const fn radau_work_len(n: usize) -> usize {
     // Newton auf 3n Unbekannten + Stufenwerte (3n) + alter Zustand (n) + f an den Stufen (3n) + Jacobi-Block (n²)
-    newton_work_len(3 * n) + 3 * n + n + 3 * n + n * n
+    newton_work_len(3 * n) + 3 * n + n + 3 * n + n * n + 3 * n
 }
 
 /// Ein Radau-IIA-Schritt der Größe `h` von `t` aus; `y` wird fortgeschrieben.
@@ -53,7 +53,8 @@ where
     let (stage, rest) = rest.split_at_mut(3 * n);
     let (y_old, rest) = rest.split_at_mut(n);
     let (fbuf, rest) = rest.split_at_mut(3 * n);
-    let jtmp = &mut rest[..n * n];
+    let (jtmp, rest) = rest.split_at_mut(n * n);
+    let scales = &mut rest[..3 * n];
 
     let (c_f64, a_f64) = tableau();
     let c: [T; 3] = c_f64.map(T::from_f64);
@@ -62,6 +63,40 @@ where
     y_old.copy_from_slice(y);
     for i in 0..3 {
         stage[i * n..(i + 1) * n].copy_from_slice(y_old);
+    }
+
+    // Feste Zeilenskalierung aus der Start-Jacobi-Matrix: Residuen in Zustandseinheiten.
+    // Bei steifen Problemen verstärkt J bereits die Rundung der Stufenwerte erheblich.
+    scales.fill(T::ONE);
+    for j in 0..3 {
+        let time = t + c[j] * h;
+        match jac {
+            Jac::Analytic(jf) => jf(time, y_old, jtmp),
+            Jac::Numeric => {
+                f(time, y_old, &mut fbuf[..n]);
+                crate::optimize::numerical_jacobian(
+                    |z, out| f(time, z, out),
+                    y_old,
+                    &fbuf[..n],
+                    jtmp,
+                    newton_work,
+                );
+            }
+        }
+        if !all_finite(jtmp) {
+            return Err(OdeError::NotFinite);
+        }
+        for i in 0..3 {
+            for r in 0..n {
+                let row = jtmp[r * n..(r + 1) * n]
+                    .iter()
+                    .fold(T::ZERO, |sum, v| sum + v.abs());
+                scales[i * n + r] += (h * a[i][j]).abs() * row;
+            }
+        }
+    }
+    if !all_finite(scales) {
+        return Err(OdeError::NotFinite);
     }
 
     // G(Y)ᵢ = Yᵢ − yₙ − h·Σⱼ aᵢⱼ·f(t + cⱼh, Yⱼ)
@@ -79,7 +114,7 @@ where
                 for j in 0..3 {
                     s += a[i][j] * fbuf[j * n + k];
                 }
-                out[i * n + k] = z[i * n + k] - y_old[k] - h * s;
+                out[i * n + k] = (z[i * n + k] - y_old[k] - h * s) / scales[i * n + k];
             }
         }
     };
@@ -97,7 +132,7 @@ where
                                 if i == j && r == col {
                                     v += T::ONE;
                                 }
-                                out[(i * n + r) * w + j * n + col] = v;
+                                out[(i * n + r) * w + j * n + col] = v / scales[i * n + r];
                             }
                         }
                     }
@@ -158,7 +193,8 @@ where
 /// wegen der Ordnung 5 reichen oft wenige Schritte. Die Schrittweite ist fest (adaptiv: siehe Ausbau in der ROADMAP).
 ///
 /// - `jacobian(t, y, j)` schreibt `∂f/∂y` (`n × n`, zeilenweise). Ohne Ableitung: [`radau5_fd`].
-/// - `newton`: Einstellungen für Newton (`OptimizeOptions::default()` passt meist).
+/// - `newton`: Einstellungen für Newton. Die Stufengleichungen werden zeilenweise durch
+///   `1 + Σⱼ |h aᵢⱼ| · ‖Jⱼ[k,:]‖₁` am Startwert geteilt; `tol_f` gilt für diese skalierten Residuen.
 /// - `work`: mindestens [`radau_work_len`]`(n)` Elemente. `observer(t, y)` wird am Anfang und nach jedem Schritt aufgerufen.
 ///
 /// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`], [`OdeError::NewtonFailed`].
