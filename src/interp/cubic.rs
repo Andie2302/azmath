@@ -1,4 +1,7 @@
-use super::{InterpError, check_nodes, locate};
+use super::{
+    InterpError, blend, check_nodes, finite, fraction, line_value, locate, slope, weighted,
+    width_product,
+};
 use crate::Real;
 use crate::linalg::{solve_cyclic_tridiagonal, solve_tridiagonal};
 
@@ -70,7 +73,13 @@ impl<'a, T: Real> CubicSpline<'a, T> {
                 return Err(InterpError::NotFinite);
             }
         }
+        if (0..n - 1).any(|i| !finite(slope(x[i], x[i + 1], y[i], y[i + 1]))) {
+            return Err(InterpError::NotFinite);
+        }
         second_derivatives(x, y, boundary, m, work)?;
+        if m.iter().any(|v| !finite(*v)) {
+            return Err(InterpError::NotFinite);
+        }
         let m: &'a [T] = m;
         Ok(Self { x, y, m })
     }
@@ -107,39 +116,80 @@ impl<'a, T: Real> CubicSpline<'a, T> {
         xq >= lo && xq <= hi
     }
 
-    /// Koeffizienten `(h, b, c, d)` des Teilstücks `i`: `S(xᵢ + t) = yᵢ + b·t + c·t² + d·t³`.
-    fn piece(&self, i: usize) -> (T, T, T, T) {
-        let h = self.x[i + 1] - self.x[i];
+    fn piece_value(&self, i: usize, xq: T) -> T {
+        let (x0, x1) = (self.x[i], self.x[i + 1]);
+        let (y0, y1) = (self.y[i], self.y[i + 1]);
+        if xq == x0 {
+            return y0;
+        }
+        if xq == x1 {
+            return y1;
+        }
         let (m0, m1) = (self.m[i], self.m[i + 1]);
+        if m0 == T::ZERO && m1 == T::ZERO {
+            return line_value(x0, x1, y0, y1, xq);
+        }
+        let t = fraction(x0, x1, xq);
+        let u = T::ONE - t;
         let six = T::from_f64(6.0);
-        let b = (self.y[i + 1] - self.y[i]) / h - h * (T::from_f64(2.0) * m0 + m1) / six;
-        let c = T::from_f64(0.5) * m0;
-        let d = (m1 - m0) / (six * h);
-        (h, b, c, d)
+        let c0 = width_product(
+            x0,
+            x1,
+            width_product(x0, x1, m0, (u * u * u - u) / six),
+            T::ONE,
+        );
+        let c1 = width_product(
+            x0,
+            x1,
+            width_product(x0, x1, m1, (t * t * t - t) / six),
+            T::ONE,
+        );
+        weighted(&[blend(y0, y1, t), c0, c1], &[T::ONE; 3])
     }
 
-    /// Wert `S(xq)`. Außerhalb des Bereichs wird das erste bzw. letzte Polynom fortgesetzt.
+    /// Wert `S(xq)`; außerhalb wird das Randpolynom fortgesetzt. Nichtendliche Abfragen ergeben NaN.
     pub fn value(&self, xq: T) -> T {
-        let i = locate(self.x, xq);
-        let (_, b, c, d) = self.piece(i);
-        let t = xq - self.x[i];
-        self.y[i] + t * (b + t * (c + t * d))
+        if !finite(xq) {
+            return T::NAN;
+        }
+        self.piece_value(locate(self.x, xq), xq)
     }
 
-    /// Erste Ableitung `S'(xq)`.
+    /// Erste Ableitung `S'(xq)`. Nichtendliche Abfragen ergeben NaN.
     pub fn derivative(&self, xq: T) -> T {
+        if !finite(xq) {
+            return T::NAN;
+        }
         let i = locate(self.x, xq);
-        let (_, b, c, d) = self.piece(i);
-        let t = xq - self.x[i];
-        b + t * (T::from_f64(2.0) * c + T::from_f64(3.0) * d * t)
+        let (x0, x1) = (self.x[i], self.x[i + 1]);
+        let delta = slope(x0, x1, self.y[i], self.y[i + 1]);
+        if self.m[i] == T::ZERO && self.m[i + 1] == T::ZERO {
+            return delta;
+        }
+        let t = fraction(x0, x1, xq);
+        let u = T::ONE - t;
+        let (three, six) = (T::from_f64(3.0), T::from_f64(6.0));
+        weighted(
+            &[
+                delta,
+                width_product(x0, x1, self.m[i], (T::ONE - three * u * u) / six),
+                width_product(x0, x1, self.m[i + 1], (three * t * t - T::ONE) / six),
+            ],
+            &[T::ONE; 3],
+        )
     }
 
-    /// Zweite Ableitung `S''(xq)` (stückweise linear und stetig).
+    /// Zweite Ableitung `S''(xq)` (stückweise linear und stetig). Nichtendliche Abfragen ergeben NaN.
     pub fn second_derivative(&self, xq: T) -> T {
+        if !finite(xq) {
+            return T::NAN;
+        }
         let i = locate(self.x, xq);
-        let h = self.x[i + 1] - self.x[i];
-        let t = xq - self.x[i];
-        self.m[i] + (self.m[i + 1] - self.m[i]) * t / h
+        blend(
+            self.m[i],
+            self.m[i + 1],
+            fraction(self.x[i], self.x[i + 1], xq),
+        )
     }
 
     /// Wertet den Spline an allen Stellen `xs` aus und schreibt die Ergebnisse nach `out`
@@ -158,6 +208,12 @@ impl<'a, T: Real> CubicSpline<'a, T> {
     /// Integral von `S` über `[a, b]` (exakt, Teilstück für Teilstück). `a > b` ergibt das negative
     /// Integral.
     pub fn integral(&self, a: T, b: T) -> T {
+        if !finite(a) || !finite(b) {
+            return T::NAN;
+        }
+        if a == b {
+            return T::ZERO;
+        }
         if a > b {
             return -self.integral(b, a);
         }
@@ -173,15 +229,8 @@ impl<'a, T: Real> CubicSpline<'a, T> {
     }
 
     /// Integral des Teilstücks `i` von `s` bis `e` (absolute Positionen).
-    fn piece_integral(&self, i: usize, s: T, e: T) -> T {
-        let (_, b, c, d) = self.piece(i);
-        let yi = self.y[i];
-        let g = |t: T| {
-            t * (yi
-                + t * (b / T::from_f64(2.0)
-                    + t * (c / T::from_f64(3.0) + t * d / T::from_f64(4.0))))
-        };
-        g(e - self.x[i]) - g(s - self.x[i])
+    fn piece_integral(&self, i: usize, a: T, b: T) -> T {
+        super::piece_integral(a, b, |q| self.piece_value(i, q))
     }
 }
 
@@ -194,10 +243,47 @@ fn second_derivatives<T: Real>(
     work: &mut [T],
 ) -> Result<(), InterpError> {
     let n = x.len();
-    let h = |i: usize| x[i + 1] - x[i];
-    let delta = |i: usize| (y[i + 1] - y[i]) / h(i);
+    let halve = (0..n - 1).any(|i| (x[i + 1] - x[i]).is_infinite());
+    let h = |i: usize| {
+        if halve {
+            crate::integrate::half_width(x[i], x[i + 1])
+        } else {
+            x[i + 1] - x[i]
+        }
+    };
+    let delta = |i: usize| slope(x[i], x[i + 1], y[i], y[i + 1]);
+    let rhs_factor = if halve {
+        T::from_f64(3.0)
+    } else {
+        T::from_f64(6.0)
+    };
+    let weights = |left: T, right: T| {
+        let scale = left.max(right);
+        let (a, b) = (left / scale, right / scale);
+        (a / (a + b), b / (a + b))
+    };
+    let rhs =
+        |before: T, after: T, left: T, right: T| rhs_factor * slope(-left, right, before, after);
+    if matches!(boundary, BoundaryCondition::Periodic) {
+        if n < 3 {
+            return Err(InterpError::InvalidInput);
+        }
+        if y[0] != y[n - 1] {
+            return Err(InterpError::NotPeriodic);
+        }
+    }
+    let d0 = delta(0);
+    let is_line = (1..n - 1).all(|i| delta(i) == d0);
+    let line_boundary = match boundary {
+        BoundaryCondition::Natural | BoundaryCondition::NotAKnot => true,
+        BoundaryCondition::Clamped { left, right } => left == d0 && right == d0,
+        BoundaryCondition::Periodic => d0 == T::ZERO,
+    };
+    if is_line && line_boundary {
+        m.fill(T::ZERO);
+        return Ok(());
+    }
     let two = T::from_f64(2.0);
-    let six = T::from_f64(6.0);
 
     if let BoundaryCondition::Periodic = boundary {
         if n < 3 {
@@ -213,10 +299,11 @@ fn second_derivatives<T: Real>(
         let (d, cyc) = rest.split_at_mut(nn);
         for i in 0..nn {
             let prev = (i + nn - 1) % nn;
-            a[i] = h(prev);
-            b[i] = two * (h(prev) + h(i));
-            c[i] = h(i);
-            d[i] = six * (delta(i) - delta(prev));
+            let (left, right) = weights(h(prev), h(i));
+            a[i] = left;
+            b[i] = two;
+            c[i] = right;
+            d[i] = rhs(delta(prev), delta(i), h(prev), h(i));
         }
         solve_cyclic_tridiagonal(a, b, c, d, &mut m[..nn], cyc)?;
         m[n - 1] = m[0];
@@ -235,7 +322,7 @@ fn second_derivatives<T: Real>(
     }
     if n == 3 && matches!(boundary, BoundaryCondition::NotAKnot) {
         // dasselbe Polynom auf beiden Stücken: die Parabel durch die drei Punkte
-        let dd = (delta(1) - delta(0)) / (x[2] - x[0]);
+        let dd = slope(x[0], x[2], delta(0), delta(1));
         m.fill(two * dd);
         return Ok(());
     }
@@ -249,10 +336,11 @@ fn second_derivatives<T: Real>(
     c.fill(T::ZERO);
     d.fill(T::ZERO);
     for i in 1..n - 1 {
-        a[i] = h(i - 1);
-        b[i] = two * (h(i - 1) + h(i));
-        c[i] = h(i);
-        d[i] = six * (delta(i) - delta(i - 1));
+        let (left, right) = weights(h(i - 1), h(i));
+        a[i] = left;
+        b[i] = two;
+        c[i] = right;
+        d[i] = rhs(delta(i - 1), delta(i), h(i - 1), h(i));
     }
 
     match boundary {
@@ -261,22 +349,24 @@ fn second_derivatives<T: Real>(
             b[n - 1] = T::ONE;
         }
         BoundaryCondition::Clamped { left, right } => {
-            b[0] = two * h(0);
-            c[0] = h(0);
-            d[0] = six * (delta(0) - left);
-            a[n - 1] = h(n - 2);
-            b[n - 1] = two * h(n - 2);
-            d[n - 1] = six * (right - delta(n - 2));
+            b[0] = two;
+            c[0] = T::ONE;
+            d[0] = rhs_factor * slope(T::ZERO, h(0), left, delta(0));
+            a[n - 1] = T::ONE;
+            b[n - 1] = two;
+            d[n - 1] = rhs_factor * slope(T::ZERO, h(n - 2), delta(n - 2), right);
         }
         BoundaryCondition::NotAKnot => {
             // m₀ und m_{n−1} über die Stetigkeit der dritten Ableitung eliminieren; übrig bleibt ein
             // tridiagonales System für m₁ … m_{n−2}.
             let (h0, h1) = (h(0), h(1));
-            b[1] += h0 * (h0 + h1) / h1;
-            c[1] -= h0 * h0 / h1;
+            let ratio = h0 / h1;
+            b[1] += a[1] * (T::ONE + ratio);
+            c[1] -= a[1] * ratio;
             let (hp, hq) = (h(n - 3), h(n - 2));
-            b[n - 2] += hq * (hp + hq) / hp;
-            a[n - 2] -= hq * hq / hp;
+            let ratio = hq / hp;
+            b[n - 2] += c[n - 2] * (T::ONE + ratio);
+            a[n - 2] -= c[n - 2] * ratio;
             solve_tridiagonal(
                 &a[1..n - 1],
                 &b[1..n - 1],
@@ -285,8 +375,8 @@ fn second_derivatives<T: Real>(
                 &mut m[1..n - 1],
                 scratch,
             )?;
-            m[0] = ((h0 + h1) * m[1] - h0 * m[2]) / h1;
-            m[n - 1] = ((hp + hq) * m[n - 2] - hq * m[n - 3]) / hp;
+            m[0] = weighted(&[m[1], m[2]], &[T::ONE + h0 / h1, -h0 / h1]);
+            m[n - 1] = weighted(&[m[n - 2], m[n - 3]], &[T::ONE + hq / hp, -hq / hp]);
             return Ok(());
         }
         BoundaryCondition::Periodic => unreachable!("oben behandelt"),

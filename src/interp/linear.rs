@@ -1,4 +1,4 @@
-use super::{InterpError, check_nodes};
+use super::{InterpError, check_nodes, finite, line_value};
 use crate::Real;
 
 /// Index `i` des Teilintervalls `[x[i], x[i+1]]`, das `xq` enthält (`0 ≤ i ≤ n − 2`).
@@ -31,7 +31,20 @@ pub fn locate<T: Real>(x: &[T], xq: T) -> usize {
 /// ```
 pub fn linear<T: Real>(x: &[T], y: &[T], xq: T) -> Result<T, InterpError> {
     check_nodes(x, y)?;
+    if !finite(xq) {
+        return Err(InterpError::NotFinite);
+    }
     let i = locate(x, xq);
-    let t = (xq - x[i]) / (x[i + 1] - x[i]);
-    Ok(y[i] + t * (y[i + 1] - y[i]))
+    let value = if xq == x[i] {
+        y[i]
+    } else if xq == x[i + 1] {
+        y[i + 1]
+    } else {
+        line_value(x[i], x[i + 1], y[i], y[i + 1], xq)
+    };
+    if finite(value) {
+        Ok(value)
+    } else {
+        Err(InterpError::NotFinite)
+    }
 }

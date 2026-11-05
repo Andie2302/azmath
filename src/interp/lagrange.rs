@@ -1,4 +1,4 @@
-use super::{InterpError, finite};
+use super::{InterpError, blend, finite, fraction};
 use crate::Real;
 
 /// Wertet das **eine** Polynom vom Grad `n − 1` durch alle `n` Punkte `(x[i], y[i])` an der Stelle
@@ -32,16 +32,25 @@ pub fn lagrange<T: Real>(x: &[T], y: &[T], xq: T, work: &mut [T]) -> Result<T, I
     if x.iter().chain(y.iter()).any(|v| !finite(*v)) || !finite(xq) {
         return Err(InterpError::NotFinite);
     }
-    let p = &mut work[..n];
-    p.copy_from_slice(y);
-    // Neville: p[i] ← Wert des Interpolationspolynoms durch x[i..=i+level]
-    for level in 1..n {
-        for i in 0..n - level {
-            let denom = x[i] - x[i + level];
-            if denom == T::ZERO {
+    for i in 0..n {
+        for j in 0..i {
+            if x[i] == x[j] {
                 return Err(InterpError::NotIncreasing);
             }
-            p[i] = ((xq - x[i + level]) * p[i] + (x[i] - xq) * p[i + 1]) / denom;
+        }
+    }
+    if let Some(i) = x.iter().position(|v| *v == xq) {
+        return Ok(y[i]);
+    }
+    let p = &mut work[..n];
+    p.copy_from_slice(y);
+    for level in 1..n {
+        for i in 0..n - level {
+            let t = fraction(x[i], x[i + level], xq);
+            p[i] = blend(p[i], p[i + 1], t);
+            if !finite(p[i]) {
+                return Err(InterpError::NotFinite);
+            }
         }
     }
     Ok(p[0])

@@ -34,6 +34,11 @@
 //!
 //! Hinweis zu `micromath`: Die Verfahren selbst nutzen nur `+ - * /`, sind also unabhängig vom
 //! Backend; die Tests laufen dennoch nur mit `std` und `libm`.
+//!
+//! Nichtendliche Abfragen werden von [`linear`] und [`lagrange`] als Fehler zurückgegeben;
+//! die direkten Spline-Auswertungen und -Integrale liefern dafür `NaN`. Konstruktoren lehnen
+//! nicht endlich darstellbare Steigungen bzw. zweite Ableitungen mit [`InterpError::NotFinite`] ab.
+//! Auch bei endlichen Eingaben bleiben Rundungsfehler und schlecht konditionierte Daten möglich.
 
 mod cubic;
 mod lagrange;
@@ -65,7 +70,7 @@ pub enum InterpError {
     InvalidInput,
     /// Die Stützstellen `x` sind nicht streng aufsteigend (oder doppelt vorhanden).
     NotIncreasing,
-    /// NaN oder Unendlich in den Stützstellen oder -werten.
+    /// Nichtendliche Eingabe oder ein nicht endlich darstellbares Ergebnis bzw. eine solche Ableitung.
     NotFinite,
     /// Periodische Randbedingung, aber `y[0] != y[n−1]`.
     NotPeriodic,
@@ -113,4 +118,106 @@ pub(crate) fn check_nodes<T: Real>(x: &[T], y: &[T]) -> Result<(), InterpError> 
         return Err(InterpError::NotIncreasing);
     }
     Ok(())
+}
+
+/// Anteil von q im Intervall, auch bei überlaufenden Koordinatendifferenzen.
+pub(crate) fn fraction<T: Real>(a: T, b: T, q: T) -> T {
+    let (num, den) = (q - a, b - a);
+    if finite(num) && finite(den) {
+        num / den
+    } else {
+        let s = a.abs().max(b.abs()).max(q.abs());
+        (q / s - a / s) / (b / s - a / s)
+    }
+}
+
+pub(crate) fn slope<T: Real>(a: T, b: T, ya: T, yb: T) -> T {
+    let (num, den) = (yb - ya, b - a);
+    if finite(num) && finite(den) {
+        num / den
+    } else if den.is_infinite() {
+        (yb * T::from_f64(0.5) - ya * T::from_f64(0.5))
+            / (b * T::from_f64(0.5) - a * T::from_f64(0.5))
+    } else {
+        yb / den - ya / den
+    }
+}
+
+pub(crate) fn blend<T: Real>(a: T, b: T, t: T) -> T {
+    if a == b {
+        return a;
+    }
+    if t == T::ZERO {
+        return a;
+    }
+    if t == T::ONE {
+        return b;
+    }
+    if t >= T::ZERO && t <= T::ONE {
+        if (a < T::ZERO) == (b < T::ZERO) {
+            a + t * (b - a)
+        } else {
+            (T::ONE - t) * a + t * b
+        }
+    } else {
+        let proposed = a + t * (b - a);
+        if finite(proposed) {
+            proposed
+        } else {
+            let s = a.abs().max(b.abs());
+            (a / s + t * (b / s - a / s)) * s
+        }
+    }
+}
+
+pub(crate) fn line_value<T: Real>(a: T, b: T, ya: T, yb: T, q: T) -> T {
+    if ya == yb {
+        return ya;
+    }
+    let t = fraction(a, b, q);
+    if finite(t) {
+        blend(ya, yb, t)
+    } else {
+        ya + width_product(a, q, slope(a, b, ya, yb), T::ONE)
+    }
+}
+
+pub(crate) fn weighted<T: Real>(values: &[T], weights: &[T]) -> T {
+    let mut sum = crate::integrate::WeightedSum::new();
+    for (&v, &w) in values.iter().zip(weights) {
+        if sum.add(v, w).is_err() {
+            return T::NAN;
+        }
+    }
+    sum.value()
+}
+
+/// Produkt einer Breite, eines Wertes und eines Faktors ohne vermeidbaren Zwischenüberlauf.
+pub(crate) fn width_product<T: Real>(a: T, b: T, value: T, factor: T) -> T {
+    if value == T::ZERO || factor == T::ZERO {
+        return T::ZERO;
+    }
+    let h = b - a;
+    if finite(h) {
+        crate::integrate::mul3(h, value, factor)
+    } else {
+        crate::integrate::mul3(
+            crate::integrate::half_width(a, b),
+            value,
+            factor * T::from_f64(2.0),
+        )
+    }
+}
+
+/// Zwei Gauß-Punkte integrieren ein kubisches Teilstück exakt, ohne Stammfunktionssubtraktion.
+pub(crate) fn piece_integral<T: Real>(a: T, b: T, f: impl Fn(T) -> T) -> T {
+    if a == b {
+        return T::ZERO;
+    }
+    let offset = T::from_f64(0.288_675_134_594_812_87);
+    let half = T::from_f64(0.5);
+    let left = crate::integrate::point(a, b, half - offset);
+    let right = crate::integrate::point(a, b, half + offset);
+    let mean = weighted(&[f(left), f(right)], &[half, half]);
+    crate::integrate::integral_scale(mean, a, b)
 }

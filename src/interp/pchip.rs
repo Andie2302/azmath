@@ -1,4 +1,6 @@
-use super::{InterpError, check_nodes, locate};
+use super::{
+    InterpError, check_nodes, finite, fraction, line_value, locate, slope, weighted, width_product,
+};
 use crate::Real;
 
 /// Stückweise kubische Hermite-Interpolation mit **Formerhaltung** (PCHIP, nach Fritsch und
@@ -45,7 +47,12 @@ fn sign<T: Real>(v: T) -> i8 {
 /// Dreipunkt-Randsteigung mit Formerhaltung. `h0, h1` Intervallbreiten am Rand, `d0, d1` die
 /// zugehörigen Sekantensteigungen (von außen nach innen).
 fn end_slope<T: Real>(h0: T, h1: T, d0: T, d1: T) -> T {
-    let s = ((T::from_f64(2.0) * h0 + h1) * d0 - h0 * d1) / (h0 + h1);
+    let hscale = h0.max(h1);
+    let a = (h0 / hscale) / ((h0 / hscale) + (h1 / hscale));
+    let s = weighted(&[d0, d1], &[T::ONE + a, -a]);
+    if s.is_nan() {
+        return T::NAN;
+    }
     if sign(s) != sign(d0) {
         T::ZERO
     } else if sign(d0) != sign(d1) && s.abs() > T::from_f64(3.0) * d0.abs() {
@@ -69,8 +76,18 @@ impl<'a, T: Real> Pchip<'a, T> {
         if d.len() != n {
             return Err(InterpError::InvalidInput);
         }
-        let h = |i: usize| x[i + 1] - x[i];
-        let delta = |i: usize| (y[i + 1] - y[i]) / h(i);
+        let halve = (0..n - 1).any(|i| (x[i + 1] - x[i]).is_infinite());
+        let h = |i: usize| {
+            if halve {
+                crate::integrate::half_width(x[i], x[i + 1])
+            } else {
+                x[i + 1] - x[i]
+            }
+        };
+        let delta = |i: usize| slope(x[i], x[i + 1], y[i], y[i + 1]);
+        if (0..n - 1).any(|i| !finite(delta(i))) {
+            return Err(InterpError::NotFinite);
+        }
         if n == 2 {
             d[0] = delta(0);
             d[1] = delta(0);
@@ -80,13 +97,20 @@ impl<'a, T: Real> Pchip<'a, T> {
                 *dk = if sign(d0) * sign(d1) <= 0 {
                     T::ZERO
                 } else {
-                    let w1 = T::from_f64(2.0) * h(k) + h(k - 1);
-                    let w2 = h(k) + T::from_f64(2.0) * h(k - 1);
-                    (w1 + w2) / (w1 / d0 + w2 / d1)
+                    let scale = h(k).max(h(k - 1));
+                    let (a, b) = (h(k - 1) / scale, h(k) / scale);
+                    let w1 = (T::from_f64(2.0) * b + a) / (T::from_f64(3.0) * (a + b));
+                    let w2 = T::ONE - w1;
+                    let small = d0.abs().min(d1.abs());
+                    let magnitude = small / (w1 * (small / d0.abs()) + w2 * (small / d1.abs()));
+                    if d0 < T::ZERO { -magnitude } else { magnitude }
                 };
             }
             d[0] = end_slope(h(0), h(1), delta(0), delta(1));
             d[n - 1] = end_slope(h(n - 2), h(n - 3), delta(n - 2), delta(n - 3));
+        }
+        if d.iter().any(|v| !finite(*v)) {
+            return Err(InterpError::NotFinite);
         }
         let d: &'a [T] = d;
         Ok(Self { x, y, d })
@@ -124,34 +148,92 @@ impl<'a, T: Real> Pchip<'a, T> {
         xq >= lo && xq <= hi
     }
 
-    /// Koeffizienten `(c1, c2, c3)` des Teilstücks `i`: `P(xᵢ + s) = yᵢ + c1·s + c2·s² + c3·s³`.
-    fn piece(&self, i: usize) -> (T, T, T) {
-        let h = self.x[i + 1] - self.x[i];
-        let delta = (self.y[i + 1] - self.y[i]) / h;
+    fn piece_value(&self, i: usize, xq: T) -> T {
+        let (x0, x1) = (self.x[i], self.x[i + 1]);
+        let (y0, y1) = (self.y[i], self.y[i + 1]);
+        if xq == x0 {
+            return y0;
+        }
+        if xq == x1 {
+            return y1;
+        }
+        let delta = slope(x0, x1, y0, y1);
         let (d0, d1) = (self.d[i], self.d[i + 1]);
-        let c2 = (T::from_f64(3.0) * delta - T::from_f64(2.0) * d0 - d1) / h;
-        let c3 = (d0 + d1 - T::from_f64(2.0) * delta) / (h * h);
-        (d0, c2, c3)
+        if d0 == delta && d1 == delta {
+            return line_value(x0, x1, y0, y1, xq);
+        }
+        let t = fraction(x0, x1, xq);
+        let u = T::ONE - t;
+        let two = T::from_f64(2.0);
+        let value = weighted(
+            &[
+                y0,
+                y1,
+                width_product(x0, x1, d0, t * u * u),
+                width_product(x0, x1, d1, -t * t * u),
+            ],
+            &[
+                (T::ONE + two * t) * u * u,
+                t * t * (T::from_f64(3.0) - two * t),
+                T::ONE,
+                T::ONE,
+            ],
+        );
+        if !finite(value) {
+            return T::NAN;
+        }
+        if t >= T::ZERO && t <= T::ONE {
+            value.max(y0.min(y1)).min(y0.max(y1))
+        } else {
+            value
+        }
     }
 
     /// Wert `P(xq)`. Außerhalb des Bereichs wird das erste bzw. letzte Stück fortgesetzt.
+    /// Nichtendliche Abfragen ergeben NaN.
     pub fn value(&self, xq: T) -> T {
-        let i = locate(self.x, xq);
-        let (c1, c2, c3) = self.piece(i);
-        let s = xq - self.x[i];
-        self.y[i] + s * (c1 + s * (c2 + s * c3))
+        if !finite(xq) {
+            return T::NAN;
+        }
+        self.piece_value(locate(self.x, xq), xq)
     }
 
-    /// Erste Ableitung `P'(xq)` (stetig).
+    /// Erste Ableitung `P'(xq)` (stetig). Nichtendliche Abfragen ergeben NaN.
     pub fn derivative(&self, xq: T) -> T {
+        if !finite(xq) {
+            return T::NAN;
+        }
         let i = locate(self.x, xq);
-        let (c1, c2, c3) = self.piece(i);
-        let s = xq - self.x[i];
-        c1 + s * (T::from_f64(2.0) * c2 + T::from_f64(3.0) * c3 * s)
+        if xq == self.x[i] {
+            return self.d[i];
+        }
+        if xq == self.x[i + 1] {
+            return self.d[i + 1];
+        }
+        let delta = slope(self.x[i], self.x[i + 1], self.y[i], self.y[i + 1]);
+        let (d0, d1) = (self.d[i], self.d[i + 1]);
+        if d0 == delta && d1 == delta {
+            return delta;
+        }
+        let t = fraction(self.x[i], self.x[i + 1], xq);
+        weighted(
+            &[delta, d0, d1],
+            &[
+                T::from_f64(6.0) * t * (T::ONE - t),
+                T::ONE - T::from_f64(4.0) * t + T::from_f64(3.0) * t * t,
+                T::from_f64(3.0) * t * t - T::from_f64(2.0) * t,
+            ],
+        )
     }
 
     /// Integral von `P` über `[a, b]` (exakt). `a > b` ergibt das negative Integral.
     pub fn integral(&self, a: T, b: T) -> T {
+        if !finite(a) || !finite(b) {
+            return T::NAN;
+        }
+        if a == b {
+            return T::ZERO;
+        }
         if a > b {
             return -self.integral(b, a);
         }
@@ -166,14 +248,7 @@ impl<'a, T: Real> Pchip<'a, T> {
         sum + self.piece_integral(ib, self.x[ib], b)
     }
 
-    fn piece_integral(&self, i: usize, s: T, e: T) -> T {
-        let (c1, c2, c3) = self.piece(i);
-        let yi = self.y[i];
-        let g = |t: T| {
-            t * (yi
-                + t * (c1 / T::from_f64(2.0)
-                    + t * (c2 / T::from_f64(3.0) + t * c3 / T::from_f64(4.0))))
-        };
-        g(e - self.x[i]) - g(s - self.x[i])
+    fn piece_integral(&self, i: usize, a: T, b: T) -> T {
+        super::piece_integral(a, b, |q| self.piece_value(i, q))
     }
 }
