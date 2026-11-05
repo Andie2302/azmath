@@ -1,4 +1,4 @@
-use super::{RootError, RootOptions, RootResult, finite, scale};
+use super::{RootError, RootOptions, RootResult, close_points, finite, midpoint, validate_options};
 use crate::Real;
 
 /// Bisektion: halbiert das Intervall `[a, b]` mit Vorzeichenwechsel, bis es klein genug ist.
@@ -8,13 +8,18 @@ use crate::Real;
 /// eine Polstelle statt einer Nullstelle einschließen (zum Beispiel `1/x`); `f_value` im
 /// Ergebnis zeigt das.
 ///
-/// Fehler: [`RootError::NotBracketed`], [`RootError::NotFinite`], [`RootError::NoConvergence`].
+/// Fehler: [`RootError::NotBracketed`], [`RootError::NotFinite`], [`RootError::NoConvergence`],
+/// [`RootError::InvalidInput`] bei negativer oder nichtendlicher Toleranz.
 pub fn bisection<T: Real>(
     mut f: impl FnMut(T) -> T,
     a: T,
     b: T,
     opts: RootOptions<T>,
 ) -> Result<RootResult<T>, RootError> {
+    validate_options(opts)?;
+    if !finite(a) || !finite(b) {
+        return Err(RootError::NotFinite);
+    }
     let (mut lo, mut hi) = (a, b);
     let mut flo = f(lo);
     let fhi = f(hi);
@@ -39,19 +44,21 @@ pub fn bisection<T: Real>(
         return Err(RootError::NotBracketed);
     }
 
-    let half = T::from_f64(0.5);
     for k in 1..=opts.max_iter {
-        let mid = lo + half * (hi - lo);
+        let mid = midpoint(lo, hi);
         let fmid = f(mid);
         if !finite(fmid) {
             return Err(RootError::NotFinite);
         }
-        if fmid == T::ZERO || (hi - lo).abs() <= opts.tol * scale(mid) {
+        if fmid == T::ZERO || close_points(hi, lo, mid, opts.tol) {
             return Ok(RootResult {
                 root: mid,
                 f_value: fmid,
                 iterations: k,
             });
+        }
+        if mid == lo || mid == hi {
+            return Err(RootError::NoConvergence);
         }
         if (fmid < T::ZERO) == (flo < T::ZERO) {
             lo = mid;

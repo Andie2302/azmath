@@ -1,4 +1,4 @@
-use super::{RootError, RootOptions, RootResult, finite, scale};
+use super::{RootError, RootOptions, RootResult, close_points, finite, scale, validate_options};
 use crate::Real;
 
 /// Newton-Verfahren: `x ← x − f(x)/f'(x)`.
@@ -10,29 +10,31 @@ use crate::Real;
 /// - `f`: die Funktion, `df`: ihre Ableitung, `x0`: Startwert.
 ///
 /// Fehler: [`RootError::ZeroDerivative`] (`f'(x) = 0`), [`RootError::NotFinite`],
-/// [`RootError::NoConvergence`].
+/// [`RootError::NoConvergence`]. Negative oder nichtendliche Toleranzen ergeben
+/// [`RootError::InvalidInput`].
 pub fn newton<T: Real>(
     mut f: impl FnMut(T) -> T,
     mut df: impl FnMut(T) -> T,
     x0: T,
     opts: RootOptions<T>,
 ) -> Result<RootResult<T>, RootError> {
+    validate_options(opts)?;
     if !finite(x0) {
         return Err(RootError::NotFinite);
     }
     let mut x = x0;
-    for k in 0..opts.max_iter {
-        let fx = f(x);
-        if !finite(fx) {
-            return Err(RootError::NotFinite);
-        }
-        if fx == T::ZERO {
-            return Ok(RootResult {
-                root: x,
-                f_value: fx,
-                iterations: k,
-            });
-        }
+    let mut fx = f(x);
+    if !finite(fx) {
+        return Err(RootError::NotFinite);
+    }
+    if fx == T::ZERO {
+        return Ok(RootResult {
+            root: x,
+            f_value: fx,
+            iterations: 0,
+        });
+    }
+    for k in 1..=opts.max_iter {
         let dfx = df(x);
         if !finite(dfx) {
             return Err(RootError::NotFinite);
@@ -45,15 +47,38 @@ pub fn newton<T: Real>(
         if !finite(x_new) {
             return Err(RootError::NotFinite);
         }
-        if dx.abs() <= opts.tol * scale(x_new) {
-            let f_value = f(x_new);
+        let f_new = f(x_new);
+        if !finite(f_new) {
+            return Err(RootError::NotFinite);
+        }
+        if f_new == T::ZERO {
             return Ok(RootResult {
                 root: x_new,
-                f_value,
-                iterations: k + 1,
+                f_value: f_new,
+                iterations: k,
+            });
+        }
+        if x_new == x {
+            // Bei positiver Lagentoleranz kann der berechnete Newton-Schritt bereits
+            // klein genug sein, obwohl er beim Addieren weggerundet wird.
+            if opts.tol > T::ZERO && dx != T::ZERO && dx.abs() / scale(x_new) <= opts.tol {
+                return Ok(RootResult {
+                    root: x_new,
+                    f_value: f_new,
+                    iterations: k,
+                });
+            }
+            return Err(RootError::NoConvergence);
+        }
+        if close_points(x_new, x, x_new, opts.tol) {
+            return Ok(RootResult {
+                root: x_new,
+                f_value: f_new,
+                iterations: k,
             });
         }
         x = x_new;
+        fx = f_new;
     }
     Err(RootError::NoConvergence)
 }
@@ -65,13 +90,18 @@ pub fn newton<T: Real>(
 /// Konvergenzordnung ist etwa 1,6. Wie bei Newton gibt es keine Konvergenzgarantie.
 ///
 /// Fehler: [`RootError::ZeroDerivative`] (`f(x0) = f(x1)`), [`RootError::NotFinite`],
-/// [`RootError::NoConvergence`].
+/// [`RootError::NoConvergence`]. Negative oder nichtendliche Toleranzen ergeben
+/// [`RootError::InvalidInput`].
 pub fn secant<T: Real>(
     mut f: impl FnMut(T) -> T,
     x0: T,
     x1: T,
     opts: RootOptions<T>,
 ) -> Result<RootResult<T>, RootError> {
+    validate_options(opts)?;
+    if !finite(x0) || !finite(x1) {
+        return Err(RootError::NotFinite);
+    }
     let (mut xa, mut xb) = (x0, x1);
     let mut fa = f(xa);
     let mut fb = f(xb);
@@ -82,6 +112,13 @@ pub fn secant<T: Real>(
         return Ok(RootResult {
             root: xa,
             f_value: fa,
+            iterations: 0,
+        });
+    }
+    if fb == T::ZERO {
+        return Ok(RootResult {
+            root: xb,
+            f_value: fb,
             iterations: 0,
         });
     }
@@ -96,7 +133,30 @@ pub fn secant<T: Real>(
         if fb == fa {
             return Err(RootError::ZeroDerivative);
         }
-        let x_new = xb - fb * (xb - xa) / (fb - fa);
+        // Funktionswerte zuerst normieren: weder Produkt noch Differenz müssen
+        // im ursprünglichen Wertebereich darstellbar sein.
+        let fscale = fa.abs().max(fb.abs());
+        let (u, v) = (fa / fscale, fb / fscale);
+        let denominator = v - u;
+        if denominator == T::ZERO {
+            return Err(RootError::ZeroDerivative);
+        }
+        let weight = v / denominator;
+        let x_new = if weight >= T::ZERO && weight <= T::ONE {
+            if (xa < T::ZERO) == (xb < T::ZERO) {
+                xb + weight * (xa - xb)
+            } else {
+                (T::ONE - weight) * xb + weight * xa
+            }
+        } else {
+            let proposed = xb + weight * (xa - xb);
+            if finite(proposed) {
+                proposed
+            } else {
+                let xscale = xa.abs().max(xb.abs());
+                (xb / xscale + weight * (xa / xscale - xb / xscale)) * xscale
+            }
+        };
         if !finite(x_new) {
             return Err(RootError::NotFinite);
         }
@@ -104,12 +164,27 @@ pub fn secant<T: Real>(
         if !finite(f_new) {
             return Err(RootError::NotFinite);
         }
-        let step = (x_new - xb).abs();
+        let predicted_step = (weight * (xa - xb)).abs();
+        if f_new != T::ZERO && x_new == xb {
+            if opts.tol > T::ZERO
+                && predicted_step > T::ZERO
+                && finite(predicted_step)
+                && predicted_step / scale(x_new) <= opts.tol
+            {
+                return Ok(RootResult {
+                    root: x_new,
+                    f_value: f_new,
+                    iterations: k,
+                });
+            }
+            return Err(RootError::NoConvergence);
+        }
+        let small_step = close_points(x_new, xb, x_new, opts.tol);
         xa = xb;
         fa = fb;
         xb = x_new;
         fb = f_new;
-        if step <= opts.tol * scale(xb) || fb == T::ZERO {
+        if small_step || fb == T::ZERO {
             return Ok(RootResult {
                 root: xb,
                 f_value: fb,

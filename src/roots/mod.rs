@@ -18,6 +18,10 @@
 //! **Abbruch:** Ein Verfahren ist fertig, wenn Intervallbreite bzw. Schrittweite
 //! `≤ tol · max(1, |x|)` ist (eine Mischung aus absoluter und relativer Toleranz) oder
 //! `f(x)` exakt 0 ergibt. Sonst liefert es [`RootError::NoConvergence`].
+//! Bei Bisektion, Brent, Newton und Sekante verlangt `tol = 0` einen exakten Nullwert;
+//! Rundungsstillstand ohne erfülltes Kriterium ergibt `NoConvergence`. `max_iter = 0`
+//! prüft nur die Startpunkte. Die Lagentoleranz garantiert keine kleine Funktionsabweichung:
+//! insbesondere bei Polstellen oder schlecht skalierten Funktionen `f_value` mitbeurteilen.
 //!
 //! Hinweis zu `micromath`: Mit der bewusst ungenauen Näherung (z. B. bei `sin`, `exp`, `sqrt`
 //! in `f`) lässt sich eine strenge Toleranz unter Umständen nie erreichen; für verlässliche
@@ -61,7 +65,7 @@ use crate::Real;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RootOptions<T> {
     /// Toleranz für die Lage der Nullstelle: Abbruch bei Intervallbreite bzw. Schritt
-    /// `≤ tol · max(1, |x|)`.
+    /// `≤ tol · max(1, |x|)`. Muss endlich und nichtnegativ sein.
     pub tol: T,
     /// Maximale Anzahl an Iterationen.
     pub max_iter: usize,
@@ -110,7 +114,7 @@ pub enum RootError {
     NotFinite,
     /// Die Ableitung (Newton) bzw. der Differenzenquotient (Sekante) ist 0.
     ZeroDerivative,
-    /// Ungültige Eingabe (Nullpolynom, Ausgabepuffer zu kurz).
+    /// Ungültige Eingabe (etwa negative/nichtendliche Toleranz, Nullpolynom oder zu kurzer Ausgabepuffer).
     InvalidInput,
 }
 
@@ -121,7 +125,7 @@ impl fmt::Display for RootError {
             RootError::NoConvergence => "Iteration ist nicht konvergiert",
             RootError::NotFinite => "NaN oder unendlicher Wert aufgetreten",
             RootError::ZeroDerivative => "Ableitung bzw. Differenzenquotient ist 0",
-            RootError::InvalidInput => "ungültige Eingabe (Nullpolynom oder Ausgabepuffer zu kurz)",
+            RootError::InvalidInput => "ungültige Eingabe oder numerische Einstellung",
         })
     }
 }
@@ -136,4 +140,37 @@ pub(crate) fn finite<T: Real>(x: T) -> bool {
 /// `max(1, |x|)`: Skalierung für die gemischte absolute/relative Toleranz.
 pub(crate) fn scale<T: Real>(x: T) -> T {
     T::ONE.max(x.abs())
+}
+
+/// Numerische Optionen vor Auswertung der Benutzerfunktion prüfen.
+pub(crate) fn validate_options<T: Real>(opts: RootOptions<T>) -> Result<(), RootError> {
+    if !finite(opts.tol) || opts.tol < T::ZERO {
+        Err(RootError::InvalidInput)
+    } else {
+        Ok(())
+    }
+}
+
+/// Mittelpunkt ohne überlaufende Differenz bei Endpunkten mit verschiedenem Vorzeichen.
+pub(crate) fn midpoint<T: Real>(a: T, b: T) -> T {
+    let half = T::from_f64(0.5);
+    if (a < T::ZERO) == (b < T::ZERO) {
+        a + half * (b - a)
+    } else {
+        half * a + half * b
+    }
+}
+
+/// Gemischtes Abstandskriterium ohne Überlauf in tol*scale oder in a-b.
+pub(crate) fn close_points<T: Real>(a: T, b: T, x: T, tol: T) -> bool {
+    if tol == T::ZERO {
+        return a == b;
+    }
+    let s = scale(x);
+    let d = (a - b).abs();
+    if finite(d) {
+        d / s <= tol
+    } else {
+        (a / s - b / s).abs() <= tol
+    }
 }
