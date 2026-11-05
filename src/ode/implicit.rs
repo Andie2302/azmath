@@ -1,4 +1,4 @@
-use super::{OdeError, all_finite, finite, from_usize};
+use super::{OdeError, all_finite, finite, fixed_times};
 use crate::Real;
 use crate::optimize::{OptimizeOptions, newton_system, newton_system_fd, newton_work_len};
 
@@ -44,18 +44,34 @@ where
         return Err(OdeError::NotFinite);
     }
 
+    if [newton.tol_x, newton.tol_f, newton.tol_g]
+        .iter()
+        .any(|v| !finite(*v) || *v < T::ZERO)
+    {
+        return Err(OdeError::InvalidInput);
+    }
+    observer(t0, y);
+    if t0 == t1 {
+        return Ok(());
+    }
+
     let (newton_work, rest) = work.split_at_mut(newton_work_len(n));
     let (y_old, rest) = rest.split_at_mut(n);
     let (f_old, rest) = rest.split_at_mut(n);
     let f_tmp = &mut rest[..n];
 
-    let h = (t1 - t0) / from_usize::<T>(steps);
     let explicit_part = T::ONE - theta;
-    observer(t0, y);
     for i in 0..steps {
-        let t = t0 + h * from_usize::<T>(i);
-        let t_next = t0 + h * from_usize::<T>(i + 1);
+        let (t, t_next, h) = fixed_times(t0, t1, i, steps)?;
         y_old.copy_from_slice(y);
+        // Ein ODE-Schritt benötigt eine Nullstelle, keinen stationären LS-Punkt.
+        let magnitude = y_old.iter().fold(T::ZERO, |m, v| m.max(v.abs()));
+        let solve_opts = OptimizeOptions {
+            tol_x: T::ZERO,
+            tol_g: T::ZERO,
+            tol_f: newton.tol_f.max(T::from_f64(16.0) * T::EPSILON * magnitude),
+            max_iter: newton.max_iter,
+        };
         if explicit_part != T::ZERO {
             f(t, y_old, f_old);
             if !all_finite(f_old) {
@@ -67,12 +83,16 @@ where
         let g = |z: &[T], out: &mut [T]| {
             f(t_next, z, f_tmp);
             for k in 0..n {
-                let rhs = explicit_part * f_old[k] + theta * f_tmp[k];
+                let rhs = if explicit_part == T::ZERO {
+                    f_tmp[k]
+                } else {
+                    explicit_part * f_old[k] + theta * f_tmp[k]
+                };
                 out[k] = z[k] - y_old[k] - h * rhs;
             }
         };
         // Startwert für Newton ist y (= yₙ)
-        match &mut jac {
+        let solved = match &mut jac {
             Jac::Analytic(j) => {
                 // ∂g/∂z = I − θ·h·∂f/∂y
                 let scale = theta * h;
@@ -85,14 +105,52 @@ where
                         out[k * n + k] += T::ONE;
                     }
                 };
-                newton_system(g, jg, y, newton, newton_work)?;
+                newton_system(g, jg, y, solve_opts, newton_work)
             }
-            Jac::Numeric => {
-                newton_system_fd(g, y, newton, newton_work)?;
+            Jac::Numeric => newton_system_fd(g, y, solve_opts, newton_work),
+        };
+        if let Err(e) = solved {
+            // Auch am Iterationslimit kann der letzte Newton-Schritt die diskrete
+            // Gleichung bereits bis zur Rundungsgrenze erfüllt haben: unten prüfen.
+            if e != crate::optimize::OptimizeError::NoConvergence {
+                y.copy_from_slice(y_old);
+                return Err(e.into());
             }
         }
         if !all_finite(y) {
+            y.copy_from_slice(y_old);
             return Err(OdeError::NotFinite);
+        }
+        // Ein stationärer Punkt des nichtlinearen Residuums ist keine Lösung des Schritts.
+        f(t_next, y, f_tmp);
+        if !all_finite(f_tmp) {
+            y.copy_from_slice(y_old);
+            return Err(OdeError::NotFinite);
+        }
+        let global_rounding = T::from_f64(64.0)
+            * T::EPSILON
+            * y.iter()
+                .chain(y_old.iter())
+                .fold(T::ZERO, |m, v| m.max(v.abs()));
+        for k in 0..n {
+            let rhs = if explicit_part == T::ZERO {
+                f_tmp[k]
+            } else {
+                explicit_part * f_old[k] + theta * f_tmp[k]
+            };
+            let increment = h * rhs;
+            let defect = (y[k] - y_old[k]) - increment;
+            let rounding = T::from_f64(64.0)
+                * T::EPSILON
+                * (y[k].abs().max(y_old[k].abs()).max(increment.abs()));
+            if !finite(defect) || !finite(increment) {
+                y.copy_from_slice(y_old);
+                return Err(OdeError::NotFinite);
+            }
+            if defect.abs() > newton.tol_f.max(rounding).max(global_rounding) {
+                y.copy_from_slice(y_old);
+                return Err(OdeError::NewtonFailed);
+            }
         }
         observer(t_next, y);
     }
@@ -109,11 +167,15 @@ where
 ///
 /// - `jacobian(t, y, j)` schreibt `∂f/∂y` (`n × n`, zeilenweise: `j[i*n + k] = ∂fᵢ/∂yₖ`).
 ///   Ohne Ableitung: [`implicit_euler_fd`] bestimmt sie per Differenzen.
-/// - `newton`: Einstellungen für das Newton-Verfahren (`OptimizeOptions::default()` passt meist).
+/// - `newton`: `tol_f` und `max_iter` steuern den nichtlinearen Schritt; eine skalierte
+///   Rundungsgrenze wird berücksichtigt. Schritt- und Gradientenabbruch allein gelten nicht
+///   als Lösung der ODE-Schrittgleichung.
 /// - `work`: mindestens [`implicit_work_len`]`(n)` Elemente.
 /// - `observer(t, y)` wird mit dem Anfangszustand und nach jedem Schritt aufgerufen.
 ///
-/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`], [`OdeError::NewtonFailed`].
+/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`], [`OdeError::NewtonFailed`],
+/// [`OdeError::StepSizeTooSmall`] bei nicht darstellbarem Zeitfortschritt.
+/// Bei einem Fehler des Schritts bleibt der letzte akzeptierte Zustand erhalten.
 ///
 /// ```
 /// # #[cfg(any(feature = "std", feature = "libm"))] {

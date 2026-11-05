@@ -1,4 +1,4 @@
-use super::{OdeError, all_finite, finite, from_usize};
+use super::{OdeError, all_finite, finite, fixed_times, weighted_update};
 use crate::Real;
 
 /// Benötigter Arbeitsspeicher für [`euler`] bei `n` Zustandsgrößen.
@@ -34,7 +34,8 @@ fn check_fixed<T: Real>(
 /// - `y`: Anfangszustand und Ergebnis (in-place), `work`: mindestens [`euler_work_len`]`(n)`.
 /// - `observer(t, y)` wird mit dem Anfangszustand und nach jedem Schritt aufgerufen.
 ///
-/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`].
+/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`], [`OdeError::StepSizeTooSmall`].
+/// Ein leeres Zeitintervall wertet `f` nicht aus; nicht darstellbare Zeitfortschritte sind Fehler.
 pub fn euler<T: Real>(
     mut f: impl FnMut(T, &[T], &mut [T]),
     t0: T,
@@ -46,19 +47,25 @@ pub fn euler<T: Real>(
 ) -> Result<(), OdeError> {
     let n = y.len();
     check_fixed(t0, t1, y, steps, work.len(), euler_work_len(n))?;
-    let h = (t1 - t0) / from_usize::<T>(steps);
     let k = &mut work[..n];
     observer(t0, y);
+    if t0 == t1 {
+        return Ok(());
+    }
     for i in 0..steps {
-        let t = t0 + h * from_usize::<T>(i);
+        let (t, next, h) = fixed_times(t0, t1, i, steps)?;
         f(t, y, k);
-        for (yi, ki) in y.iter_mut().zip(k.iter()) {
-            *yi += h * *ki;
-        }
-        if !all_finite(y) {
+        if !all_finite(k) {
             return Err(OdeError::NotFinite);
         }
-        observer(t0 + h * from_usize::<T>(i + 1), y);
+        for j in 0..n {
+            k[j] = y[j] + h * k[j];
+        }
+        if !all_finite(k) {
+            return Err(OdeError::NotFinite);
+        }
+        y.copy_from_slice(k);
+        observer(next, y);
     }
     Ok(())
 }
@@ -66,6 +73,9 @@ pub fn euler<T: Real>(
 /// Ein einzelner Schritt des klassischen Runge-Kutta-Verfahrens (Ordnung 4) der Größe `h` von
 /// `t` aus; `y` wird in-place fortgeschrieben. `work` hat mindestens [`rk4_work_len`]`(n)`
 /// Elemente. Nützlich, um die Schrittschleife selbst zu steuern.
+///
+/// Bei numerischen Fehlern wird `y` auf NaN gesetzt; [`try_rk4_step`] meldet den Fehler
+/// explizit und lässt den bisherigen Zustand unverändert.
 ///
 /// # Panics
 ///
@@ -77,37 +87,99 @@ pub fn rk4_step<T: Real, F: FnMut(T, &[T], &mut [T])>(
     h: T,
     work: &mut [T],
 ) {
-    let n = y.len();
     assert!(
-        work.len() >= rk4_work_len(n),
+        work.len() >= rk4_work_len(y.len()),
         "rk4_step: Arbeitsspeicher zu kurz"
     );
+    if try_rk4_step(f, t, y, h, work).is_err() {
+        y.fill(T::NAN);
+    }
+}
+
+/// Geprüfter RK4-Einzelschritt. Nichtendliche Stufen werden vor dem nächsten Callback erkannt.
+/// Bei Fehler bleibt `y` unverändert; siehe [`OdeError`].
+pub fn try_rk4_step<T: Real, F: FnMut(T, &[T], &mut [T])>(
+    f: &mut F,
+    t: T,
+    y: &mut [T],
+    h: T,
+    work: &mut [T],
+) -> Result<(), OdeError> {
+    let n = y.len();
+    if n == 0 || work.len() < rk4_work_len(n) {
+        return Err(OdeError::InvalidInput);
+    }
+    if !finite(t) || !finite(h) || !all_finite(y) {
+        return Err(OdeError::NotFinite);
+    }
+    if h == T::ZERO {
+        return Ok(());
+    }
+    let next = t + h;
+    if !finite(next) {
+        return Err(OdeError::NotFinite);
+    }
+    if next == t {
+        return Err(OdeError::StepSizeTooSmall);
+    }
+    let h = next - t;
+    if !finite(h) {
+        return Err(OdeError::NotFinite);
+    }
     let (k1, rest) = work.split_at_mut(n);
     let (k2, rest) = rest.split_at_mut(n);
     let (k3, rest) = rest.split_at_mut(n);
     let (k4, rest) = rest.split_at_mut(n);
     let tmp = &mut rest[..n];
-    let half = T::from_f64(0.5) * h;
-
+    let half = h * T::from_f64(0.5);
     f(t, y, k1);
+    if !all_finite(k1) {
+        return Err(OdeError::NotFinite);
+    }
     for i in 0..n {
         tmp[i] = y[i] + half * k1[i];
     }
+    if !all_finite(tmp) {
+        return Err(OdeError::NotFinite);
+    }
     f(t + half, tmp, k2);
+    if !all_finite(k2) {
+        return Err(OdeError::NotFinite);
+    }
     for i in 0..n {
         tmp[i] = y[i] + half * k2[i];
     }
+    if !all_finite(tmp) {
+        return Err(OdeError::NotFinite);
+    }
     f(t + half, tmp, k3);
+    if !all_finite(k3) {
+        return Err(OdeError::NotFinite);
+    }
     for i in 0..n {
         tmp[i] = y[i] + h * k3[i];
     }
-    f(t + h, tmp, k4);
-
-    let sixth = h / T::from_f64(6.0);
-    let two = T::from_f64(2.0);
-    for i in 0..n {
-        y[i] += sixth * (k1[i] + two * k2[i] + two * k3[i] + k4[i]);
+    if !all_finite(tmp) {
+        return Err(OdeError::NotFinite);
     }
+    f(next, tmp, k4);
+    if !all_finite(k4) {
+        return Err(OdeError::NotFinite);
+    }
+    for i in 0..n {
+        let values = [k1[i], k2[i], k3[i], k4[i]];
+        tmp[i] = weighted_update(
+            y[i],
+            h,
+            &[1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0],
+            |j| values[j],
+        );
+    }
+    if !all_finite(tmp) {
+        return Err(OdeError::NotFinite);
+    }
+    y.copy_from_slice(tmp);
+    Ok(())
 }
 
 /// Klassisches Runge-Kutta-Verfahren (Ordnung 4) mit `steps` gleich großen Schritten von `t0` nach
@@ -119,7 +191,8 @@ pub fn rk4_step<T: Real, F: FnMut(T, &[T], &mut [T])>(
 /// - `y`: Anfangszustand und Ergebnis (in-place), `work`: mindestens [`rk4_work_len`]`(n)`.
 /// - `observer(t, y)` wird mit dem Anfangszustand und nach jedem Schritt aufgerufen.
 ///
-/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`].
+/// Fehler: [`OdeError::InvalidInput`], [`OdeError::NotFinite`], [`OdeError::StepSizeTooSmall`].
+/// Ein leeres Zeitintervall wertet `f` nicht aus; nicht darstellbare Zeitfortschritte sind Fehler.
 ///
 /// ```
 /// # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -144,15 +217,14 @@ pub fn rk4<T: Real>(
 ) -> Result<(), OdeError> {
     let n = y.len();
     check_fixed(t0, t1, y, steps, work.len(), rk4_work_len(n))?;
-    let h = (t1 - t0) / from_usize::<T>(steps);
     observer(t0, y);
+    if t0 == t1 {
+        return Ok(());
+    }
     for i in 0..steps {
-        let t = t0 + h * from_usize::<T>(i);
-        rk4_step(&mut f, t, y, h, work);
-        if !all_finite(y) {
-            return Err(OdeError::NotFinite);
-        }
-        observer(t0 + h * from_usize::<T>(i + 1), y);
+        let (t, next, h) = fixed_times(t0, t1, i, steps)?;
+        try_rk4_step(&mut f, t, y, h, work)?;
+        observer(next, y);
     }
     Ok(())
 }

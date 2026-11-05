@@ -1,4 +1,4 @@
-use super::{OdeError, all_finite, finite};
+use super::{OdeError, all_finite, finite, weighted_update};
 use crate::Real;
 
 /// Benötigter Arbeitsspeicher für [`rk45`] bei `n` Zustandsgrößen.
@@ -10,13 +10,13 @@ pub const fn rk45_work_len(n: usize) -> usize {
 /// Einstellungen für das adaptive Verfahren [`rk45`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rk45Options<T> {
-    /// Relative Toleranz pro Komponente.
+    /// Relative Komponentenskala der gewichteten RMS-Fehlernorm (endlich und nichtnegativ).
     pub rtol: T,
-    /// Absolute Toleranz pro Komponente (wichtig, wenn Komponenten nahe 0 kommen).
+    /// Absolute Komponentenskala (endlich und nichtnegativ); mindestens eine Toleranz muss positiv sein.
     pub atol: T,
-    /// Anfangsschrittweite; `0` bedeutet: automatisch wählen.
+    /// Anfangsschrittweite (endlicher, nichtnegativer Betrag); `0` bedeutet: automatisch wählen.
     pub h_init: T,
-    /// Größte erlaubte Schrittweite (Betrag); `0` bedeutet: unbegrenzt.
+    /// Größte erlaubte Schrittweite (endlicher, nichtnegativer Betrag); `0` bedeutet: unbegrenzt.
     pub h_max: T,
     /// Höchstzahl der Schrittversuche (akzeptierte und abgelehnte).
     pub max_steps: usize,
@@ -56,8 +56,7 @@ pub struct Rk45Result<T> {
     pub rejected_steps: usize,
     /// Anzahl der Auswertungen von `f`.
     pub evaluations: usize,
-    /// Die zuletzt verwendete (unbeschnittene) Schrittweite, brauchbar als `h_init` für eine
-    /// Fortsetzung.
+    /// Betrag der zuletzt akzeptierten Schrittweite, brauchbar als `h_init` für eine Fortsetzung.
     pub last_step: T,
 }
 
@@ -104,20 +103,60 @@ const E: [f64; 7] = [
     -1.0 / 40.0,
 ];
 
-/// Gewichtete RMS-Norm von `v` bezüglich der Toleranzskala `atol + rtol·|y|`.
-fn scaled_norm<T: Real>(v: &[T], scale_from: &[T], rtol: T, atol: T) -> T {
-    let mut s = T::ZERO;
-    for (vi, yi) in v.iter().zip(scale_from) {
-        let q = *vi / (atol + rtol * yi.abs());
-        s += q * q;
+/// Toleranzquotient; 0/0 bei einer exakt verschwindenden Komponente bedeutet keinen Fehler.
+fn ratio<T: Real>(value: T, magnitude: T, rtol: T, atol: T) -> T {
+    let scale = atol + rtol * magnitude;
+    if scale == T::ZERO {
+        if value == T::ZERO {
+            T::ZERO
+        } else {
+            T::INFINITY
+        }
+    } else if scale.is_infinite() {
+        (value / magnitude) / (rtol + atol / magnitude)
+    } else {
+        value / scale
     }
-    (s / T::from_f64(v.len() as f64)).sqrt()
+}
+
+fn rms<T: Real>(values: impl Iterator<Item = T>, n: usize) -> T {
+    let (mut scale, mut sum) = (T::ZERO, T::ZERO);
+    for value in values {
+        let q = value.abs();
+        if !finite(q) {
+            return q;
+        }
+        if q > scale {
+            let r = scale / q;
+            sum = sum * r * r + T::ONE;
+            scale = q;
+        } else if scale > T::ZERO {
+            let r = q / scale;
+            sum += r * r;
+        }
+    }
+    if scale == T::ZERO {
+        T::ZERO
+    } else {
+        scale * (sum / T::from_usize(n)).sqrt()
+    }
+}
+
+fn scaled_norm<T: Real>(v: &[T], scale_from: &[T], rtol: T, atol: T) -> T {
+    rms(
+        v.iter()
+            .zip(scale_from)
+            .map(|(vi, yi)| ratio(*vi, yi.abs(), rtol, atol)),
+        v.len(),
+    )
 }
 
 /// Adaptives Runge-Kutta-Verfahren von Dormand und Prince (RK5(4), wie `ode45`/`dopri5`).
 ///
 /// Die Schrittweite wird aus einer eingebetteten Fehlerschätzung automatisch so gewählt, dass der
-/// lokale Fehler pro Komponente unter `atol + rtol·|y|` bleibt; es nutzt „First Same As Last“ (6
+/// gewichtete RMS-Norm des eingebetteten lokalen Fehlerschätzers höchstens 1 ist,
+/// mit Komponentenskalen `atol + rtol·max(|y_alt|, |y_neu|)`. Das ist keine Schranke
+/// für den globalen Fehler. Es nutzt „First Same As Last“ (6
 /// Funktionsauswertungen pro Schritt). Für nicht steife Probleme die erste Wahl; bei steifen Problemen
 /// werden die Schritte winzig (dann [`implicit_euler`](super::implicit_euler)).
 ///
@@ -146,6 +185,13 @@ pub fn rk45<T: Real>(
     if !finite(t0) || !finite(t1) || !all_finite(y) {
         return Err(OdeError::NotFinite);
     }
+    if [opts.rtol, opts.atol, opts.h_init, opts.h_max]
+        .iter()
+        .any(|v| !finite(*v) || *v < T::ZERO)
+        || (opts.rtol == T::ZERO && opts.atol == T::ZERO)
+    {
+        return Err(OdeError::InvalidInput);
+    }
     observer(t0, y);
     if t0 == t1 {
         return Ok(Rk45Result {
@@ -156,6 +202,9 @@ pub fn rk45<T: Real>(
         });
     }
 
+    if opts.max_steps == 0 {
+        return Err(OdeError::MaxStepsExceeded);
+    }
     let (k, rest) = work.split_at_mut(7 * n);
     let (ytmp, rest) = rest.split_at_mut(n);
     let ynew = &mut rest[..n];
@@ -163,6 +212,11 @@ pub fn rk45<T: Real>(
     let dir = if t1 > t0 { T::ONE } else { -T::ONE };
     let span = (t1 - t0).abs();
     let (rtol, atol) = (opts.rtol, opts.atol);
+    let h_max = if opts.h_max > T::ZERO {
+        opts.h_max.min(span)
+    } else {
+        span
+    };
     let mut evals = 0usize;
 
     // k1 = f(t0, y)
@@ -183,11 +237,26 @@ pub fn rk45<T: Real>(
         } else {
             T::from_f64(0.01) * d0 / d1
         };
-        for i in 0..n {
-            ytmp[i] = y[i] + dir * h0 * k[i];
+        let h0 = h0.min(h_max).min(span);
+        let probe_time = if h0 >= span { t1 } else { t0 + dir * h0 };
+        if !finite(probe_time) {
+            return Err(OdeError::NotFinite);
         }
-        f(t0 + dir * h0, ytmp, ynew);
+        if probe_time == t0 {
+            return Err(OdeError::StepSizeTooSmall);
+        }
+        let h0 = (probe_time - t0).abs();
+        for i in 0..n {
+            ytmp[i] = weighted_update(y[i], dir * h0, &[1.0], |_| k[i]);
+        }
+        if !all_finite(ytmp) {
+            return Err(OdeError::NotFinite);
+        }
+        f(probe_time, ytmp, ynew);
         evals += 1;
+        if !all_finite(ynew) {
+            return Err(OdeError::NotFinite);
+        }
         for i in 0..n {
             ynew[i] = (ynew[i] - k[i]) / h0;
         }
@@ -197,12 +266,10 @@ pub fn rk45<T: Real>(
         } else {
             (T::from_f64(0.01) / d1.max(d2)).powf(T::from_f64(0.2))
         };
+        // Eine überlaufende Norm oder unterlaufende inverse Norm darf die
+        // heuristische Wahl nicht zu 0 machen. Die Fehlersteuerung prüft den Schritt.
+        let h1 = if finite(h1) && h1 > T::ZERO { h1 } else { h0 };
         (T::from_f64(100.0) * h0).min(h1)
-    };
-    let h_max = if opts.h_max > T::ZERO {
-        opts.h_max
-    } else {
-        span
     };
     h = h.min(h_max).min(span);
 
@@ -215,48 +282,66 @@ pub fn rk45<T: Real>(
     let max_factor = T::from_f64(5.0);
     let exponent = T::from_f64(-0.2);
 
-    while dir * (t1 - t) > T::ZERO {
+    while t != t1 {
         if attempts >= opts.max_steps {
             return Err(OdeError::MaxStepsExceeded);
         }
         attempts += 1;
 
-        // Letzten Schritt auf t1 beschneiden
         let remaining = dir * (t1 - t);
-        let mut step = h;
-        let mut last = false;
-        // Auch dann auf t1 landen, wenn danach nur ein winziger Rest bliebe
-        if step * T::from_f64(1.0001) >= remaining {
-            step = remaining;
-            last = true;
+        let step = h.min(h_max).min(remaining);
+        if !finite(step) {
+            return Err(OdeError::NotFinite);
         }
-        let hh = dir * step;
-        if t + hh == t {
+        let next = if step >= remaining {
+            t1
+        } else {
+            t + dir * step
+        };
+        if !finite(next) {
+            return Err(OdeError::NotFinite);
+        }
+        if next == t {
+            return Err(OdeError::StepSizeTooSmall);
+        }
+        let hh = next - t;
+        let step = hh.abs();
+        if !finite(hh) {
+            return Err(OdeError::NotFinite);
+        }
+        if step > h_max * (T::ONE + T::from_f64(8.0) * T::EPSILON) {
             return Err(OdeError::StepSizeTooSmall);
         }
 
         // Stufen k2 … k7
         for s in 1..7 {
             for i in 0..n {
-                let mut acc = T::ZERO;
-                for j in 0..s {
-                    let a = A[s][j];
-                    if a != 0.0 {
-                        acc += T::from_f64(a) * k[j * n + i];
-                    }
-                }
-                ytmp[i] = y[i] + hh * acc;
+                ytmp[i] = weighted_update(y[i], hh, &A[s][..s], |j| k[j * n + i]);
+            }
+            if !all_finite(ytmp) {
+                return Err(OdeError::NotFinite);
             }
             if s < 6 {
                 let (done, tail) = k.split_at_mut(s * n);
                 let _ = done;
-                f(t + hh * T::from_f64(C[s]), ytmp, &mut tail[..n]);
+                let stage_time = if C[s] == 1.0 {
+                    next
+                } else {
+                    t + hh * T::from_f64(C[s])
+                };
+                if !finite(stage_time) {
+                    return Err(OdeError::NotFinite);
+                }
+                f(stage_time, ytmp, &mut tail[..n]);
                 evals += 1;
+                if !all_finite(&tail[..n]) {
+                    return Err(OdeError::NotFinite);
+                }
             } else {
                 // Stufe 7 liegt bei y_neu (FSAL): ytmp ist hier bereits die Lösung 5. Ordnung
                 ynew.copy_from_slice(ytmp);
                 let tail = &mut k[6 * n..7 * n];
-                f(t + hh, ynew, tail);
+                f(next, ynew, tail);
                 evals += 1;
             }
         }
@@ -264,29 +349,21 @@ pub fn rk45<T: Real>(
             return Err(OdeError::NotFinite);
         }
 
-        // Fehlerschätzung: err = h · Σ eᵢ·kᵢ
-        let mut err2 = T::ZERO;
-        for i in 0..n {
-            let mut e = T::ZERO;
-            for (s, es) in E.iter().enumerate() {
-                if *es != 0.0 {
-                    e += T::from_f64(*es) * k[s * n + i];
-                }
-            }
-            let e = hh * e;
-            let sc = atol + rtol * y[i].abs().max(ynew[i].abs());
-            let q = e / sc;
-            err2 += q * q;
-        }
-        let err = (err2 / T::from_f64(n as f64)).sqrt();
-        if !finite(err) {
+        let err = rms(
+            (0..n).map(|i| {
+                let e = weighted_update(T::ZERO, hh, &E, |s| k[s * n + i]);
+                ratio(e, y[i].abs().max(ynew[i].abs()), rtol, atol)
+            }),
+            n,
+        );
+        if err.is_nan() {
             return Err(OdeError::NotFinite);
         }
 
         if err <= T::ONE {
             // akzeptieren
             accepted += 1;
-            t = if last { t1 } else { t + hh };
+            t = next;
             y.copy_from_slice(ynew);
             // FSAL: k7 wird zu k1
             let (first, tail) = k.split_at_mut(6 * n);
@@ -298,7 +375,12 @@ pub fn rk45<T: Real>(
             } else {
                 (safety * err.powf(exponent)).min(max_factor)
             };
-            h = (step * factor.max(min_factor)).min(h_max);
+            let grown = step * factor.max(min_factor);
+            h = if finite(grown) {
+                grown.min(h_max)
+            } else {
+                step
+            };
         } else {
             rejected += 1;
             let factor = (safety * err.powf(exponent)).max(min_factor);

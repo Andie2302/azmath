@@ -81,7 +81,7 @@ pub use events::{
     Event, EventDirection, event_work_len, hermite_interpolate, rk4_event, rk45_event,
     rk45_event_work_len,
 };
-pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len};
+pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len, try_rk4_step};
 pub use implicit::{
     implicit_euler, implicit_euler_fd, implicit_trapezoid, implicit_trapezoid_fd, implicit_work_len,
 };
@@ -152,4 +152,75 @@ pub(crate) fn all_finite<T: Real>(v: &[T]) -> bool {
 /// `i` als `T`.
 pub(crate) fn from_usize<T: Real>(i: usize) -> T {
     T::from_f64(i as f64)
+}
+
+/// Zeitraster direkt aus den Grenzen bilden; nicht darstellbare Schritte nicht vortäuschen.
+pub(crate) fn fixed_times<T: Real>(
+    t0: T,
+    t1: T,
+    i: usize,
+    steps: usize,
+) -> Result<(T, T, T), OdeError> {
+    let point = |index| {
+        if index == steps {
+            return t1;
+        }
+        let fraction = from_usize::<T>(index) / from_usize::<T>(steps);
+        if (t0 < T::ZERO) == (t1 < T::ZERO) {
+            t0 + (t1 - t0) * fraction
+        } else {
+            (T::ONE - fraction) * t0 + fraction * t1
+        }
+    };
+    let (t, next) = (point(i), point(i + 1));
+    let h = next - t;
+    if !finite(t) || !finite(next) || !finite(h) {
+        return Err(OdeError::NotFinite);
+    }
+    if next == t {
+        return Err(OdeError::StepSizeTooSmall);
+    }
+    Ok((t, next, h))
+}
+
+/// Gewichtet normierte Stufen erst nach der Summation rückskalieren.
+pub(crate) fn weighted_update<T: Real>(
+    base: T,
+    h: T,
+    weights: &[f64],
+    value: impl Fn(usize) -> T,
+) -> T {
+    let mut scale = T::ZERO;
+    for (i, w) in weights.iter().enumerate() {
+        if *w != 0.0 {
+            let v = value(i);
+            if !finite(v) {
+                return T::NAN;
+            }
+            scale = scale.max(v.abs());
+        }
+    }
+    if scale == T::ZERO {
+        return base;
+    }
+    let (mut sum, mut correction) = (T::ZERO, T::ZERO);
+    for (i, w) in weights.iter().enumerate() {
+        if *w != 0.0 {
+            let term = T::from_f64(*w) * (value(i) / scale) - correction;
+            let next = sum + term;
+            correction = (next - sum) - term;
+            sum = next;
+        }
+    }
+    let (mut a, mut b, mut c) = (h, scale, sum);
+    if a.abs() > b.abs() {
+        core::mem::swap(&mut a, &mut b);
+    }
+    if b.abs() > c.abs() {
+        core::mem::swap(&mut b, &mut c);
+    }
+    if a.abs() > b.abs() {
+        core::mem::swap(&mut a, &mut b);
+    }
+    base + (a * c) * b
 }
