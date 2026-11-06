@@ -28,7 +28,7 @@ Alles liegt in **einem** Crate, gegliedert in Module (`src/<modul>/`). Das Crate
 | `azmath::fdm` | Finite Differenzen: Fornberg-Gewichte, Ableitungs- und Laplace-Operatoren, Linienmethode |
 | `azmath::poly` | Polynome, `polyfit`, Tschebyscheff-Reihen, gewichtete/Ridge/nichtnegative kleinste Quadrate (`alloc`) |
 | `azmath::fem`, `azmath::fvm` | Finite Elemente (P1, 1D/2D, `alloc`) und Finite Volumen (Rusanov, MUSCL, 1D) |
-| `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky/LU (`SparseLdl`, `SparseCholesky`, `SparseLu`) mit RCM- und Minimum-Degree-Umordnung |
+| `azmath::sparse` | dünn besetzte Matrizen: CSR (`CsrMatrix`, `CsrView` ohne Allokator) und COO, als `LinearOperator` für CG/MINRES/GMRES/BiCGSTAB; direkte LDLᵀ/Cholesky/LU (`SparseLdl`, `SparseCholesky`, `SparseLu`) mit RCM- und Minimum-Degree-Umordnung |
 | `azmath::diff` | numerisches Differenzieren: Differenzen, Ridders, Gradient, Hessematrix, Jacobi-Matrix |
 | `azmath::special` | Gamma-, Beta-, Fehlerfunktion, unvollständige Gamma-/Beta-Funktion, Besselfunktion `Jₙ` |
 | `azmath::fft` | schnelle Fourier-Transformation für beliebige Längen (Radix-2, Bluestein), reelle FFT, Faltung |
@@ -156,6 +156,13 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   `DynJacobi`, eigene über das Trait `Preconditioner`); bequem auch als `Matrix::solve_cg` und
   `solve_pcg`. Abbruch bei relativer Residuumsnorm `‖b − A·x‖ ≤ tol · ‖b‖`
   (`IterOptions`), sonst `LinalgError::NoConvergence`.
+- **MINRES** (`minres`, `pminres`, `minres_work_len`, `solve_minres`/`solve_pminres`):
+  für reelle symmetrische, auch indefinite Systeme. Der Operator muss symmetrisch
+  und ein Vorkonditionierer SPD sein. Konstanter Arbeitsbuffer aus `8*n` Werten;
+  Erfolg wird am wahren Residuum bestätigt. Eine erkannte Residuenlücke führt
+  zum Neustart im verbleibenden Iterationsbudget. Kein MINRES-QLP und keine
+  allgemeine Least-Squares-/Minimalnorm-Garantie. Tests und Grenzen:
+  [MINRES- und Release-Prüfung](docs/quality/release-minres.md).
 - **BiCGSTAB** (`bicgstab`, `pbicgstab`, `Matrix::solve_bicgstab`): für beliebige, auch
   **nichtsymmetrische** reguläre Systeme, ebenfalls matrixfrei (benötigt nur `A·x`, kein `Aᵀ·x`)
   und mit Vorkonditionierer. Arbeitsspeicher: `8·n`. In seltenen Fällen bricht das Verfahren

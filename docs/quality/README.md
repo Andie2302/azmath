@@ -49,3 +49,5 @@ Für laufzeitbegrenztes libFuzzer-Fuzzing siehe [fuzz/README.md](../../fuzz/READ
 Weitere Messung und Regressionen: [Lanczos und Fuzzer-Prüfungen](lanczos-fuzz.md).
 
 Verteilungen, direkte obere Tails und Quantile: [Referenzbericht](distributions.md).
+
+Technische Paketfreigabe und MINRES: [Prüfbericht](release-minres.md).

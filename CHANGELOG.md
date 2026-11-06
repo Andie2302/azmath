@@ -6,6 +6,10 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- MINRES/PMINRES für reelle symmetrisch-indefinite Systeme, konstante 8*n
+  Arbeitselemente, Matrix-/DynMatrix-Hilfsmethoden und f32/f64-Regressionen.
+- Paket-/Publish-Dry-Run und Tests aus dem entpackten Crate in CI;
+  MSRV-Builds auch mit allen Features und mit libm+alloc.
 - Direkte Überlebensfunktionen (`sf`) und inverse obere Tails (`isf`) für die
   Verteilungen sowie `normal_sf`/`normal_isf` und `beta_inc_complement`.
 - 606 hochpräzise f32/f64-Referenzen für Verteilungen und Quantile.

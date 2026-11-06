@@ -19,7 +19,7 @@ keine dauerhaften Ausschlüsse.
 |---|---|
 | Zahlengrundlage | Real f32/f64, std/libm/micromath, no_std, optional alloc, Complex/Scalar |
 | Direkte lineare Algebra | LU, pivotierte QR, Cholesky, SVD, Bunch–Kaufman-LDLT, Refinement/Konditionsschätzung |
-| Iterative lineare Algebra | CG/PCG, GMRES, BiCGSTAB, Vorkonditionierer; Arnoldi und Lanczos mit Invariantentests |
+| Iterative lineare Algebra | CG/PCG, MINRES/PMINRES, GMRES, BiCGSTAB, Vorkonditionierer; Arnoldi und Lanczos mit Invariantentests |
 | Sparse | COO/CSR, Umordnungen, direkte Löser, Analyse-/Musterwiederverwendung und Refaktorisierung |
 | Nichtlineares/Optimierung | Brent/Newton, gedämpfte Systeme, LM, BFGS/L-BFGS, QP/LP, SQP/NLP |
 | Analysis | Autodiff, Integration/Quadratur, Interpolation, ODE/DAE/BVP und grundlegende PDE-Diskretisierung |
@@ -29,14 +29,15 @@ keine dauerhaften Ausschlüsse.
 Die Nachweise und Grenzen stehen beim jeweiligen Modul und unter
 [docs/quality](docs/quality/README.md).
 
-## Nächste Aufgaben
+## Aktueller Abschluss und nächste Aufgaben
 
-1. **AZM-010:** Fehlerdiagnostik, Backend-/Embedded-Prüfmatrix und Release-Vorbereitung
-   einschließlich `cargo publish --dry-run`; keine Veröffentlichung ohne Auftrag.
-2. **AZM-020:** MINRES für symmetrisch-indefinite Systeme.
-3. **AZM-030/031:** Verlet und implizites Gauss–Legendre-Runge–Kutta.
+**AZM-010** (technische Release-Vorbereitung) und **AZM-020** (MINRES/PMINRES)
+sind mit lokalen Nachweisen abgeschlossen. Das Crate wurde nicht veröffentlicht.
+Details: [Release- und MINRES-Prüfung](docs/quality/release-minres.md).
+
+1. **AZM-030/031:** Verlet und implizites Gauss–Legendre-Runge–Kutta.
    Gauss–Legendre-Quadratur ist bereits vorhanden und davon verschieden.
-4. **AZM-040/041:** Neumann-/periodische Operatoren, Nullräume und FEM-Randbedingungen.
+2. **AZM-040/041:** Neumann-/periodische Operatoren, Nullräume und FEM-Randbedingungen.
 
 Weitere offene Arbeiten wie Chandrupatla, AMG, NLP-Wiederherstellung,
 reelle Schur-Vektoren/Eigenvektoren, komplexe Sparse-Verfahren und größere

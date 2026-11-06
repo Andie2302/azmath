@@ -1,6 +1,7 @@
 //! Iterative Löser für große lineare Gleichungssysteme.
 //!
 //! - [`cg`] / [`pcg`]: konjugierte Gradienten für symmetrisch positiv definite Systeme.
+//! - [`minres`] / [`pminres`]: für reelle symmetrische, auch indefinite Systeme mit konstantem Speicher.
 //! - [`bicgstab`] / [`pbicgstab`]: für beliebige (auch nichtsymmetrische) reguläre Systeme.
 //! - [`gmres`] / [`pgmres`]: GMRES(m) für beliebige reguläre Systeme; in exakter Arithmetik monoton und ohne Zusammenbruch,
 //!   auch bei symmetrisch indefiniten und schiefsymmetrischen Matrizen. Braucht `m + 1` Basisvektoren.
@@ -22,11 +23,13 @@
 mod bicgstab;
 mod cg;
 mod gmres;
+mod minres;
 mod precond;
 
 pub use bicgstab::{bicgstab, pbicgstab};
 pub use cg::{cg, pcg};
 pub use gmres::{gmres, gmres_work_len, pgmres, pgmres_left, pgmres_left_work_len};
+pub use minres::{minres, minres_work_len, pminres};
 pub use precond::{Identity, Jacobi, Preconditioner};
 
 #[cfg(feature = "alloc")]

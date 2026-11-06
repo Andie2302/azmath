@@ -226,6 +226,28 @@ impl<T: Real, const N: usize> Matrix<T, N, N> {
         Ok((x, res))
     }
 
+    /// MINRES für reelle symmetrische, ggf. indefinite Matrizen; Start bei null.
+    pub fn solve_minres(
+        &self,
+        b: &Vector<T, N>,
+        opts: IterOptions<T>,
+    ) -> Result<(Vector<T, N>, IterResult<T>), LinalgError> {
+        self.solve_pminres(&iterative::Identity, b, opts)
+    }
+    /// Wie [`solve_minres`](Self::solve_minres) mit SPD-Vorkonditionierer.
+    pub fn solve_pminres<M: Preconditioner<T> + ?Sized>(
+        &self,
+        m: &M,
+        b: &Vector<T, N>,
+        opts: IterOptions<T>,
+    ) -> Result<(Vector<T, N>, IterResult<T>), LinalgError> {
+        let mut x = Vector::<T, N>::zeros();
+        let mut work = [[T::ZERO; N]; 8];
+        let result =
+            iterative::pminres(self, m, &b.data, &mut x.data, opts, work.as_flattened_mut())?;
+        Ok((x, result))
+    }
+
     /// Löst `self · x = b` für beliebige reguläre (auch nichtsymmetrische) Matrizen mit dem
     /// BiCGSTAB-Verfahren, Start bei `x = 0`. Liefert die Lösung und Angaben zur Iteration.
     pub fn solve_bicgstab(

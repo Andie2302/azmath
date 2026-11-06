@@ -283,6 +283,27 @@ impl<T: Real> DynMatrix<T> {
         Ok((x, res))
     }
 
+    /// MINRES für reelle symmetrische, ggf. indefinite Matrizen; Start bei null.
+    pub fn solve_minres(
+        &self,
+        b: &DynVector<T>,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        self.solve_pminres(&iterative::Identity, b, opts)
+    }
+    /// Wie [`solve_minres`](Self::solve_minres) mit SPD-Vorkonditionierer.
+    pub fn solve_pminres<M: Preconditioner<T> + ?Sized>(
+        &self,
+        m: &M,
+        b: &DynVector<T>,
+        opts: IterOptions<T>,
+    ) -> Result<(DynVector<T>, IterResult<T>), LinalgError> {
+        let mut x = DynVector::zeros(b.len());
+        let mut work = vec![T::ZERO; iterative::minres_work_len(b.len())];
+        let result = iterative::pminres(self, m, &b.data, &mut x.data, opts, &mut work)?;
+        Ok((x, result))
+    }
+
     /// Löst `self · x = b` für beliebige reguläre (auch nichtsymmetrische) Matrizen mit dem
     /// BiCGSTAB-Verfahren, Start bei `x = 0`. Liefert die Lösung und Angaben zur Iteration.
     pub fn solve_bicgstab(

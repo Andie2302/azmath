@@ -58,7 +58,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.85
-      - run: cargo build
+      - run: cargo build --locked
+      - run: cargo build --all-features --locked
+      - run: cargo build --no-default-features --features libm,alloc --locked
 
   micromath-smoke:
     runs-on: ubuntu-latest
@@ -110,3 +112,16 @@ jobs:
         with:
           workspaces: fuzz
       - run: cargo test --manifest-path fuzz/Cargo.toml --test harness
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo publish --dry-run --locked
+      - name: Test packaged crate
+        shell: bash
+        run: |
+          package_version="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          cargo test --manifest-path "target/package/azmath-$package_version/Cargo.toml" --all-features
