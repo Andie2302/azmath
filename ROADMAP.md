@@ -9,6 +9,13 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 
 ---
 
+## Numerische Qualität
+
+Coverage-Baseline und CI-Artefakt, hochpräzise f32/f64-Referenzen für Gamma-,
+Fehler- und Besselfunktionen sowie erzeugte Invarianten und libFuzzer-Target
+sind vorhanden. Messwerte, Gültigkeitsbereiche und offene Testlücken:
+[Qualitätsbericht](docs/quality/coverage-special.md).
+
 ## 1. Stand heute (Version 0.0.1, ein Crate mit Modulen)
 
 | Bereich                                  | Fertig                                                                                                                                                                                                    |

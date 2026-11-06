@@ -562,6 +562,11 @@ cargo run --release --example 17_multigrid
 
 ## Tests
 
+Referenztests mit ULP-Auswertung, erzeugte Invariantentests und Fuzzing sind unter
+[docs/quality/README.md](docs/quality/README.md) beschrieben. Die
+[Coverage- und Genauigkeitsbaseline](docs/quality/coverage-special.md) hält die
+Messmethode, gefundene Fehler und verbleibende Testlücken fest.
+
 Die Integrationstests liegen in `tests/` (Präfix = Modul):
 
 ```bash

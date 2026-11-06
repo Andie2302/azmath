@@ -7,7 +7,7 @@ rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Andie2302/azmath"
 readme = "README.md"
-exclude = ["design/", "docs/", ".github/"]
+exclude = ["design/", "docs/", ".github/", "fuzz/"]
 keywords = ["math", "no_std", "float", "numerics", "embedded"]
 categories = ["mathematics", "no-std"]
 

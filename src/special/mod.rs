@@ -48,19 +48,34 @@ fn is_nonpositive_integer<T: Real>(x: T) -> bool {
     x <= T::ZERO && x == x.floor()
 }
 
+// Reduce before multiplying by pi: near negative integer poles, pi*x loses
+// the small distance to the pole even when x itself represents it exactly.
+fn sin_pi<T: Real>(x: T) -> T {
+    let nearest = x.round();
+    let s = (T::PI * (x - nearest)).sin();
+    if nearest.rem_euclid(T::from_f64(2.0)) == T::ZERO {
+        s
+    } else {
+        -s
+    }
+}
+
 /// Natürlicher Logarithmus des Betrags der Gammafunktion, `ln|Γ(x)|` (Lanczos-Näherung, Reflexionsformel für `x < ½`).
 /// An den Polen `0, −1, −2, …` ergibt sich `+∞`.
 pub fn ln_gamma<T: Real>(x: T) -> T {
     if x.is_nan() {
         return x;
     }
-    if is_nonpositive_integer(x) {
+    if x == T::INFINITY || is_nonpositive_integer(x) {
         return T::INFINITY;
     }
     let half = T::from_f64(0.5);
     if x < half {
         // Γ(x)·Γ(1−x) = π/sin(πx)
-        return (T::PI / (T::PI * x).sin().abs()).ln() - ln_gamma(T::ONE - x);
+        if x.abs() < T::EPSILON {
+            return -x.abs().ln();
+        }
+        return T::PI.ln() - sin_pi(x).abs().ln() - ln_gamma(T::ONE - x);
     }
     let x = x - T::ONE;
     let mut a = T::from_f64(LANCZOS[0]);
@@ -77,6 +92,9 @@ pub fn gamma<T: Real>(x: T) -> T {
     if x.is_nan() || is_nonpositive_integer(x) {
         return T::NAN;
     }
+    if x == T::INFINITY {
+        return x;
+    }
     if x == x.floor() && x >= T::ONE && x <= T::from_f64(171.0) {
         let mut p = T::ONE;
         let mut k = T::from_f64(2.0);
@@ -87,7 +105,19 @@ pub fn gamma<T: Real>(x: T) -> T {
         return p;
     }
     if x < T::from_f64(0.5) {
-        return T::PI / ((T::PI * x).sin() * gamma(T::ONE - x));
+        if x.abs() < T::from_f64(0.5) {
+            return gamma(T::ONE + x) / x;
+        }
+        let s = sin_pi(x);
+        let g = gamma(T::ONE - x);
+        if g.is_finite() {
+            return (T::PI / s) / g;
+        }
+        // The positive gamma value can overflow while its reciprocal remains
+        // representable, including negative-argument subnormal results.
+        return (T::PI.ln() - s.abs().ln() - ln_gamma(T::ONE - x))
+            .exp()
+            .copysign(s);
     }
     // Lanczos direkt (ohne Umweg über den Logarithmus), Potenz geteilt gegen Überlauf
     let xm = x - T::ONE;
@@ -98,6 +128,9 @@ pub fn gamma<T: Real>(x: T) -> T {
     }
     let t = xm + T::from_f64(LANCZOS_G) + half;
     let p = t.powf((xm + half) * half);
+    if !p.is_finite() {
+        return ln_gamma(x).exp();
+    }
     T::from_f64(HALF_LN_2PI).exp() * p * (-t).exp() * p * a
 }
 
@@ -229,6 +262,20 @@ pub fn gamma_q<T: Real>(a: T, x: T) -> T {
 pub fn erf<T: Real>(x: T) -> T {
     if x.is_nan() {
         return x;
+    }
+    if x.abs() < T::from_f64(0.125) {
+        // Keep x outside the square: x*x may underflow although erf(x) does not.
+        let q = -x * x;
+        let (mut term, mut sum) = (x, x);
+        for n in 1..MAX_ITER {
+            term *= q / T::from_usize(n);
+            let add = term / T::from_usize(2 * n + 1);
+            sum += add;
+            if add.abs() <= T::EPSILON * sum.abs() {
+                break;
+            }
+        }
+        return T::from_f64(core::f64::consts::FRAC_2_SQRT_PI) * sum;
     }
     let r = gamma_p(T::from_f64(0.5), x * x);
     if x < T::ZERO { -r } else { r }
@@ -380,6 +427,23 @@ pub fn bessel_j<T: Real>(n: u32, x: T) -> T {
         return T::ZERO;
     }
     let ax = x.abs();
+    if ax < T::ONE {
+        let half_x = ax * T::from_f64(0.5);
+        let mut term = T::ONE;
+        for k in 1..=n {
+            term = term * half_x / T::from_f64(k as f64);
+        }
+        let mut sum = term;
+        let q = -half_x * half_x;
+        for k in 1..MAX_ITER {
+            term *= q / (T::from_usize(k) * (T::from_usize(k) + T::from_f64(n as f64)));
+            sum += term;
+            if term.abs() <= T::EPSILON * sum.abs() {
+                break;
+            }
+        }
+        return if x < T::ZERO && n % 2 == 1 { -sum } else { sum };
+    }
     let big = T::from_f64(1e10);
     let big_inv = T::from_f64(1e-10);
     let scale = T::from_f64(n as f64).max(ax);
@@ -501,10 +565,16 @@ pub fn bessel_k<T: Real>(n: u32, x: T) -> T {
     let h = T::from_f64(0.1);
     let nf = T::from_f64(n as f64);
     let t_peak = (nf / x).asinh();
-    let mut sum = T::from_f64(0.5) * (-x).exp();
+    let mut sum = T::from_f64(0.5) * h * (-x).exp();
+    let ln_h = h.ln();
+    let ln_2 = T::from_f64(core::f64::consts::LN_2);
     for k in 1..200_000usize {
         let t = T::from_usize(k) * h;
-        let term = (-x * t.cosh()).exp() * (nf * t).cosh();
+        let nt = nf * t;
+        let log_cosh = nt + (-T::from_f64(2.0) * nt).exp().ln_1p() - ln_2;
+        // Combine in log space and apply h before exp: neither cosh(n*t)
+        // nor the unweighted integrand has to fit in T.
+        let term = (-x * t.cosh() + log_cosh + ln_h).exp();
         sum += term;
         if t > t_peak + T::ONE && term <= T::EPSILON * T::from_f64(1.0e-3) * sum {
             break;
@@ -513,7 +583,7 @@ pub fn bessel_k<T: Real>(n: u32, x: T) -> T {
             break;
         }
     }
-    sum * h
+    sum
 }
 
 /// Besselfunktion zweiter Art `Yₙ(x)` für ganzzahlige Ordnung `n ≥ 0` und `x > 0` (Integraldarstellung nach Schläfli: ein
@@ -527,8 +597,12 @@ pub fn bessel_y<T: Real>(n: u32, x: T) -> T {
     if x == T::ZERO {
         return T::NEG_INFINITY;
     }
+    if x == T::INFINITY {
+        return T::ZERO;
+    }
     let nf = T::from_f64(n as f64);
     let panels = ((x + nf) * T::from_f64(0.5)).ceil().to_f64() as usize + 8;
+    let panels = panels.saturating_mul(8);
     let i1 = gauss_legendre(
         |t: T| (x * t.sin() - nf * t).sin(),
         T::ZERO,
@@ -547,15 +621,22 @@ pub fn bessel_y<T: Real>(n: u32, x: T) -> T {
         upper += T::ONE;
     }
     let sign = if n % 2 == 0 { T::ONE } else { -T::ONE };
-    let opts = IntegrateOptions::new(T::ZERO, T::from_f64(1.0e-12));
+    let opts = IntegrateOptions::new(
+        T::ZERO,
+        T::from_f64(1.0e-12).max(T::from_f64(128.0) * T::EPSILON),
+    );
+    let ln_pi = T::PI.ln();
     let i2 = adaptive(
-        |t: T| ((nf * t).exp() + sign * (-nf * t).exp()) * (-x * t.sinh()).exp(),
+        |t: T| {
+            let nt = nf * t;
+            let decay = -x * t.sinh() - ln_pi;
+            (nt + decay).exp() + sign * (-nt + decay).exp()
+        },
         T::ZERO,
         upper,
         opts,
     )
     .map(|r| r.value)
-    .unwrap_or(T::NAN)
-        / T::PI;
+    .unwrap_or(T::NAN);
     i1 - i2
 }
