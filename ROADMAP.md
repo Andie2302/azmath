@@ -162,7 +162,9 @@ Refaktorisierung mit Musterprüfung und Fehlerzustand, Cholesky unterstützt die
 LDLᵀ-Analyse. LDLᵀ/Cholesky ohne Allokationen beim Refaktorisieren; LU behält
 wertabhängige Pivotierung und kann zusätzliche Spaltenkapazität benötigen.
 Benchmark für Poisson-/KKT-/ODE-Muster: `examples/27_sparse_refactor_bench.rs`.
-Offen: direkte Sparse-Backend-Anbindung in QP/NLP und impliziten ODE-Lösern.
+✅ QP-KKT: Auto/Sparse/Dense, einmalige symbolische Analyse, Refaktorisierung,
+dichte pivotierte LDLᵀ als Rückfall, lineare Residuenprüfung und Backend-Diagnostik.
+Offen: sparse QP-Eingaben, direkte Sparse-Backend-Anbindung in NLP und impliziten ODE-Lösern.
 
 ## 3. Abhängigkeitsgraph
 

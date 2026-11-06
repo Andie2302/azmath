@@ -225,8 +225,31 @@ Diagnosezugriffe auf D/Determinante/Trägheit setzen einen gültigen Faktor vora
 Benchmark mit Poisson-, KKT- und ODE-Mustern:
 [`27_sparse_refactor_bench`](examples/27_sparse_refactor_bench.rs),
 [Messbedingungen und Ergebnisse](docs/benchmarks/sparse-refactor.md).
-Die Beispiele prüfen wiederholte lineare Systeme; QP und ODE wählen dadurch noch
-nicht automatisch einen Sparse-Backend.
+Die Beispiele prüfen wiederholte lineare Systeme. QP nutzt die Wiederverwendung
+inzwischen im Sparse-KKT-Backend; implizite ODE-Löser sind noch nicht angebunden.
+
+### QP: automatische und wählbare KKT-Backends
+
+`QpOptions::kkt_backend` bietet `QpKktBackend::{Auto, Sparse, Dense}`. Auto ist Standard:
+Bei höchstens 25 % struktureller KKT-Dichte wird Sparse gewählt, sonst Dense.
+Das ist eine einfache Strukturheuristik, keine garantierte optimale Auswahl.
+Die gemeinsame CSR-Assemblierung behält das Muster `Q + GᵀWG` und der Gleichungen
+über alle Iterationen bei, einschließlich numerisch verschwindender Einträge.
+Im Sparse-Modus erfolgt genau eine symbolische Analyse pro QP-Aufruf; anschließend
+werden die Faktoren refaktorisiert. Prädiktor und Korrektor teilen dieselben Faktoren.
+
+Bei Nullpivots, falscher Trägheit oder unzureichendem linearem Residuum übernimmt die
+dichte pivotierte LDLᵀ für diese Iteration. Alle akzeptierten linearen Lösungen erfüllen
+den normweisen Rückwärtsfehler `≤ 64·(n+p)·ε`. `QpSolution::kkt` berichtet Auswahl,
+Analyse-/Faktorisierungsversuche, Refaktorisierungen, Rückfälle und den größten
+akzeptierten linearen Rückwärtsfehler. LP und die QP-Unterprobleme von SQP nutzen dies ebenfalls.
+
+**API:** Neue Felder in `QpOptions` und `QpSolution`; bei eigenen Optionsliteralen
+`..QpOptions::default()` oder `kkt_backend` ergänzen. Q, A und G bleiben dichte Eingaben;
+dieses Backend ersetzt noch keine vollständig sparse Problemrepräsentation.
+End-to-end-Vergleich mit Heap-Spitzenbedarf und KKT-Residuen:
+[`28_qp_kkt_bench`](examples/28_qp_kkt_bench.rs),
+[Messbedingungen](docs/benchmarks/qp-kkt.md).
 
 ## Nullstellen
 

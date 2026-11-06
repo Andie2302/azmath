@@ -22,6 +22,7 @@ mod dual;
 mod milp;
 mod nlp_ip;
 mod qp;
+mod qp_kkt;
 mod simplex;
 mod sqp;
 
@@ -29,7 +30,9 @@ pub use cuts::{CutOptions, branch_and_cut};
 pub use dual::LpWarmStart;
 pub use milp::{MilpOptions, MilpSolution, MilpStatus, NodeSelection, branch_and_bound};
 pub use nlp_ip::{NlpOptions, NlpResult, NlpStatus, interior_point_nlp};
-pub use qp::{QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp};
+pub use qp::{
+    QpKktBackend, QpKktStats, QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp,
+};
 pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex, simplex_bounded};
 pub use sqp::{SqpOptions, SqpResult, SqpStatus, sqp};
 

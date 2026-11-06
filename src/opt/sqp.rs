@@ -161,6 +161,7 @@ pub fn sqp<T: Real>(
             .max(tol * T::from_f64(1e-3)),
         max_iter: 100,
         regularization: QpOptions::<T>::default().regularization,
+        kkt_backend: super::QpKktBackend::Auto,
     };
     let mut lambda = vec![T::ZERO; m];
     let mut mu = T::ONE;

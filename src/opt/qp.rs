@@ -1,8 +1,8 @@
 #![allow(clippy::needless_range_loop)]
 
 use super::OptError;
+use super::qp_kkt::KktSystem;
 use crate::Real;
-use crate::linalg::{DynMatrix, DynVector};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -18,6 +18,48 @@ pub enum QpStatus {
     NumericalFailure,
 }
 
+/// Faktorisierung der QP-KKT-Systeme; beide Modi verwenden dieselbe musterfeste Assemblierung.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QpKktBackend {
+    /// Wählt Sparse bei höchstens 25 % struktureller KKT-Dichte, sonst Dense. Heuristik.
+    Auto,
+    /// Wiederverwendetes Sparse-LDLᵀ, mit dichtem pivotiertem LDLᵀ als Rückfall.
+    Sparse,
+    /// Dichtes pivotiertes LDLᵀ für alle Iterationen.
+    Dense,
+}
+/// Diagnose der tatsächlich verwendeten KKT-Faktorisierungen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct QpKktStats<T> {
+    /// Vorausgewähltes Backend (Sparse oder Dense), vor eventuellen Rückfällen.
+    pub selected_backend: Option<QpKktBackend>,
+    /// Anzahl symbolischer Sparse-Analysen (höchstens eine pro QP-Aufruf).
+    pub symbolic_analyses: usize,
+    /// Versuche numerischer Sparse-Faktorisierung inklusive Refaktorisierungen.
+    pub sparse_factorizations: usize,
+    /// Davon Refaktorisierungen eines vorhandenen Faktors.
+    pub sparse_refactorizations: usize,
+    /// Versuche dichter Faktorisierung.
+    pub dense_factorizations: usize,
+    /// Davon Rückfälle aus dem Sparse-Modus.
+    pub dense_fallbacks: usize,
+    /// Größter normweiser Rückwärtsfehler akzeptierter linearer KKT-Lösungen.
+    pub max_linear_backward_error: T,
+}
+impl<T: Real> Default for QpKktStats<T> {
+    fn default() -> Self {
+        Self {
+            selected_backend: None,
+            symbolic_analyses: 0,
+            sparse_factorizations: 0,
+            sparse_refactorizations: 0,
+            dense_factorizations: 0,
+            dense_fallbacks: 0,
+            max_linear_backward_error: T::ZERO,
+        }
+    }
+}
+
 /// Einstellungen für [`interior_point_qp`] und [`interior_point_lp`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct QpOptions<T> {
@@ -27,6 +69,8 @@ pub struct QpOptions<T> {
     pub max_iter: usize,
     /// Regularisierung `δ` der KKT-Matrix (macht singuläre Fälle wie reine LPs lösbar).
     pub regularization: T,
+    /// Standard: Auto; Sparse verwendet Wiederverwendung und dichten Rückfall.
+    pub kkt_backend: QpKktBackend,
 }
 
 impl<T: Real> Default for QpOptions<T> {
@@ -37,6 +81,7 @@ impl<T: Real> Default for QpOptions<T> {
             tol: r,
             max_iter: 100,
             regularization: r * T::from_f64(1e-3),
+            kkt_backend: QpKktBackend::Auto,
         }
     }
 }
@@ -56,6 +101,8 @@ pub struct QpSolution<T> {
     pub objective: T,
     /// Anzahl der Iterationen.
     pub iterations: usize,
+    /// KKT-Backend- und Genauigkeitsdiagnostik.
+    pub kkt: QpKktStats<T>,
 }
 
 fn inf_norm<T: Real>(v: &[T]) -> T {
@@ -169,7 +216,13 @@ fn max_step<T: Real>(v: &[T], dv: &[T]) -> T {
 /// ```
 ///
 /// mit einem **primal-dualen Innere-Punkte-Verfahren** (Mehrotra-Prädiktor-Korrektor, unzulässiger Startpunkt). Pro
-/// Iteration wird ein dichtes KKT-System gelöst (pivotierte LDLᵀ); der Aufwand ist `O((n+p)³)` pro Schritt, bei 10 bis 30 Schritten.
+/// Iteration wird dasselbe strukturelle KKT-Muster neu assembliert. `QpOptions::kkt_backend`
+/// wählt Auto (Standard), wiederverwendetes Sparse-LDLᵀ oder dichtes pivotiertes LDLᵀ.
+/// Auto verwendet Sparse bei höchstens 25 % struktureller Dichte, sonst Dense (Heuristik).
+/// Sparse analysiert das Muster einmal. Bei Faktorisierungs-, Trägheits- oder Residuenproblemen
+/// wird für die betreffende Iteration auf dichte pivotierte LDLᵀ zurückgefallen.
+/// Jede lineare Lösung wird auf normweisen Rückwärtsfehler `≤ 64·(n+p)·ε` geprüft.
+/// Diagnose siehe `QpSolution::kkt`. Die Koeffizienten q/a_eq/g werden weiterhin dicht übergeben.
 ///
 /// - `q` (`n × n`, zeilenweise, symmetrisch positiv semidefinit), `c` (`n`); `a_eq` (`p × n`), `b_eq` (`p`) und `g` (`q' × n`),
 ///   `h` (`q'`) dürfen leer sein (`p = 0` bzw. `q' = 0`).
@@ -179,7 +232,9 @@ fn max_step<T: Real>(v: &[T], dv: &[T]) -> T {
 ///   [`QpStatus::NumericalFailure`] oder [`QpStatus::MaxIterations`]. Dafür liefert der Simplex ([`simplex`](super::simplex))
 ///   einen eindeutigen Status. Nicht konvexe `Q` werden nicht erkannt (das Ergebnis ist dann nicht verlässlich).
 ///
-/// Fehler: [`OptError::InvalidInput`], [`OptError::NotFinite`].
+/// Fehler: [`OptError::InvalidInput`] bei ungültigen Dimensionen, unsymmetrischem Q,
+/// nichtpositiver/nichtendlicher Toleranz oder negativer/nichtendlicher Regularisierung;
+/// [`OptError::NotFinite`] bei nichtendlichen Daten oder initialer Assemblierung.
 ///
 /// ```
 /// use azmath::opt::{interior_point_qp, QpOptions, QpStatus};
@@ -204,6 +259,14 @@ pub fn interior_point_qp<T: Real>(
     h: &[T],
     opts: QpOptions<T>,
 ) -> Result<QpSolution<T>, OptError> {
+    if !opts.tol.is_finite()
+        || opts.tol <= T::ZERO
+        || !opts.regularization.is_finite()
+        || opts.regularization < T::ZERO
+    {
+        return Err(OptError::InvalidInput);
+    }
+    let mut stats = QpKktStats::default();
     let n = c.len();
     let p = b_eq.len();
     let m = h.len();
@@ -219,6 +282,17 @@ pub fn interior_point_qp<T: Real>(
     {
         return Err(OptError::NotFinite);
     }
+    let qscale = inf_norm(q);
+    let qscale = if qscale == T::ZERO { T::ONE } else { qscale };
+    for i in 0..n {
+        for j in 0..i {
+            if ((q[i * n + j] / qscale) - (q[j * n + i] / qscale)).abs()
+                > T::from_f64(8.0) * T::from_usize(n) * T::EPSILON
+            {
+                return Err(OptError::InvalidInput);
+            }
+        }
+    }
     // Presolve: linear abhängige Gleichungen entfernen (sonst wird die KKT-Matrix singulär)
     let p_orig = p;
     let Ok(keep) = independent_equality_rows(a_eq, b_eq, p_orig, n) else {
@@ -229,6 +303,7 @@ pub fn interior_point_qp<T: Real>(
             z: vec![T::ZERO; m],
             objective: T::ZERO,
             iterations: 0,
+            kkt: stats,
         });
     };
     let a_red: Vec<T> = keep
@@ -258,7 +333,7 @@ pub fn interior_point_qp<T: Real>(
         }
         T::from_f64(0.5) * quad + lin
     };
-    let result = |status, x: Vec<T>, y: Vec<T>, z: Vec<T>, iterations| {
+    let result = |status, x: Vec<T>, y: Vec<T>, z: Vec<T>, iterations, kkt| {
         // Multiplikatoren auf die ursprünglichen Gleichungen zurückschreiben (gestrichene Zeilen: 0)
         let mut y_full = vec![T::ZERO; p_orig];
         for (k, &row) in keep.iter().enumerate() {
@@ -271,9 +346,11 @@ pub fn interior_point_qp<T: Real>(
             y: y_full,
             z,
             iterations,
+            kkt,
         }
     };
 
+    let mut kkt = KktSystem::new(q, a_eq, g, n, p, m, delta, opts.kkt_backend, &mut stats)?;
     // Arbeitsvektoren
     let (mut rd, mut re, mut ri) = (vec![T::ZERO; n], vec![T::ZERO; p], vec![T::ZERO; m]);
     let (mut tmp_n, mut tmp_m) = (vec![T::ZERO; n], vec![T::ZERO; m]);
@@ -303,54 +380,25 @@ pub fn interior_point_qp<T: Real>(
             T::ZERO
         };
         if !(finite_all(&rd) && finite_all(&re) && finite_all(&ri) && finite_all(&[mu])) {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
         }
         if inf_norm(&rd) <= tol * (T::ONE + c_norm)
             && inf_norm(&re) <= tol * (T::ONE + b_norm)
             && inf_norm(&ri) <= tol * (T::ONE + h_norm)
             && mu <= tol
         {
-            return Ok(result(QpStatus::Optimal, x, y, z, iter));
+            return Ok(result(QpStatus::Optimal, x, y, z, iter, stats));
         }
         if inf_norm(&x) > T::from_f64(1e12) {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
         }
 
-        // KKT-Matrix [[Q + GᵀWG + δI, Aᵀ], [A, −δI]] mit W = diag(z/s)
-        let mut k = vec![T::ZERO; dim * dim];
-        for i in 0..n {
-            for j in 0..n {
-                k[i * dim + j] = q[i * n + j];
-            }
-            k[i * dim + i] += delta;
+        if !kkt.factor(&s, &z, &mut stats) {
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
         }
-        for r in 0..m {
-            let w = z[r] / s[r];
-            for i in 0..n {
-                let gi = g[r * n + i] * w;
-                if gi != T::ZERO {
-                    for j in 0..n {
-                        k[i * dim + j] += gi * g[r * n + j];
-                    }
-                }
-            }
-        }
-        for r in 0..p {
-            for j in 0..n {
-                k[(n + r) * dim + j] = a_eq[r * n + j];
-                k[j * dim + n + r] = a_eq[r * n + j];
-            }
-            k[(n + r) * dim + n + r] = -delta;
-        }
-        let Ok(kkt) = DynMatrix::new(dim, dim, k) else {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
-        };
-        let Ok(ldlt) = kkt.ldlt() else {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
-        };
 
         // Löst das Newton-System für gegebene Komplementaritätsresiduen rc; Rückgabe (dx, dy, ds, dz)
-        let direction = |rc: &[T]| -> Option<(Vec<T>, Vec<T>, Vec<T>, Vec<T>)> {
+        let mut direction = |rc: &[T]| -> Option<(Vec<T>, Vec<T>, Vec<T>, Vec<T>)> {
             // rechte Seite: −rd + Gᵀ(S⁻¹·rc) − Gᵀ(W·ri) und −re
             let mut rhs = vec![T::ZERO; dim];
             let mut t = vec![T::ZERO; m];
@@ -365,9 +413,9 @@ pub fn interior_point_qp<T: Real>(
             for i in 0..p {
                 rhs[n + i] = -re[i];
             }
-            let sol = ldlt.solve(&DynVector::new(rhs)).ok()?;
-            let dx: Vec<T> = sol.as_slice()[..n].to_vec();
-            let dy: Vec<T> = sol.as_slice()[n..].to_vec();
+            let sol = kkt.solve(&rhs, &mut stats)?;
+            let dx: Vec<T> = sol[..n].to_vec();
+            let dy: Vec<T> = sol[n..].to_vec();
             let mut gdx = vec![T::ZERO; m];
             mat_vec(g, m, n, &dx, &mut gdx);
             let ds: Vec<T> = (0..m).map(|r| -ri[r] - gdx[r]).collect();
@@ -382,7 +430,7 @@ pub fn interior_point_qp<T: Real>(
         // Prädiktor (σ = 0)
         let rc_aff: Vec<T> = (0..m).map(|r| s[r] * z[r]).collect();
         let Some((_, _, ds_a, dz_a)) = direction(&rc_aff) else {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
         };
         let sigma = if m > 0 {
             let alpha = max_step(&s, &ds_a).min(max_step(&z, &dz_a)).min(T::ONE);
@@ -399,7 +447,7 @@ pub fn interior_point_qp<T: Real>(
             .map(|r| s[r] * z[r] + ds_a[r] * dz_a[r] - sigma * mu)
             .collect();
         let Some((dx, dy, ds, dz)) = direction(&rc) else {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
         };
         let alpha =
             (T::from_f64(0.99) * max_step(&s, &ds).min(max_step(&z, &dz)) / T::ONE).min(T::ONE);
@@ -415,7 +463,14 @@ pub fn interior_point_qp<T: Real>(
             z[r] += alpha * dz[r];
         }
     }
-    Ok(result(QpStatus::MaxIterations, x, y, z, opts.max_iter))
+    Ok(result(
+        QpStatus::MaxIterations,
+        x,
+        y,
+        z,
+        opts.max_iter,
+        stats,
+    ))
 }
 
 /// Löst das lineare Programm `min cᵀx` unter `A·x = b`, `x ≥ 0` mit dem Innere-Punkte-Verfahren
