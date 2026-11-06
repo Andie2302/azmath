@@ -23,6 +23,7 @@ mod milp;
 mod nlp_ip;
 mod qp;
 mod qp_kkt;
+mod qp_matrix;
 mod simplex;
 mod sqp;
 
@@ -31,7 +32,8 @@ pub use dual::LpWarmStart;
 pub use milp::{MilpOptions, MilpSolution, MilpStatus, NodeSelection, branch_and_bound};
 pub use nlp_ip::{NlpOptions, NlpResult, NlpStatus, interior_point_nlp};
 pub use qp::{
-    QpKktBackend, QpKktStats, QpOptions, QpSolution, QpStatus, interior_point_lp, interior_point_qp,
+    QpKktBackend, QpKktStats, QpOptions, QpSolution, QpStatus, interior_point_lp,
+    interior_point_lp_sparse, interior_point_qp, interior_point_qp_sparse,
 };
 pub use simplex::{LpSolution, LpStatus, Relation, SimplexOptions, simplex, simplex_bounded};
 pub use sqp::{SqpOptions, SqpResult, SqpStatus, sqp};

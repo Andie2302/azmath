@@ -1,5 +1,5 @@
 //! Gemeinsam assembliertes, musterfestes KKT-System mit wählbarem Faktorisierungsbackend.
-use super::{OptError, QpKktBackend, QpKktStats};
+use super::{OptError, QpKktBackend, QpKktStats, qp_matrix::QpMatrix};
 use crate::{
     Real,
     linalg::{DynLdlt, DynMatrix, DynVector},
@@ -20,9 +20,9 @@ pub(super) struct KktSystem<T> {
 }
 impl<T: Real> KktSystem<T> {
     pub fn new(
-        q: &[T],
-        a: &[T],
-        g: &[T],
+        q: QpMatrix<'_, T>,
+        a: QpMatrix<'_, T>,
+        g: QpMatrix<'_, T>,
         n: usize,
         p: usize,
         m: usize,
@@ -36,23 +36,21 @@ impl<T: Real> KktSystem<T> {
             row.insert(i);
         }
         for i in 0..n {
-            for j in 0..i {
-                if q[i * n + j] != T::ZERO {
+            q.row(i, |j, v| {
+                if j < i && v != T::ZERO {
                     pattern[i].insert(j);
                 }
-            }
+            });
         }
         let grows: Vec<Vec<(usize, T)>> = (0..m)
             .map(|r| {
-                (0..n)
-                    .filter_map(|i| {
-                        if g[r * n + i] != T::ZERO {
-                            Some((i, g[r * n + i]))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
+                let mut row = Vec::new();
+                g.row(r, |j, v| {
+                    if v != T::ZERO {
+                        row.push((j, v));
+                    }
+                });
+                row
             })
             .collect();
         for row in &grows {
@@ -65,11 +63,11 @@ impl<T: Real> KktSystem<T> {
             }
         }
         for r in 0..p {
-            for j in 0..n {
-                if a[r * n + j] != T::ZERO {
+            a.row(r, |j, v| {
+                if v != T::ZERO {
                     pattern[n + r].insert(j);
                 }
-            }
+            });
         }
         let mut ptr = vec![0];
         let mut idx = Vec::new();
@@ -78,9 +76,9 @@ impl<T: Real> KktSystem<T> {
             for &j in row {
                 idx.push(j);
                 base.push(if i < n {
-                    q[i * n + j] + if i == j { delta } else { T::ZERO }
+                    q.get(i, j) + if i == j { delta } else { T::ZERO }
                 } else if j < n {
-                    a[(i - n) * n + j]
+                    a.get(i - n, j)
                 } else {
                     -delta
                 });

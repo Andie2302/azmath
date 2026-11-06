@@ -245,11 +245,34 @@ Analyse-/Faktorisierungsversuche, Refaktorisierungen, Rückfälle und den größ
 akzeptierten linearen Rückwärtsfehler. LP und die QP-Unterprobleme von SQP nutzen dies ebenfalls.
 
 **API:** Neue Felder in `QpOptions` und `QpSolution`; bei eigenen Optionsliteralen
-`..QpOptions::default()` oder `kkt_backend` ergänzen. Q, A und G bleiben dichte Eingaben;
-dieses Backend ersetzt noch keine vollständig sparse Problemrepräsentation.
+`..QpOptions::default()` oder `kkt_backend` ergänzen. Die dichte Schnittstelle bleibt verfügbar;
+für native CSR-Koeffizienten gibt es die folgende Schnittstelle.
 End-to-end-Vergleich mit Heap-Spitzenbedarf und KKT-Residuen:
 [`28_qp_kkt_bench`](examples/28_qp_kkt_bench.rs),
 [Messbedingungen](docs/benchmarks/qp-kkt.md).
+
+### Native CSR-Eingaben für QP und LP
+
+`interior_point_qp_sparse(&q, &c, &a, &b, &g, &h, options)` leiht sich Q, A und G
+als `CsrMatrix<T>`. Q ist n×n und vollständig symmetrisch gespeichert;
+nicht gespeicherte Einträge gelten als 0. A ist p×n, G ist m×n, auch bei 0 Zeilen.
+Validierung, Abbruchkriterien, Multiplikatoren und Backend-Diagnostik sind dieselben
+wie bei `interior_point_qp`. Eingabematrizen werden nicht verändert.
+
+Matrix-Vektor-Produkte, transponierte Produkte, Zielfunktion und Residuen iterieren
+über Sparse-Zeilen. KKT-Aufbau und Presolve benötigen keine pauschale dichte Kopie.
+Der Presolve entfernt weiterhin redundante Gleichungen, jetzt über Sparse-Zeilenelimination;
+die Multiplikatoren werden in die ursprüngliche Gleichungsreihenfolge zurückgeschrieben.
+Fill-in kann im Presolve und in Faktoren dennoch wachsen. Auto/Dense oder ein numerischer
+Rückfall dürfen eine dichte KKT-Matrix erzeugen: Die Schnittstelle garantiert keinen
+festen Speicherbedarf unabhängig vom Muster.
+
+`interior_point_lp_sparse(&c, &a, &b, options)` löst LPs mit CSR-Gleichungen und x≥0.
+Q=0 und G=−I entstehen mit O(n) Speicher; auch die dichte LP-Schnittstelle verwendet
+hierfür keine n×n-Hilfsfelder mehr.
+Vergleich einschließlich Eingabespeicher, Lösungslaufzeit und KKT-Residuen:
+[`29_qp_csr_bench`](examples/29_qp_csr_bench.rs),
+[Messbedingungen](docs/benchmarks/qp-csr.md).
 
 ## Nullstellen
 

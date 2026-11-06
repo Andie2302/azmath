@@ -2,7 +2,9 @@
 
 use super::OptError;
 use super::qp_kkt::KktSystem;
+use super::qp_matrix::{QpMatrix, independent_rows};
 use crate::Real;
+use crate::sparse::CsrMatrix;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -60,7 +62,7 @@ impl<T: Real> Default for QpKktStats<T> {
     }
 }
 
-/// Einstellungen für [`interior_point_qp`] und [`interior_point_lp`].
+/// Einstellungen für dichte und CSR-Varianten von QP und LP.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct QpOptions<T> {
     /// Toleranz für Residuen und Komplementarität (relativ zur Größe der Daten).
@@ -111,91 +113,6 @@ fn inf_norm<T: Real>(v: &[T]) -> T {
 
 fn finite_all<T: Real>(v: &[T]) -> bool {
     v.iter().all(|x| !x.is_nan() && !x.is_infinite())
-}
-
-/// `y = M·x` für eine zeilenweise `rows × cols`-Matrix.
-fn mat_vec<T: Real>(m: &[T], rows: usize, cols: usize, x: &[T], y: &mut [T]) {
-    for i in 0..rows {
-        let mut s = T::ZERO;
-        for j in 0..cols {
-            s += m[i * cols + j] * x[j];
-        }
-        y[i] = s;
-    }
-}
-
-/// `y = Mᵀ·x` für eine zeilenweise `rows × cols`-Matrix (`x` hat `rows`, `y` hat `cols` Einträge).
-fn mat_t_vec<T: Real>(m: &[T], rows: usize, cols: usize, x: &[T], y: &mut [T]) {
-    y.fill(T::ZERO);
-    for i in 0..rows {
-        for j in 0..cols {
-            y[j] += m[i * cols + j] * x[i];
-        }
-    }
-}
-
-/// Wählt aus den Gleichungen `A·x = b` (`p × n`, zeilenweise) eine Menge **linear unabhängiger** Zeilen aus (Gauß-Elimination
-/// mit Spaltenpivotsuche auf `[A | b]`). Die übrigen Zeilen sind redundant. `Err(())`, wenn eine redundante Zeile mit der
-/// rechten Seite im Widerspruch steht (die Gleichungen sind unlösbar).
-fn independent_equality_rows<T: Real>(
-    a: &[T],
-    b: &[T],
-    p: usize,
-    n: usize,
-) -> Result<Vec<usize>, ()> {
-    if p == 0 {
-        return Ok(Vec::new());
-    }
-    let w = n + 1;
-    let mut m = vec![T::ZERO; p * w];
-    for i in 0..p {
-        m[i * w..i * w + n].copy_from_slice(&a[i * n..(i + 1) * n]);
-        m[i * w + n] = b[i];
-    }
-    let mut idx: Vec<usize> = (0..p).collect();
-    let scale = inf_norm(a);
-    let tol = T::from_f64((p.max(n) as f64) * 10.0) * T::EPSILON * scale.max(T::MIN_POSITIVE);
-    let mut r = 0;
-    for col in 0..n {
-        if r == p {
-            break;
-        }
-        let mut best = r;
-        for i in (r + 1)..p {
-            if m[i * w + col].abs() > m[best * w + col].abs() {
-                best = i;
-            }
-        }
-        if m[best * w + col].abs() <= tol {
-            continue;
-        }
-        if best != r {
-            for j in 0..w {
-                m.swap(best * w + j, r * w + j);
-            }
-            idx.swap(best, r);
-        }
-        let pivot = m[r * w + col];
-        for i in (r + 1)..p {
-            let f = m[i * w + col] / pivot;
-            if f != T::ZERO {
-                for j in col..w {
-                    let v = m[r * w + j];
-                    m[i * w + j] -= f * v;
-                }
-            }
-        }
-        r += 1;
-    }
-    let b_tol = tol * (T::ONE + inf_norm(b)) + T::EPSILON.sqrt() * T::EPSILON.sqrt() * inf_norm(b);
-    for i in r..p {
-        if m[i * w + n].abs() > b_tol.max(tol) {
-            return Err(());
-        }
-    }
-    let mut keep: Vec<usize> = idx[..r].to_vec();
-    keep.sort_unstable();
-    Ok(keep)
 }
 
 /// Größte Schrittweite `α` mit `v + α·dv ≥ 0` (unendlich, wenn keine Komponente fällt).
@@ -259,6 +176,85 @@ pub fn interior_point_qp<T: Real>(
     h: &[T],
     opts: QpOptions<T>,
 ) -> Result<QpSolution<T>, OptError> {
+    let n = c.len();
+    let p = b_eq.len();
+    let m = h.len();
+    if n.checked_mul(n) != Some(q.len())
+        || p.checked_mul(n) != Some(a_eq.len())
+        || m.checked_mul(n) != Some(g.len())
+    {
+        return Err(OptError::InvalidInput);
+    }
+    solve_qp(
+        QpMatrix::Dense {
+            data: q,
+            rows: n,
+            cols: n,
+        },
+        c,
+        QpMatrix::Dense {
+            data: a_eq,
+            rows: p,
+            cols: n,
+        },
+        b_eq,
+        QpMatrix::Dense {
+            data: g,
+            rows: m,
+            cols: n,
+        },
+        h,
+        opts,
+    )
+}
+
+/// Konvexes QP mit geliehenen CSR-Koeffizienten Q (n×n), A (p×n), G (m×n).
+/// Q muss vollständig symmetrisch gespeichert sein (fehlende Einträge gelten als 0).
+/// Leere A/G haben 0 Zeilen und n Spalten. Keine pauschale dichte Umwandlung:
+/// Produkte, Residuen, Zielfunktion, Presolve und KKT-Aufbau arbeiten auf Sparse-Zeilen.
+/// Fill-in im Presolve/Faktoren kann Speicherbedarf erhöhen; Dense/Auto und numerische
+/// Rückfälle dürfen weiterhin eine dichte KKT-Matrix erzeugen. Übrige Verträge wie
+/// bei [`interior_point_qp`], einschließlich fehlender Unzulässigkeitszertifikate.
+///
+/// ```
+/// use azmath::{sparse::CsrMatrix, opt::{interior_point_qp_sparse, QpOptions, QpStatus}};
+/// let q = CsrMatrix::identity(2);
+/// let a = CsrMatrix::from_parts(0, 2, vec![0], vec![], vec![]).unwrap();
+/// let g = CsrMatrix::identity(2);
+/// let result = interior_point_qp_sparse(&q, &[-1.0f64, -1.0], &a, &[], &g,
+///     &[0.4, 0.4], QpOptions::default()).unwrap();
+/// assert_eq!(result.status, QpStatus::Optimal);
+/// assert!((result.x[0] - 0.4).abs() < 1e-7);
+/// ```
+pub fn interior_point_qp_sparse<T: Real>(
+    q: &CsrMatrix<T>,
+    c: &[T],
+    a_eq: &CsrMatrix<T>,
+    b_eq: &[T],
+    g: &CsrMatrix<T>,
+    h: &[T],
+    opts: QpOptions<T>,
+) -> Result<QpSolution<T>, OptError> {
+    solve_qp(
+        QpMatrix::Csr(q),
+        c,
+        QpMatrix::Csr(a_eq),
+        b_eq,
+        QpMatrix::Csr(g),
+        h,
+        opts,
+    )
+}
+
+fn solve_qp<T: Real>(
+    q: QpMatrix<'_, T>,
+    c: &[T],
+    a_eq: QpMatrix<'_, T>,
+    b_eq: &[T],
+    g: QpMatrix<'_, T>,
+    h: &[T],
+    opts: QpOptions<T>,
+) -> Result<QpSolution<T>, OptError> {
     if !opts.tol.is_finite()
         || opts.tol <= T::ZERO
         || !opts.regularization.is_finite()
@@ -270,32 +266,42 @@ pub fn interior_point_qp<T: Real>(
     let n = c.len();
     let p = b_eq.len();
     let m = h.len();
-    if n == 0 || q.len() != n * n || a_eq.len() != p * n || g.len() != m * n {
+    if n == 0
+        || q.rows() != n
+        || q.cols() != n
+        || a_eq.rows() != p
+        || a_eq.cols() != n
+        || g.rows() != m
+        || g.cols() != n
+    {
         return Err(OptError::InvalidInput);
     }
-    if !(finite_all(q)
+    if !(finite_all(q.values())
         && finite_all(c)
-        && finite_all(a_eq)
+        && finite_all(a_eq.values())
         && finite_all(b_eq)
-        && finite_all(g)
+        && finite_all(g.values())
         && finite_all(h))
     {
         return Err(OptError::NotFinite);
     }
-    let qscale = inf_norm(q);
+    let qscale = inf_norm(q.values());
     let qscale = if qscale == T::ZERO { T::ONE } else { qscale };
+    let symtol = T::from_f64(8.0) * T::from_usize(n) * T::EPSILON;
     for i in 0..n {
-        for j in 0..i {
-            if ((q[i * n + j] / qscale) - (q[j * n + i] / qscale)).abs()
-                > T::from_f64(8.0) * T::from_usize(n) * T::EPSILON
-            {
-                return Err(OptError::InvalidInput);
+        let mut symmetric = true;
+        q.row(i, |j, v| {
+            if (v / qscale - q.get(j, i) / qscale).abs() > symtol {
+                symmetric = false;
             }
+        });
+        if !symmetric {
+            return Err(OptError::InvalidInput);
         }
     }
     // Presolve: linear abhängige Gleichungen entfernen (sonst wird die KKT-Matrix singulär)
     let p_orig = p;
-    let Ok(keep) = independent_equality_rows(a_eq, b_eq, p_orig, n) else {
+    let Ok(keep) = independent_rows(a_eq, b_eq) else {
         return Ok(QpSolution {
             status: QpStatus::NumericalFailure,
             x: vec![T::ZERO; n],
@@ -306,12 +312,9 @@ pub fn interior_point_qp<T: Real>(
             kkt: stats,
         });
     };
-    let a_red: Vec<T> = keep
-        .iter()
-        .flat_map(|&i| a_eq[i * n..(i + 1) * n].iter().copied())
-        .collect();
+    let a_red = a_eq.selected_rows(&keep);
     let b_red: Vec<T> = keep.iter().map(|&i| b_eq[i]).collect();
-    let (a_eq, b_eq) = (&a_red[..], &b_red[..]);
+    let (a_eq, b_eq) = (QpMatrix::Csr(&a_red), &b_red[..]);
     let p = keep.len();
     let tol = opts.tol;
     let delta = opts.regularization;
@@ -324,7 +327,7 @@ pub fn interior_point_qp<T: Real>(
     let mut z = vec![T::ONE; m];
     let objective = |x: &[T]| {
         let mut qx = vec![T::ZERO; n];
-        mat_vec(q, n, n, x, &mut qx);
+        q.mul(x, &mut qx);
         let mut quad = T::ZERO;
         let mut lin = T::ZERO;
         for i in 0..n {
@@ -357,20 +360,20 @@ pub fn interior_point_qp<T: Real>(
     let mut tmp_p = vec![T::ZERO; p];
     for iter in 0..opts.max_iter {
         // Residuen
-        mat_vec(q, n, n, &x, &mut rd);
-        mat_t_vec(a_eq, p, n, &y, &mut tmp_n);
+        q.mul(&x, &mut rd);
+        a_eq.mul_t(&y, &mut tmp_n);
         for i in 0..n {
             rd[i] += c[i] + tmp_n[i];
         }
-        mat_t_vec(g, m, n, &z, &mut tmp_n);
+        g.mul_t(&z, &mut tmp_n);
         for i in 0..n {
             rd[i] += tmp_n[i];
         }
-        mat_vec(a_eq, p, n, &x, &mut tmp_p);
+        a_eq.mul(&x, &mut tmp_p);
         for i in 0..p {
             re[i] = tmp_p[i] - b_eq[i];
         }
-        mat_vec(g, m, n, &x, &mut tmp_m);
+        g.mul(&x, &mut tmp_m);
         for i in 0..m {
             ri[i] = tmp_m[i] + s[i] - h[i];
         }
@@ -406,7 +409,7 @@ pub fn interior_point_qp<T: Real>(
                 t[r] = rc[r] / s[r] - (z[r] / s[r]) * ri[r];
             }
             let mut gt = vec![T::ZERO; n];
-            mat_t_vec(g, m, n, &t, &mut gt);
+            g.mul_t(&t, &mut gt);
             for i in 0..n {
                 rhs[i] = -rd[i] + gt[i];
             }
@@ -417,7 +420,7 @@ pub fn interior_point_qp<T: Real>(
             let dx: Vec<T> = sol[..n].to_vec();
             let dy: Vec<T> = sol[n..].to_vec();
             let mut gdx = vec![T::ZERO; m];
-            mat_vec(g, m, n, &dx, &mut gdx);
+            g.mul(&dx, &mut gdx);
             let ds: Vec<T> = (0..m).map(|r| -ri[r] - gdx[r]).collect();
             let dz: Vec<T> = (0..m).map(|r| -(rc[r] + z[r] * ds[r]) / s[r]).collect();
             if finite_all(&dx) && finite_all(&dy) && finite_all(&ds) && finite_all(&dz) {
@@ -488,11 +491,49 @@ pub fn interior_point_lp<T: Real>(
     opts: QpOptions<T>,
 ) -> Result<QpSolution<T>, OptError> {
     let n = c.len();
-    let q = vec![T::ZERO; n * n];
-    let mut g = vec![T::ZERO; n * n];
-    for i in 0..n {
-        g[i * n + i] = -T::ONE;
+    if a.len() != b.len().checked_mul(n).ok_or(OptError::InvalidInput)? {
+        return Err(OptError::InvalidInput);
     }
-    let h = vec![T::ZERO; n];
-    interior_point_qp(&q, c, a, b, &g, &h, opts)
+    let (q, g) = lp_matrices(n);
+    solve_qp(
+        QpMatrix::Csr(&q),
+        c,
+        QpMatrix::Dense {
+            data: a,
+            rows: b.len(),
+            cols: n,
+        },
+        b,
+        QpMatrix::Csr(&g),
+        &vec![T::ZERO; n],
+        opts,
+    )
+}
+
+/// Sparse-LP `min cᵀx`, A x=b, x≥0; A ist CSR. Q=0 und G=−I werden in O(n)
+/// Speicher aufgebaut. Solver-Verträge wie bei [`interior_point_lp`].
+pub fn interior_point_lp_sparse<T: Real>(
+    c: &[T],
+    a: &CsrMatrix<T>,
+    b: &[T],
+    opts: QpOptions<T>,
+) -> Result<QpSolution<T>, OptError> {
+    let n = c.len();
+    let (q, g) = lp_matrices(n);
+    solve_qp(
+        QpMatrix::Csr(&q),
+        c,
+        QpMatrix::Csr(a),
+        b,
+        QpMatrix::Csr(&g),
+        &vec![T::ZERO; n],
+        opts,
+    )
+}
+fn lp_matrices<T: Real>(n: usize) -> (CsrMatrix<T>, CsrMatrix<T>) {
+    (
+        CsrMatrix::from_parts(n, n, vec![0; n + 1], vec![], vec![]).expect("empty CSR"),
+        CsrMatrix::from_parts(n, n, (0..=n).collect(), (0..n).collect(), vec![-T::ONE; n])
+            .expect("diagonal CSR"),
+    )
 }

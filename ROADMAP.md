@@ -164,7 +164,9 @@ wertabhängige Pivotierung und kann zusätzliche Spaltenkapazität benötigen.
 Benchmark für Poisson-/KKT-/ODE-Muster: `examples/27_sparse_refactor_bench.rs`.
 ✅ QP-KKT: Auto/Sparse/Dense, einmalige symbolische Analyse, Refaktorisierung,
 dichte pivotierte LDLᵀ als Rückfall, lineare Residuenprüfung und Backend-Diagnostik.
-Offen: sparse QP-Eingaben, direkte Sparse-Backend-Anbindung in NLP und impliziten ODE-Lösern.
+✅ Native CSR-Eingaben für Q/A/G in QP, Sparse-LP, gemeinsame Solver-Logik,
+Sparse-Produkte/Residuen und Sparse-Gleichungs-Presolve mit Fill-in.
+Offen: persistenter QP-Workspace/Warmstart, Sparse-Backend-Anbindung in NLP und impliziten ODE-Lösern.
 
 ## 3. Abhängigkeitsgraph
 
