@@ -23,6 +23,29 @@ fn matrix(r: &mut Bytes, rows: usize, cols: usize, special: bool) -> CsrMatrix<f
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+fn details(
+    n: usize,
+    q: &CsrMatrix<f64>,
+    a: &CsrMatrix<f64>,
+    g: &CsrMatrix<f64>,
+    c: &[f64],
+    b: &[f64],
+    h: &[f64],
+    s: &azmath::opt::QpSolution<f64>,
+) -> String {
+    format!(
+        "n={n} status={:?} iterations={}\nQ={:?}\nA={:?}\nG={:?}\nc={c:?}\nb={b:?}\nh={h:?}\nx={:?}\ny={:?}",
+        s.status,
+        s.iterations,
+        q.to_dense(),
+        a.to_dense(),
+        g.to_dense(),
+        s.x,
+        s.y
+    )
+}
+
 fuzz_target!(|data: &[u8]| {
     let mut r = Bytes(data);
     let n = r.range(1, 4);
@@ -56,12 +79,12 @@ fuzz_target!(|data: &[u8]| {
     };
     let a = matrix(&mut r, p, n, special);
     let g = matrix(&mut r, m, n, special);
-    let mut vec_of =
+    let vec_of =
         |len: usize, r: &mut Bytes| -> Vec<f64> { (0..len).map(|_| r.value(special)).collect() };
     let mut ws = QpWorkspace::new(q.clone(), a.clone(), g.clone(), opts);
 
     // Folge verwandter Aufgaben: Arbeitsraum und Kaltstart dürfen nicht paniken
-    for _ in 0..3 {
+    for round in 0..3 {
         let c = vec_of(n, &mut r);
         let b = vec_of(p, &mut r);
         let h = vec_of(m, &mut r);
@@ -73,7 +96,7 @@ fuzz_target!(|data: &[u8]| {
             "Eingabevalidierung muss übereinstimmen"
         );
         if let (Ok(w), Ok(k)) = (warm, cold) {
-            for s in [&w, &k] {
+            for (label, s) in [("workspace", &w), ("cold", &k)] {
                 assert_eq!(s.x.len(), n);
                 assert_eq!(s.y.len(), p);
                 assert_eq!(s.z.len(), m);
@@ -85,7 +108,9 @@ fuzz_target!(|data: &[u8]| {
                         let gt: f64 = g.row(i).map(|(j, v)| (v * s.x[j]).abs()).sum();
                         assert!(
                             gx <= h[i] + 1e-3 * (1.0 + h[i].abs() + gt),
-                            "G·x ≤ h verletzt"
+                            "G·x ≤ h verletzt ({label}, Runde {round}, Zeile {i}): G·x={gx}, h={}\n{}",
+                            h[i],
+                            details(n, &q, &a, &g, &c, &b, &h, s)
                         );
                     }
                     for i in 0..p {
@@ -93,7 +118,9 @@ fuzz_target!(|data: &[u8]| {
                         let at: f64 = a.row(i).map(|(j, v)| (v * s.x[j]).abs()).sum();
                         assert!(
                             (ax - b[i]).abs() <= 1e-3 * (1.0 + b[i].abs() + at),
-                            "A·x = b verletzt"
+                            "A·x = b verletzt ({label}, Runde {round}, Zeile {i}): A·x={ax}, b={}\n{}",
+                            b[i],
+                            details(n, &q, &a, &g, &c, &b, &h, s)
                         );
                     }
                 }

@@ -17,9 +17,6 @@ impl Bytes<'_> {
     pub fn range(&mut self, lo: usize, hi: usize) -> usize {
         lo + self.u8() as usize % (hi - lo + 1)
     }
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
     /// Endlicher, moderater Wert in etwa [-8, 8].
     pub fn moderate(&mut self) -> f64 {
         (self.u8() as f64 - 128.0) / 16.0
