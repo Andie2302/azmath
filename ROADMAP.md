@@ -4,12 +4,12 @@ Version laut `Cargo.toml`: **0.0.1**.
 
 Die gemeinsame kurz-, mittel- und langfristige Planung von azmath und azphysics
 wird in [aztodo](https://github.com/Andie2302/aztodo) gepflegt:
-[Roadmap](https://github.com/Andie2302/aztodo/blob/main/ROADMAP.md),
-[Aufgaben und Abnahmekriterien](https://github.com/Andie2302/aztodo/blob/main/BACKLOG.md),
-[Architektur](https://github.com/Andie2302/aztodo/blob/main/ARCHITECTURE.md).
+[Roadmap](https://github.com/Andie2302/aztodo/blob/master/ROADMAP.md),
+[Aufgaben und Abnahmekriterien](https://github.com/Andie2302/aztodo/blob/master/BACKLOG.md),
+[Architektur](https://github.com/Andie2302/aztodo/blob/master/ARCHITECTURE.md).
 
 Die bisherige vollständige Liste ist als
-[Archiv](https://github.com/Andie2302/aztodo/blob/main/docs/archive/azmath-roadmap-2026-11-06.md)
+[Archiv](https://github.com/Andie2302/aztodo/blob/master/docs/archive/azmath-roadmap-2026-11-06.md)
 erhalten. Alte Hinweise wie „bewusst ausgelassen“ sind offene Prüfpunkte und
 keine dauerhaften Ausschlüsse.
 
