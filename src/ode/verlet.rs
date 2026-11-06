@@ -25,10 +25,15 @@ pub const fn verlet_work_len(n: usize) -> usize {
 /// - `work`: mindestens [`verlet_work_len`]`(n)` Elemente.
 /// - `observer(t, q, p)` wird mit dem Anfangszustand und nach jedem Schritt aufgerufen.
 ///
-/// Eigenschaften: Pro Schritt eine Kraftauswertung (die Kraft am Ende eines Schritts wird im
+/// Eigenschaften: `steps + 1` Kraftauswertungen (die Kraft am Ende eines Schritts wird im
 /// nächsten Schritt wiederverwendet), zeitumkehrbar (ein Lauf mit vertauschten Zeitgrenzen und
-/// gleichem `p` macht den Lauf bis auf Rundung rückgängig), keine Allokation, und die Energie
-/// bleibt für glatte Systeme über lange Zeiten beschränkt (kein systematisches Wegdriften).
+/// gleichem `p` macht den Lauf bis auf Rundung rückgängig), keine Allokation.
+/// Symplektizität setzt tatsächlich gradientenförmige Kraft-/Driftfunktionen voraus.
+/// Für geeignete glatte autonome Hamilton-Systeme und hinreichend kleine, stabile Schritte
+/// bleibt der Energiefehler typischerweise über lange Zeiten beschränkt. Das ist keine
+/// Garantie für beliebige Schrittweiten oder beliebige Kräfte. Beim harmonischen Oszillator
+/// ist `|h*omega| < 2` die lineare Stabilitätsbedingung. Zeitabhängige Kräfte können dem
+/// System physikalisch Energie zuführen; Energieerhaltung wird dann nicht zugesagt.
 ///
 /// Fehler: [`OdeError::InvalidInput`] (leerer Zustand, `q` und `p` verschieden lang, `steps = 0`
 /// oder zu wenig Arbeitsspeicher), [`OdeError::NotFinite`] (NaN/Unendlich in Zeiten, Zustand,
@@ -100,8 +105,8 @@ pub fn verlet_separable<T: Real>(
     Ok(())
 }
 
-/// Geschwindigkeits-Verlet für die Bewegungsgleichung `q'' = a(t, q)` (Ordnung 2, symplektisch,
-/// zeitumkehrbar) mit `steps` gleich großen Schritten von `t0` nach `t1`. Entspricht
+/// Geschwindigkeits-Verlet für die Bewegungsgleichung `q'' = a(t, q)` (Ordnung 2,
+/// zeitumkehrbar; symplektisch bei passender konservativer Hamilton-Struktur) mit `steps` gleich großen Schritten von `t0` nach `t1`. Entspricht
 /// [`verlet_separable`] mit `∇T(v) = v` und `F = a`; die Masse ist in der Beschleunigung
 /// enthalten.
 ///
