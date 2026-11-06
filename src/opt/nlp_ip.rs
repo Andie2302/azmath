@@ -100,8 +100,8 @@ fn boundary_step<T: Real>(v: &[T], dv: &[T], tau: T) -> T {
 ///
 /// mit einem **primal-dualen Innere-Punkte-Verfahren** (Kern von IPOPT, vereinfacht): Die Ungleichungen werden durch
 /// Schlupfvariablen `s > 0` mit `c_I(x) + s = 0` ersetzt, `μ·Σ ln s` dient als Barriere, und `μ` sinkt monoton gegen 0. Jeder
-/// Schritt löst ein symmetrisches Newton-System mit der **exakten Hessematrix der Lagrange-Funktion** (dichte LU, mit
-/// Trägheitskorrektur `δ_w·I` bei fehlender Abstiegsrichtung), die Schrittweite folgt der
+/// Schritt löst ein symmetrisches Newton-System mit der **exakten Hessematrix der Lagrange-Funktion** (dichte pivotierte LDLᵀ, mit
+/// Trägheitskorrektur `δ_w·I` bei falscher Trägheit oder fehlender Abstiegsrichtung), die Schrittweite folgt der
 /// Fraction-to-the-boundary-Regel und einer ℓ₁-Merit-Funktion mit Armijo-Backtracking.
 ///
 /// - `f`, `grad`, `constraints`, `jacobian` wie bei [`sqp`](super::sqp). `hessian(x, lambda, h)` schreibt
@@ -297,8 +297,12 @@ pub fn interior_point_nlp<T: Real>(
             }
             let solved = DynMatrix::new(dim, dim, k)
                 .ok()
-                .and_then(|km| km.lu().ok())
-                .and_then(|lu| lu.solve(&DynVector::new(rhs.clone())).ok());
+                .and_then(|km| km.ldlt().ok())
+                .filter(|ldlt| {
+                    let inertia = ldlt.inertia();
+                    inertia.positive == n && inertia.negative == me && inertia.zero == 0
+                })
+                .and_then(|ldlt| ldlt.solve(&DynVector::new(rhs.clone())).ok());
             if let Some(sol) = solved {
                 let dx: Vec<T> = sol.as_slice()[..n].to_vec();
                 let dy: Vec<T> = sol.as_slice()[n..].to_vec();

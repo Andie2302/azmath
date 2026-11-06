@@ -121,6 +121,19 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   Beispiel: [`25_lu_refinement`](examples/25_lu_refinement.rs).
 - **Cholesky** (`Matrix::cholesky`, `solve_spd`): für symmetrisch positiv definite Matrizen,
   schneller als LU. Symmetrie und positive Definitheit werden geprüft.
+- **Symmetrische indefinite Systeme**: `Matrix::ldlt()` (`Ldlt`, mit `alloc`: `DynLdlt`)
+  verwendet Bunch–Kaufman-Pivotierung mit 1×1- und 2×2-Blöcken:
+  `A[permutation, permutation] = L·D·Lᵀ`. `l()`, `d()` und `block_sizes()` machen die Faktoren
+  zugänglich, `solve()` prüft rechte Seite, Ergebnis und numerischen Rangmangel.
+  `inertia()` zählt positive, negative und numerisch verschwindende Richtungen der D-Blöcke
+  mit Schwelle `min(N·ε,1)·max|Aᵢⱼ|`; `inertia_with_tolerance(0)` zählt exakte Vorzeichen.
+  Nahe null ist dies eine Pivotblock-Diagnose, keine Eigenwert-Rangschätzung für A.
+  Singuläre Matrizen lassen sich diagnostizieren, aber nicht mit `solve` lösen.
+  Globale Skalierung schützt die Faktorisierung vor Über-/Unterlauf; nicht darstellbare
+  Faktoren in Originaleinheiten (`d()`) oder Zwischenwerte beim Lösen ergeben `NotFinite`.
+  Die KKT-Systeme von QP und NLP verwenden diese Zerlegung; NLP prüft bei seiner
+  Trägheitskorrektur die erwarteten positiven und negativen Richtungen. SQP nutzt den QP-Löser.
+  Beispiel: [`26_ldlt`](examples/26_ldlt.rs).
 - **Dreieckslöser** (`solve_lower`, `solve_upper`, jeweils auch als `_unit`- und
   `_transposed`-Variante): Vorwärts- und Rückwärtssubstitution als öffentlicher Baustein. Das jeweils
   andere Dreieck wird ignoriert. Die `_unit`-Varianten nehmen eine Einheitsdiagonale an (wie `L` bei

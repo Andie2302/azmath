@@ -169,7 +169,7 @@ fn max_step<T: Real>(v: &[T], dv: &[T]) -> T {
 /// ```
 ///
 /// mit einem **primal-dualen Innere-Punkte-Verfahren** (Mehrotra-Prädiktor-Korrektor, unzulässiger Startpunkt). Pro
-/// Iteration wird ein dichtes KKT-System gelöst (LU); der Aufwand ist `O((n+p)³)` pro Schritt, bei 10 bis 30 Schritten.
+/// Iteration wird ein dichtes KKT-System gelöst (pivotierte LDLᵀ); der Aufwand ist `O((n+p)³)` pro Schritt, bei 10 bis 30 Schritten.
 ///
 /// - `q` (`n × n`, zeilenweise, symmetrisch positiv semidefinit), `c` (`n`); `a_eq` (`p × n`), `b_eq` (`p`) und `g` (`q' × n`),
 ///   `h` (`q'`) dürfen leer sein (`p = 0` bzw. `q' = 0`).
@@ -345,7 +345,7 @@ pub fn interior_point_qp<T: Real>(
         let Ok(kkt) = DynMatrix::new(dim, dim, k) else {
             return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
         };
-        let Ok(lu) = kkt.lu() else {
+        let Ok(ldlt) = kkt.ldlt() else {
             return Ok(result(QpStatus::NumericalFailure, x, y, z, iter));
         };
 
@@ -365,7 +365,7 @@ pub fn interior_point_qp<T: Real>(
             for i in 0..p {
                 rhs[n + i] = -re[i];
             }
-            let sol = lu.solve(&DynVector::new(rhs)).ok()?;
+            let sol = ldlt.solve(&DynVector::new(rhs)).ok()?;
             let dx: Vec<T> = sol.as_slice()[..n].to_vec();
             let dy: Vec<T> = sol.as_slice()[n..].to_vec();
             let mut gdx = vec![T::ZERO; m];

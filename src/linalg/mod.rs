@@ -43,6 +43,7 @@ mod gauss;
 pub mod iterative;
 /// Interne Rechenkerne auf Slices (auch von `optimize` genutzt). Keine öffentliche API.
 pub(crate) mod kernel;
+mod ldlt;
 mod lu;
 mod lu_refine;
 mod matrix;
@@ -61,6 +62,9 @@ pub use cholesky::Cholesky;
 pub use equilibrate::{EquilibrateOptions, Equilibrated};
 pub use error::LinalgError;
 pub use gauss::RowEchelon;
+#[cfg(feature = "alloc")]
+pub use ldlt::DynLdlt;
+pub use ldlt::{Inertia, Ldlt};
 pub use lu::LuDecomposition;
 pub use lu_refine::{RefinementOptions, RefinementResult, RefinementTermination};
 pub use matrix::Matrix;
