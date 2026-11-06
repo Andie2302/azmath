@@ -36,3 +36,26 @@ cargo +nightly fuzz run qp_extreme -- -max_total_time=60 -timeout=5 -max_len=512
   `A·x = b` und `G·x ≤ h` normweise erfüllt sein (Toleranz relativ zu ‖b‖∞ bzw. ‖h‖∞ und zur Summe der Termbeträge; der Löser garantiert keine zeilenweise Genauigkeit bei gemischten Größenordnungen).
 
 Gemeinsame Hilfen stehen in `fuzz_targets/common.rs`. Gefundene Fehler als Integrationstest festhalten.
+
+## Generator und Optimalitätsprüfungen
+
+`Bytes::range` liest für Bereiche mit mehr als 256 Werten zwei Bytes. Damit sind
+im FFT-Target auch die Randlängen 256 und 257 erreichbar. Kleinere Bereiche
+behalten ihre bisherige Interpretation des Corpus.
+
+QP-Targets prüfen bei `Optimal` zusätzlich endliche primal-duale Lösungen,
+nichtnegative Ungleichungsmultiplikatoren, Stationarität
+`Qx + c + Aᵀy + Gᵀz = 0` und Komplementarität. Die Fehlergrenzen orientieren
+sich am normweisen Löser-Abbruchkriterium, mit Reserve für Rundungsfehler und
+der Abweichung zwischen internem und rekonstruiertem Schlupf. Produkte werden
+vor der Summation skaliert, auch beim Extreme-Target. Das ist kein
+zeilenweiser Genauigkeitsnachweis über beliebige Größenordnungen. Für die
+erzeugten positiv definiten Q sind KKT-Bedingungen hinreichend; bei beliebigen
+indefiniten Sonderfällen sind sie nur notwendig.
+
+Die Prüfungen selbst lassen sich gegen bekannte Lösungen und absichtlich
+falsche Ergebnisse testen:
+
+```sh
+cargo +nightly test --manifest-path fuzz/Cargo.toml --test harness
+```

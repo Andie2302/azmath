@@ -6,6 +6,8 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- Lanczos-Invarianten und Ritz-Residualtests für f32/f64, einschließlich
+  früher Terminierung, extremer Skalierung und ungültiger Eingaben.
 - Native CSR-Eingaben für QP/LP (`interior_point_qp_sparse`, `interior_point_lp_sparse`),
   persistenter `QpWorkspace` mit Warmstarts.
 - Wiederverwendbare Sparse-Analyse und numerische Refaktorisierung; Bunch-Kaufman-LDLᵀ.
@@ -19,6 +21,11 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 - Fuzz-Targets `fft`, `sparse` und `qp` (`fuzz/`).
 
 ### Behoben
+- Lanczos: skalierte Normen für große/kleine Start- und Restvektoren;
+  Ritz-Auswertung skaliert die Tridiagonalmatrix und validiert alle benutzten
+  alpha-/beta-Werte einschließlich der Restnorm.
+- FFT-Fuzzer: Längen 256 und 257 sind jetzt erreichbar. QP-Fuzzer prüfen
+  zusätzlich Stationarität, Dualzulässigkeit und Komplementarität.
 - QP-Presolve (`independent_rows`): Widersprüchliche Gleichungen wurden bei sehr unterschiedlich skalierten
   Zeilen (Einträge ~1e300) als „redundant“ verworfen und `Optimal` gemeldet. Nullzeilen mit rechter Seite ≠ 0
   sind jetzt immer widersprüchlich; die Toleranz der Restgleichungen ist skalenfrei und zeilenweise.

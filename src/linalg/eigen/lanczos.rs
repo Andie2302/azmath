@@ -61,7 +61,7 @@ pub fn lanczos<T: Real, A: LinearOperator<T> + ?Sized>(
     }
     let (basis, rest) = work.split_at_mut(k * n);
     let w = &mut rest[..n];
-    let norm0 = dot(start, start).sqrt();
+    let norm0 = crate::linalg::norm::frobenius(start);
     if bad(norm0) {
         return Err(LinalgError::NotFinite);
     }
@@ -91,12 +91,12 @@ pub fn lanczos<T: Real, A: LinearOperator<T> + ?Sized>(
                 }
             }
         }
-        let b = dot(w, w).sqrt();
+        let b = crate::linalg::norm::frobenius(w);
         if bad(b) {
             return Err(LinalgError::NotFinite);
         }
         beta[j] = b;
-        let scale = a.abs() + if j > 0 { beta[j - 1] } else { T::ZERO };
+        let scale = a.abs().max(if j > 0 { beta[j - 1] } else { T::ZERO });
         if b <= T::from_f64(n as f64) * T::EPSILON * scale + T::MIN_POSITIVE {
             beta[j] = T::ZERO;
             steps = j + 1;
@@ -124,7 +124,7 @@ pub const fn lanczos_ritz_work_len(m: usize) -> usize {
 /// Die extremen Ritz-Werte nähern die extremen Eigenwerte von `A` meist schon nach wenigen Schritten an.
 /// `work`: mindestens [`lanczos_ritz_work_len`]`(m)`.
 ///
-/// Fehler: [`LinalgError::DimensionMismatch`], [`LinalgError::NoConvergence`].
+/// Fehler: [`LinalgError::DimensionMismatch`], [`LinalgError::NotFinite`], [`LinalgError::NoConvergence`].
 pub fn lanczos_ritz<T: Real>(
     alpha: &[T],
     beta: &[T],
@@ -144,20 +144,33 @@ pub fn lanczos_ritz<T: Real>(
     if m == 0 {
         return Ok(());
     }
+    if alpha[..m].iter().chain(&beta[..m]).any(|&v| bad(v)) {
+        return Err(LinalgError::NotFinite);
+    }
+    // Jacobi uses squared norms internally. Normalize the tridiagonal matrix
+    // so tiny and huge finite coefficients do not underflow/overflow there.
+    let scale = alpha[..m]
+        .iter()
+        .chain(&beta[..m - 1])
+        .fold(T::ZERO, |s, v| s.max(v.abs()));
+    let scale = if scale == T::ZERO { T::ONE } else { scale };
     let (t, v) = work.split_at_mut(m * m);
     let v = &mut v[..m * m];
     t.fill(T::ZERO);
     for i in 0..m {
-        t[i * m + i] = alpha[i];
+        t[i * m + i] = alpha[i] / scale;
         if i + 1 < m {
-            t[i * m + i + 1] = beta[i];
-            t[(i + 1) * m + i] = beta[i];
+            t[i * m + i + 1] = beta[i] / scale;
+            t[(i + 1) * m + i] = beta[i] / scale;
         }
     }
     jacobi_eigen(t, v, m, MAX_SWEEPS)?;
     for i in 0..m {
-        values[i] = t[i * m + i];
+        values[i] = t[i * m + i] * scale;
         residuals[i] = (beta[m - 1] * v[(m - 1) * m + i]).abs();
+        if bad(values[i]) || bad(residuals[i]) {
+            return Err(LinalgError::NotFinite);
+        }
     }
     Ok(())
 }

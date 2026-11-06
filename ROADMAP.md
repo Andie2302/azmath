@@ -72,7 +72,7 @@ sind vorhanden. Messwerte, Gültigkeitsbereiche und offene Testlücken:
 | ✅ | Iterative LU-Verfeinerung mit kompensierten Residuen und Abbruchdiagnose; Hager-Schätzung für `1/κ∞`, feste und dynamische Größen | M | LU |
 | ✅ | Dichte LDLᵀ mit Bunch–Kaufman-Pivotierung (1×1/2×2), Trägheit und QP/NLP-KKT-Anbindung                                                                               | S–M     | –                          |
 | ⚠️ | Eigenwerte **nichtsymmetrisch**: Balancieren, Hessenberg, QR mit Doppelshift ✅ (nur Eigenwerte); Schur-Vektoren, Eigenvektoren, verallgemeinert ⬜ | L       | `Complex`                  |
-| ⚠️ | Lanczos ✅ (Ritz-Werte), Arnoldi-Zerlegung ✅ (Invarianten und Fehlerfälle für f32/f64 getestet); Ritz-Werte aus Arnoldi folgen mit dem nichtsymmetrischen Eigenlöser                     | M       | Sparse/`LinearOperator` ✅ |
+| ⚠️ | Lanczos ✅ (Ritz-Werte; Invarianten, Residuen und Fehlerfälle für f32/f64 getestet), Arnoldi-Zerlegung ✅ (Invarianten und Fehlerfälle für f32/f64 getestet); Ritz-Werte aus Arnoldi folgen mit dem nichtsymmetrischen Eigenlöser                     | M       | Sparse/`LinearOperator` ✅ |
 | ⬜ | Algebraisches Multigrid (AMG)                                                                                                                       | XL      | Sparse                     |
 
 ### C. Nullstellen und Nichtlineares

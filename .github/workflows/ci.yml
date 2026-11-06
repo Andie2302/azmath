@@ -100,3 +100,13 @@ jobs:
         with:
           name: coverage
           path: coverage.json
+
+  fuzz-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - run: cargo test --manifest-path fuzz/Cargo.toml --test harness

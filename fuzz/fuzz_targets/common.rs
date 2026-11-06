@@ -15,7 +15,14 @@ impl Bytes<'_> {
     }
     /// Wert in `lo..=hi`.
     pub fn range(&mut self, lo: usize, hi: usize) -> usize {
-        lo + self.u8() as usize % (hi - lo + 1)
+        let width = hi - lo + 1;
+        assert!(width <= 65_536);
+        let mut sample = self.u8() as usize;
+        // Preserve existing one-byte inputs for the smaller dimensions.
+        if width > 256 {
+            sample |= (self.u8() as usize) << 8;
+        }
+        lo + sample % width
     }
     /// Endlicher, moderater Wert in etwa [-8, 8].
     pub fn moderate(&mut self) -> f64 {

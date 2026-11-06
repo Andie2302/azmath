@@ -1,3 +1,5 @@
+#[path = "qp_kkt.rs"]
+mod qp_kkt;
 use crate::common::Bytes;
 use azmath::opt::{QpKktBackend, QpOptions, QpStatus, QpWorkspace, interior_point_qp_sparse};
 use azmath::sparse::CsrMatrix;
@@ -5,7 +7,7 @@ use azmath::sparse::CsrMatrix;
 fn matrix(r: &mut Bytes, rows: usize, cols: usize, special: bool, extreme: bool) -> CsrMatrix<f64> {
     let d: Vec<f64> = (0..rows * cols)
         .map(|_| {
-            if r.u8() % 3 == 0 {
+            if r.u8().is_multiple_of(3) {
                 r.value_with(special, extreme)
             } else {
                 0.0
@@ -30,14 +32,15 @@ fn details(
     s: &azmath::opt::QpSolution<f64>,
 ) -> String {
     format!(
-        "n={n} status={:?} iterations={}\nQ={:?}\nA={:?}\nG={:?}\nc={c:?}\nb={b:?}\nh={h:?}\nx={:?}\ny={:?}",
+        "n={n} status={:?} iterations={}\nQ={:?}\nA={:?}\nG={:?}\nc={c:?}\nb={b:?}\nh={h:?}\nx={:?}\ny={:?}\nz={:?}",
         s.status,
         s.iterations,
         q.to_dense(),
         a.to_dense(),
         g.to_dense(),
         s.x,
-        s.y
+        s.y,
+        s.z
     )
 }
 
@@ -48,7 +51,7 @@ pub fn run(data: &[u8], extreme: bool) {
     let n = r.range(1, 4);
     let p = r.range(0, 3);
     let m = r.range(0, 5);
-    let special = r.u8() % 6 == 0;
+    let special = r.u8().is_multiple_of(6);
     let backend = [
         QpKktBackend::Auto,
         QpKktBackend::Sparse,
@@ -100,7 +103,12 @@ pub fn run(data: &[u8], extreme: bool) {
                 assert_eq!(s.z.len(), m);
                 if s.status == QpStatus::Optimal {
                     // Bei optimaler Meldung muss die Lösung endlich und zulässig (mit Toleranz) sein.
-                    assert!(s.x.iter().all(|v| v.is_finite()));
+                    if let Err(error) = qp_kkt::check(&q, &c, &a, &g, &h, s, opts.tol) {
+                        panic!(
+                            "KKT violation ({label}, round {round}): {error}\n{}",
+                            details(n, &q, &a, &g, &c, &b, &h, s)
+                        );
+                    }
                     // Das Abbruchkriterium des Lösers ist normweise (relativ zur größten Datengröße),
                     // nicht zeilenweise: Residuen werden gegen ‖b‖∞ bzw. ‖h‖∞ gemessen.
                     let b_inf = b.iter().fold(0.0f64, |m, v| m.max(v.abs()));
