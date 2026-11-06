@@ -600,6 +600,11 @@ Feature-Kombinationen, testet sie (außer `micromath` allein) und prüft `cargo 
 
 ## Roadmap
 
+Die gemeinsame Planung für Mathematik und Physik liegt in
+[aztodo](https://github.com/Andie2302/aztodo). Physikalische Modelle und
+Simulationen werden in [azphysics](https://github.com/Andie2302/azphysics)
+aufgebaut; allgemeine mathematische Werkzeuge bleiben in azmath.
+
 Was bereits umgesetzt ist, was noch fehlt (Optimierung, steife ODE, FEM/FVM/SPH, Navier-Stokes, Autodiff, Rotationen,
 Polynom-Nullstellen, SAT/SMT u. a.), wovon es abhängt und wie das Projekt gegliedert werden soll,
 steht in [`ROADMAP.md`](ROADMAP.md).

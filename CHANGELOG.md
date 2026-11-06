@@ -6,6 +6,9 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- Direkte Überlebensfunktionen (`sf`) und inverse obere Tails (`isf`) für die
+  Verteilungen sowie `normal_sf`/`normal_isf` und `beta_inc_complement`.
+- 606 hochpräzise f32/f64-Referenzen für Verteilungen und Quantile.
 - Lanczos-Invarianten und Ritz-Residualtests für f32/f64, einschließlich
   früher Terminierung, extremer Skalierung und ungültiger Eingaben.
 - Native CSR-Eingaben für QP/LP (`interior_point_qp_sparse`, `interior_point_lp_sparse`),
@@ -21,6 +24,9 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 - Fuzz-Targets `fft`, `sparse` und `qp` (`fuzz/`).
 
 ### Behoben
+- Extrem kleine Normalquantile, Auflösung kleiner Gamma-/Beta-Quantile,
+  Student-t-/F-Tails bei großen Argumenten und kleine t-/χ²-p-Werte.
+- NaN-Weitergabe, unendliche Argumentgrenzen und breite Gleichverteilungsintervalle.
 - Lanczos: skalierte Normen für große/kleine Start- und Restvektoren;
   Ritz-Auswertung skaliert die Tridiagonalmatrix und validiert alle benutzten
   alpha-/beta-Werte einschließlich der Restnorm.
@@ -31,5 +37,7 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
   sind jetzt immer widersprüchlich; die Toleranz der Restgleichungen ist skalenfrei und zeilenweise.
 
 ### Geändert
+- Verteilungsparameter müssen endlich sein; vorher teils akzeptierte unendliche
+  Parameter liefern nun NaN. Die gemeinsame Zukunftsplanung liegt in aztodo.
 - Härtung von Wurzelsuche, Quadratur, ODE-Grundlöser, Interpolation, Krylov-Löser.
 - `special`: genauere Reflexionsformel für `gamma`/`ln_gamma`, Reihenentwicklung von `erf` nahe 0.

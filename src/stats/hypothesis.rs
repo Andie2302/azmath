@@ -1,6 +1,6 @@
 //! Hypothesentests und lineare Regression.
 
-use super::dist::{chi2_cdf, student_t_cdf, student_t_quantile};
+use super::dist::{chi2_sf, student_t_quantile, student_t_sf};
 use super::{mean, variance};
 use crate::Real;
 
@@ -16,7 +16,7 @@ pub struct TTestResult<T> {
 }
 
 fn two_sided_p<T: Real>(t: T, df: T) -> T {
-    T::from_f64(2.0) * (T::ONE - student_t_cdf(t.abs(), df))
+    T::from_f64(2.0) * student_t_sf(t.abs(), df)
 }
 
 /// Einstichproben-t-Test: `H₀: Erwartungswert = mu0` (zweiseitig). `NaN`-Ergebnisse bei weniger als 2 Werten.
@@ -79,7 +79,7 @@ pub fn chi_square_gof<T: Real>(
     ChiSquareResult {
         statistic: s,
         df,
-        p_value: T::ONE - chi2_cdf(s, df),
+        p_value: chi2_sf(s, df),
     }
 }
 

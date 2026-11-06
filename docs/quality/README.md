@@ -47,3 +47,5 @@ Coverage-Schwellenwert: Erst Messwerte und relevante Lücken stabilisieren.
 Für laufzeitbegrenztes libFuzzer-Fuzzing siehe [fuzz/README.md](../../fuzz/README.md).
 
 Weitere Messung und Regressionen: [Lanczos und Fuzzer-Prüfungen](lanczos-fuzz.md).
+
+Verteilungen, direkte obere Tails und Quantile: [Referenzbericht](distributions.md).

@@ -3,10 +3,10 @@
 //! | Funktion | Bedeutung |
 //! |---|---|
 //! | [`gamma`], [`ln_gamma`], [`digamma`] | Gammafunktion `Γ(x)`, `ln|Γ(x)|`, `ψ(x) = Γ′/Γ` |
-//! | [`beta`], [`ln_beta`], [`beta_inc`] | Betafunktion `B(a, b)`, regularisierte unvollständige Betafunktion `I_x(a, b)` |
+//! | [`beta`], [`ln_beta`], [`beta_inc`], [`beta_inc_complement`] | Betafunktion `B(a, b)`, regularisierte unvollständige Betafunktion `I_x(a, b)` |
 //! | [`gamma_p`], [`gamma_q`] | regularisierte unvollständige Gammafunktionen `P(a, x)` und `Q(a, x) = 1 − P(a, x)` |
 //! | [`erf`], [`erfc`], [`erf_inv`] | Fehlerfunktion, komplementäre Fehlerfunktion, Umkehrfunktion |
-//! | [`normal_cdf`], [`normal_quantile`] | Verteilungsfunktion und Quantilfunktion der Standardnormalverteilung |
+//! | [`normal_cdf`], [`normal_sf`], [`normal_quantile`], [`normal_isf`] | Verteilungsfunktion und Quantilfunktion der Standardnormalverteilung |
 //! | [`bessel_j`], [`bessel_y`], [`bessel_i`], [`bessel_k`] | Besselfunktionen `Jₙ`, `Yₙ` und modifizierte `Iₙ`, `Kₙ` für ganzzahlige Ordnung |
 //! | [`elliptic_k`], [`elliptic_e`] | vollständige elliptische Integrale erster und zweiter Art |
 //!
@@ -339,7 +339,43 @@ pub fn normal_quantile<T: Real>(p: T) -> T {
     if p.is_nan() || p < T::ZERO || p > T::ONE {
         return T::NAN;
     }
-    T::from_f64(core::f64::consts::SQRT_2) * erf_inv(T::from_f64(2.0) * p - T::ONE)
+    if p == T::ZERO {
+        return T::NEG_INFINITY;
+    }
+    if p == T::ONE {
+        return T::INFINITY;
+    }
+    if p >= T::from_f64(0.25) && p <= T::from_f64(0.75) {
+        return T::from_f64(core::f64::consts::SQRT_2)
+            * erf_inv(T::from_f64(2.0) * (p - T::from_f64(0.5)));
+    }
+    let q = p.min(T::ONE - p);
+    let (mut lo, mut hi) = (T::ZERO, T::ONE);
+    while normal_sf(hi) > q {
+        hi *= T::from_f64(2.0);
+    }
+    for _ in 0..80 {
+        let mid = lo + (hi - lo) * T::from_f64(0.5);
+        if mid == lo || mid == hi {
+            break;
+        }
+        if normal_sf(mid) > q {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let x = lo + (hi - lo) * T::from_f64(0.5);
+    if p < T::from_f64(0.5) { -x } else { x }
+}
+
+/// Direkter oberer Tail der Standardnormalverteilung, `P(X>x)`.
+pub fn normal_sf<T: Real>(x: T) -> T {
+    T::from_f64(0.5) * erfc(x / T::from_f64(core::f64::consts::SQRT_2))
+}
+/// Inverser oberer Tail der Standardnormalverteilung; erhält auch sehr kleine `q`.
+pub fn normal_isf<T: Real>(q: T) -> T {
+    -normal_quantile(q)
 }
 
 /// Kettenbruch (Lentz) für die unvollständige Betafunktion.
@@ -389,8 +425,15 @@ fn beta_continued_fraction<T: Real>(a: T, b: T, x: T) -> T {
 /// Regularisierte unvollständige Betafunktion `I_x(a, b)` (`a, b > 0`, `0 ≤ x ≤ 1`; sonst `NaN`) – die Verteilungsfunktion
 /// der Beta- und (über eine Variablensubstitution) der Student-t- und F-Verteilung.
 pub fn beta_inc<T: Real>(a: T, b: T, x: T) -> T {
-    if a.is_nan()
-        || b.is_nan()
+    beta_inc_tail(a, b, x, false)
+}
+/// Komplement der regularisierten unvollständigen Betafunktion, ohne Subtraktion eines kleinen oberen Tails von eins.
+pub fn beta_inc_complement<T: Real>(a: T, b: T, x: T) -> T {
+    beta_inc_tail(a, b, x, true)
+}
+fn beta_inc_tail<T: Real>(a: T, b: T, x: T, upper: bool) -> T {
+    if !a.is_finite()
+        || !b.is_finite()
         || x.is_nan()
         || a <= T::ZERO
         || b <= T::ZERO
@@ -400,17 +443,18 @@ pub fn beta_inc<T: Real>(a: T, b: T, x: T) -> T {
         return T::NAN;
     }
     if x == T::ZERO {
-        return T::ZERO;
+        return if upper { T::ONE } else { T::ZERO };
     }
     if x == T::ONE {
-        return T::ONE;
+        return if upper { T::ZERO } else { T::ONE };
     }
-    let bt =
-        (ln_gamma(a + b) - ln_gamma(a) - ln_gamma(b) + a * x.ln() + b * (T::ONE - x).ln()).exp();
+    let bt = (ln_gamma(a + b) - ln_gamma(a) - ln_gamma(b) + a * x.ln() + b * (-x).ln_1p()).exp();
     if x < (a + T::ONE) / (a + b + T::from_f64(2.0)) {
-        bt * beta_continued_fraction(a, b, x) / a
+        let lower = bt * beta_continued_fraction(a, b, x) / a;
+        if upper { T::ONE - lower } else { lower }
     } else {
-        T::ONE - bt * beta_continued_fraction(b, a, T::ONE - x) / b
+        let tail = bt * beta_continued_fraction(b, a, T::ONE - x) / b;
+        if upper { tail } else { T::ONE - tail }
     }
 }
 

@@ -1,2 +1,4 @@
 /target
 /design/*/target
+
+/scripts/__pycache__/
