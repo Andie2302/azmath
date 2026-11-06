@@ -278,9 +278,10 @@ assert!((p[0] - 2.0).abs() < 1e-7 && (p[1] + 1.0).abs() < 1e-7);
 ```
 
 Hinweise: Alle Verfahren sind **lokal**; sie finden eine Lösung nahe am Startwert (bei Plateaus oder
-mehreren Lösungen nicht zwingend die beste). Levenberg-Marquardt löst die gedämpften
-Normalengleichungen per Cholesky (die Konditionszahl wird quadriert), Gauß-Newton und Newton
-verwenden QR.
+mehreren Lösungen nicht zwingend die beste). Levenberg-Marquardt löst das um die Dämpfung erweiterte
+Least-Squares-System per Givens-QR, ohne `JᵀJ` zu bilden und dessen Konditionszahl zu quadrieren.
+Gauß-Newton und Newton verwenden Householder-QR. Die Schnittstellen, die Workspace-Größe und
+die Unterstützung für `no_std` ohne Allokator bleiben erhalten.
 
 ## Differentialgleichungen
 

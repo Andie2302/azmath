@@ -328,6 +328,7 @@ fn lm_converges_from_far_away_starts() {
     let mut work = [0.0; levenberg_marquardt_work_len(8, 2)];
     for start in [
         [0.1, 1.0],
+        [0.1, 2.0],
         [8.0, 1.5],
         [20.0, 0.5],
         [1.0, -4.0],
@@ -349,11 +350,11 @@ fn lm_converges_from_far_away_starts() {
 
 #[test]
 fn lm_is_a_local_method() {
-    // Vom Startwert (0.1, 2) läuft der Exponent in das flache Plateau b ≈ −40, in dem das Modell
-    // fast nur noch bei t = 0 etwas liefert. Dort bleibt ein Restfehler; das globale Optimum
-    // (Rest 0) wird nicht gefunden. Lokale Verfahren garantieren das nicht.
+    // Auf dem flachen Plateau b = −2000 unterläuft exp(b·t) für alle t > 0.
+    // Dort verschwindet die Ableitung nach b; ein lokales Verfahren kann das
+    // globale Optimum mit Rest 0 nicht mehr finden.
     let y = exp_data(2.5, -1.3);
-    let mut p = [0.1, 2.0];
+    let mut p = [0.1, -2000.0];
     let mut work = [0.0; levenberg_marquardt_work_len(8, 2)];
     let r = levenberg_marquardt(exp_residual(y), exp_jac, &mut p, 8, opts(), &mut work);
     let mut res = [0.0; 8];
@@ -440,6 +441,74 @@ fn lm_copes_with_rank_deficient_jacobian() {
     let r = levenberg_marquardt(res, jac, &mut p, 2, opts(), &mut work).unwrap();
     close(p[0] + p[1], 3.0, 1e-9);
     assert!(r.residual_norm < 1e-8);
+}
+
+#[test]
+fn lm_resolves_nearly_dependent_parameters() {
+    // The second row distinguishes two almost identical Jacobian columns.
+    // Forming JᵀJ rounds 1 + eps² to 1 and loses this information.
+    let eps = 1e-8;
+    let residual = |p: &[f64], r: &mut [f64]| {
+        r[0] = p[0] + p[1] - 2.0;
+        r[1] = eps * (p[1] - 2.0);
+    };
+    let jacobian = |_p: &[f64], j: &mut [f64]| {
+        j.copy_from_slice(&[1.0, 1.0, 0.0, eps]);
+    };
+    let mut x = [0.0, 0.0];
+    let mut work = [0.0; levenberg_marquardt_work_len(2, 2)];
+    let options = OptimizeOptions {
+        tol_f: 1e-20,
+        tol_g: 0.0,
+        tol_x: 1e-14,
+        max_iter: 200,
+    };
+    let result = levenberg_marquardt(residual, jacobian, &mut x, 2, options, &mut work).unwrap();
+    close(x[0], 0.0, 1e-8);
+    close(x[1], 2.0, 1e-8);
+    assert!(result.residual_norm < 1e-18);
+}
+
+#[test]
+fn lm_qr_handles_an_inactive_parameter_and_reused_workspace() {
+    // A zero Jacobian column must not make the damped system singular.
+    let residual = |p: &[f64], r: &mut [f64]| {
+        r[0] = p[0] - 3.0;
+        r[1] = 2.0 * (p[0] - 3.0);
+    };
+    let jacobian = |_p: &[f64], j: &mut [f64]| {
+        j.copy_from_slice(&[1.0, 0.0, 2.0, 0.0]);
+    };
+    let mut work = [f64::NAN; levenberg_marquardt_work_len(2, 2)];
+    for start in [-10.0, 20.0] {
+        let mut x = [start, 7.0];
+        levenberg_marquardt(residual, jacobian, &mut x, 2, opts(), &mut work).unwrap();
+        close(x[0], 3.0, 1e-9);
+        assert_eq!(x[1], 7.0);
+    }
+}
+
+#[test]
+fn lm_qr_resolves_nearly_dependent_f32_parameters() {
+    let eps = 1e-4f32;
+    let residual = |p: &[f32], r: &mut [f32]| {
+        r[0] = p[0] + p[1] - 2.0;
+        r[1] = eps * (p[1] - 2.0);
+    };
+    let jacobian = |_p: &[f32], j: &mut [f32]| {
+        j.copy_from_slice(&[1.0, 1.0, 0.0, eps]);
+    };
+    let mut x = [0.0, 0.0];
+    let mut work = [0.0; levenberg_marquardt_work_len(2, 2)];
+    let options = OptimizeOptions {
+        tol_f: 1e-9,
+        tol_g: 0.0,
+        tol_x: 0.0,
+        max_iter: 200,
+    };
+    let result = levenberg_marquardt(residual, jacobian, &mut x, 2, options, &mut work).unwrap();
+    assert!(x[0].abs() < 1e-4 && (x[1] - 2.0).abs() < 1e-4, "{x:?}");
+    assert!(result.residual_norm <= options.tol_f);
 }
 
 #[test]

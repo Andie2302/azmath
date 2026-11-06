@@ -74,8 +74,8 @@
 //!   enden dann meist über [`Termination::Cost`] oder [`Termination::Step`] statt über den Gradienten.
 //! - Alle Verfahren sind **lokal**: Sie finden eine Lösung nahe am Startwert, nicht unbedingt die
 //!   global beste. Bei schlechtem Startwert ist Levenberg-Marquardt die robustere Wahl.
-//! - Levenberg-Marquardt löst die gedämpften Normalengleichungen per Cholesky (die Konditionszahl
-//!   wird dabei quadriert), Gauß-Newton und Newton verwenden QR.
+//! - Levenberg-Marquardt löst das um die Dämpfung erweiterte Least-Squares-System per
+//!   Givens-QR, ohne `JᵀJ` zu bilden. Gauß-Newton und Newton verwenden Householder-QR.
 //! - Mit `micromath` (bewusst ungenau, die Normen brauchen `sqrt`) werden strenge Toleranzen
 //!   unter Umständen nie erreicht; für verlässliche Ergebnisse `std` oder `libm` verwenden.
 
