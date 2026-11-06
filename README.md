@@ -7,7 +7,7 @@ Desktop wie auf Mikrocontrollern verwenden.
 
 > **Experimentell (Version 0.0.1).** Die API kann sich jederzeit ändern, und das Crate
 > ist noch nicht für den produktiven Einsatz gedacht. Was geprüft ist und wo die Grenzen
-> liegen, steht in [aztodo/STATUS.md](https://github.com/Andie2302/aztodo/blob/main/STATUS.md).
+> liegen, steht in [aztodo/STATUS.md](https://github.com/Andie2302/aztodo/blob/master/STATUS.md).
 > Die Verfahren sind mit Tests, Referenzwerten und Fuzzing abgesichert, aber nicht für
 > jede Eingabe freigegeben. Bitte Fehler als Issue melden. Lizenz: MIT oder Apache-2.0,
 > jeweils ohne Gewährleistung.
