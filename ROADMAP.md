@@ -9,7 +9,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 
 ---
 
-## 1. Stand heute (Version 0.8.0, ein Crate mit Modulen)
+## 1. Stand heute (Version 0.0.1, ein Crate mit Modulen)
 
 | Bereich                                  | Fertig                                                                                                                                                                                                    |
 |------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -60,7 +60,7 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 |----|-----------------------------------------------------------------------------------------------------------------------------------------------------|---------|----------------------------|
 | ✅ | **Gauß-Elimination** (`gauss_solve`, `rank`, `row_echelon`)                                                                                         | S       | LU ✅                      |
 | ✅ | Banded-LU/-Cholesky (`BandLu`, `BandCholesky`)                                                                                                      | M       | Bandformat                 |
-| ✅ | Links-Vorkonditionierer (`pgmres_left`), ILU(0), IC(0), SSOR (ungetestet)                                                                           | M       | Sparse                     |
+| ✅ | Links-Vorkonditionierer (`pgmres_left`), ILU(0), IC(0), SSOR (Tests in `tests/sparse_precond.rs`)                                                                           | M       | Sparse                     |
 | ✅ | QR mit Spaltenpivotierung (`PivotedQr`, `DynPivotedQr`): Rangschätzung, Basislösungen; Standard in `least_squares` und Gauß-Newton (zusätzlicher `usize`-Puffer) | M | – |
 | ✅ | Iterative LU-Verfeinerung mit kompensierten Residuen und Abbruchdiagnose; Hager-Schätzung für `1/κ∞`, feste und dynamische Größen | M | LU |
 | ✅ | Dichte LDLᵀ mit Bunch–Kaufman-Pivotierung (1×1/2×2), Trägheit und QP/NLP-KKT-Anbindung                                                                               | S–M     | –                          |
@@ -166,7 +166,8 @@ Benchmark für Poisson-/KKT-/ODE-Muster: `examples/27_sparse_refactor_bench.rs`.
 dichte pivotierte LDLᵀ als Rückfall, lineare Residuenprüfung und Backend-Diagnostik.
 ✅ Native CSR-Eingaben für Q/A/G in QP, Sparse-LP, gemeinsame Solver-Logik,
 Sparse-Produkte/Residuen und Sparse-Gleichungs-Presolve mit Fill-in.
-Offen: persistenter QP-Workspace/Warmstart, Sparse-Backend-Anbindung in NLP und impliziten ODE-Lösern.
+✅ Persistenter `QpWorkspace`: feste CSR-Koeffizienten, neue c/b/h, wiederverwendete KKT-Analyse/Faktoren und Residuenpuffer, primal-dualer Warmstart.
+Offen: Sparse-Backend-Anbindung in NLP und impliziten ODE-Lösern.
 
 ## 3. Abhängigkeitsgraph
 

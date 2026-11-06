@@ -246,7 +246,92 @@ pub fn interior_point_qp_sparse<T: Real>(
     )
 }
 
+struct QpSession<T> {
+    enabled: bool,
+    rd: Vec<T>,
+    re: Vec<T>,
+    ri: Vec<T>,
+    tmp_n: Vec<T>,
+    tmp_m: Vec<T>,
+    tmp_p: Vec<T>,
+    cache: Option<KktSystem<T>>,
+    warm: Option<(Vec<T>, Vec<T>, Vec<T>, Vec<T>)>,
+}
+impl<T> Default for QpSession<T> {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            rd: Vec::new(),
+            re: Vec::new(),
+            ri: Vec::new(),
+            tmp_n: Vec::new(),
+            tmp_m: Vec::new(),
+            tmp_p: Vec::new(),
+            cache: None,
+            warm: None,
+        }
+    }
+}
+
+/// Wiederverwendbare CSR-QP-Aufgabe mit festen Q/A/G und Optionen.
+/// Neue c/b/h verwenden vorhandene KKT-Analyse/Faktoren und die letzte optimale
+/// primal-duale Lösung. Schlupf-/Dualvariablen werden strikt positiv gestartet.
+/// Residuen- und Produktpuffer bleiben erhalten; Richtungs-/Ergebnisvektoren
+/// werden weiterhin pro Aufruf angelegt.
+/// Keine Garantie auf weniger Iterationen; Fill-in und dichter Rückfall bleiben möglich.
+pub struct QpWorkspace<T> {
+    q: CsrMatrix<T>,
+    a: CsrMatrix<T>,
+    g: CsrMatrix<T>,
+    opts: QpOptions<T>,
+    session: QpSession<T>,
+}
+impl<T: Real> QpWorkspace<T> {
+    /// Übernimmt feste Koeffizienten. Dimensionen, Werte und Symmetrie werden bei solve geprüft.
+    pub fn new(q: CsrMatrix<T>, a: CsrMatrix<T>, g: CsrMatrix<T>, opts: QpOptions<T>) -> Self {
+        Self {
+            q,
+            a,
+            g,
+            opts,
+            session: QpSession {
+                enabled: true,
+                ..QpSession::default()
+            },
+        }
+    }
+    /// Vergisst nur die Startlösung, erhält Analyse und Faktorpuffer.
+    pub fn clear_warm_start(&mut self) {
+        self.session.warm = None;
+    }
+    /// Löst mit neuen linearen Koeffizienten und rechten Seiten.
+    /// Ungültige Eingaben verändern den letzten gültigen Zustand nicht.
+    pub fn solve(&mut self, c: &[T], b: &[T], h: &[T]) -> Result<QpSolution<T>, OptError> {
+        solve_qp_session(
+            QpMatrix::Csr(&self.q),
+            c,
+            QpMatrix::Csr(&self.a),
+            b,
+            QpMatrix::Csr(&self.g),
+            h,
+            self.opts,
+            &mut self.session,
+        )
+    }
+}
 fn solve_qp<T: Real>(
+    q: QpMatrix<'_, T>,
+    c: &[T],
+    a: QpMatrix<'_, T>,
+    b: &[T],
+    g: QpMatrix<'_, T>,
+    h: &[T],
+    opts: QpOptions<T>,
+) -> Result<QpSolution<T>, OptError> {
+    solve_qp_session(q, c, a, b, g, h, opts, &mut QpSession::default())
+}
+
+fn solve_qp_session<T: Real>(
     q: QpMatrix<'_, T>,
     c: &[T],
     a_eq: QpMatrix<'_, T>,
@@ -254,6 +339,7 @@ fn solve_qp<T: Real>(
     g: QpMatrix<'_, T>,
     h: &[T],
     opts: QpOptions<T>,
+    session: &mut QpSession<T>,
 ) -> Result<QpSolution<T>, OptError> {
     if !opts.tol.is_finite()
         || opts.tol <= T::ZERO
@@ -325,6 +411,20 @@ fn solve_qp<T: Real>(
     let mut y = vec![T::ZERO; p];
     let mut s = vec![T::ONE; m];
     let mut z = vec![T::ONE; m];
+    if let Some((wx, wy, ws, wz)) = &session.warm {
+        if wy.len() == p {
+            x.copy_from_slice(wx);
+            y.copy_from_slice(wy);
+            s.copy_from_slice(ws);
+            z.copy_from_slice(wz);
+            let floor = T::EPSILON.sqrt();
+            for v in s.iter_mut().chain(z.iter_mut()) {
+                *v = v.max(floor);
+            }
+        }
+    }
+    let enabled = session.enabled;
+    let warm = &mut session.warm;
     let objective = |x: &[T]| {
         let mut qx = vec![T::ZERO; n];
         q.mul(x, &mut qx);
@@ -336,7 +436,23 @@ fn solve_qp<T: Real>(
         }
         T::from_f64(0.5) * quad + lin
     };
-    let result = |status, x: Vec<T>, y: Vec<T>, z: Vec<T>, iterations, kkt| {
+    let mut result = |status, x: Vec<T>, y: Vec<T>, z: Vec<T>, iterations, kkt, slack: &[T]| {
+        if enabled && status == QpStatus::Optimal {
+            if let Some((wx, wy, ws, wz)) = warm.as_mut() {
+                if wy.len() == y.len() {
+                    wx.copy_from_slice(&x);
+                    wy.copy_from_slice(&y);
+                    ws.copy_from_slice(slack);
+                    wz.copy_from_slice(&z);
+                } else {
+                    *warm = Some((x.clone(), y.clone(), slack.to_vec(), z.clone()));
+                }
+            } else {
+                *warm = Some((x.clone(), y.clone(), slack.to_vec(), z.clone()));
+            }
+        } else {
+            *warm = None;
+        }
         // Multiplikatoren auf die ursprünglichen Gleichungen zurückschreiben (gestrichene Zeilen: 0)
         let mut y_full = vec![T::ZERO; p_orig];
         for (k, &row) in keep.iter().enumerate() {
@@ -353,27 +469,45 @@ fn solve_qp<T: Real>(
         }
     };
 
-    let mut kkt = KktSystem::new(q, a_eq, g, n, p, m, delta, opts.kkt_backend, &mut stats)?;
-    // Arbeitsvektoren
-    let (mut rd, mut re, mut ri) = (vec![T::ZERO; n], vec![T::ZERO; p], vec![T::ZERO; m]);
-    let (mut tmp_n, mut tmp_m) = (vec![T::ZERO; n], vec![T::ZERO; m]);
-    let mut tmp_p = vec![T::ZERO; p];
+    if session.cache.is_none() {
+        session.cache = Some(KktSystem::new(
+            q,
+            a_eq,
+            g,
+            n,
+            p,
+            m,
+            delta,
+            opts.kkt_backend,
+            &mut stats,
+        )?);
+    }
+    let kkt = session.cache.as_mut().expect("initialized KKT cache");
+    stats.selected_backend = Some(kkt.mode());
+    session.rd.resize(n, T::ZERO);
+    session.re.resize(p, T::ZERO);
+    session.ri.resize(m, T::ZERO);
+    session.tmp_n.resize(n, T::ZERO);
+    session.tmp_m.resize(m, T::ZERO);
+    session.tmp_p.resize(p, T::ZERO);
+    let (rd, re, ri) = (&mut session.rd, &mut session.re, &mut session.ri);
+    let (tmp_n, tmp_m, tmp_p) = (&mut session.tmp_n, &mut session.tmp_m, &mut session.tmp_p);
     for iter in 0..opts.max_iter {
         // Residuen
-        q.mul(&x, &mut rd);
-        a_eq.mul_t(&y, &mut tmp_n);
+        q.mul(&x, rd);
+        a_eq.mul_t(&y, tmp_n);
         for i in 0..n {
             rd[i] += c[i] + tmp_n[i];
         }
-        g.mul_t(&z, &mut tmp_n);
+        g.mul_t(&z, tmp_n);
         for i in 0..n {
             rd[i] += tmp_n[i];
         }
-        a_eq.mul(&x, &mut tmp_p);
+        a_eq.mul(&x, tmp_p);
         for i in 0..p {
             re[i] = tmp_p[i] - b_eq[i];
         }
-        g.mul(&x, &mut tmp_m);
+        g.mul(&x, tmp_m);
         for i in 0..m {
             ri[i] = tmp_m[i] + s[i] - h[i];
         }
@@ -382,22 +516,22 @@ fn solve_qp<T: Real>(
         } else {
             T::ZERO
         };
-        if !(finite_all(&rd) && finite_all(&re) && finite_all(&ri) && finite_all(&[mu])) {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
+        if !(finite_all(rd) && finite_all(re) && finite_all(ri) && finite_all(&[mu])) {
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats, &s));
         }
-        if inf_norm(&rd) <= tol * (T::ONE + c_norm)
-            && inf_norm(&re) <= tol * (T::ONE + b_norm)
-            && inf_norm(&ri) <= tol * (T::ONE + h_norm)
+        if inf_norm(rd) <= tol * (T::ONE + c_norm)
+            && inf_norm(re) <= tol * (T::ONE + b_norm)
+            && inf_norm(ri) <= tol * (T::ONE + h_norm)
             && mu <= tol
         {
-            return Ok(result(QpStatus::Optimal, x, y, z, iter, stats));
+            return Ok(result(QpStatus::Optimal, x, y, z, iter, stats, &s));
         }
         if inf_norm(&x) > T::from_f64(1e12) {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats, &s));
         }
 
         if !kkt.factor(&s, &z, &mut stats) {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats, &s));
         }
 
         // Löst das Newton-System für gegebene Komplementaritätsresiduen rc; Rückgabe (dx, dy, ds, dz)
@@ -433,7 +567,7 @@ fn solve_qp<T: Real>(
         // Prädiktor (σ = 0)
         let rc_aff: Vec<T> = (0..m).map(|r| s[r] * z[r]).collect();
         let Some((_, _, ds_a, dz_a)) = direction(&rc_aff) else {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats, &s));
         };
         let sigma = if m > 0 {
             let alpha = max_step(&s, &ds_a).min(max_step(&z, &dz_a)).min(T::ONE);
@@ -450,7 +584,7 @@ fn solve_qp<T: Real>(
             .map(|r| s[r] * z[r] + ds_a[r] * dz_a[r] - sigma * mu)
             .collect();
         let Some((dx, dy, ds, dz)) = direction(&rc) else {
-            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats));
+            return Ok(result(QpStatus::NumericalFailure, x, y, z, iter, stats, &s));
         };
         let alpha =
             (T::from_f64(0.99) * max_step(&s, &ds).min(max_step(&z, &dz)) / T::ONE).min(T::ONE);
@@ -473,6 +607,7 @@ fn solve_qp<T: Real>(
         z,
         opts.max_iter,
         stats,
+        &s,
     ))
 }
 

@@ -607,3 +607,17 @@ Dieses Projekt steht wahlweise unter einer der folgenden Lizenzen:
 - [MIT-Lizenz](LICENSE-MIT)
 
 nach Wahl der Nutzenden.
+
+### Persistenter QP-Workspace und Warmstarts
+
+`QpWorkspace::new(q, a, g, options)` übernimmt feste CSR-Koeffizienten.
+`workspace.solve(c, b, h)` löst eine Folge verwandter Aufgaben. KKT-Analyse,
+numerische Faktorpuffer sowie Residuen-/Produktpuffer bleiben erhalten.
+Die letzte optimale Lösung einschließlich interner Schlupf- und Dualvariablen
+wird als Startwert genutzt; positive Variablen werden auf mindestens √ε angehoben.
+`clear_warm_start()` verwirft den Startwert, behält aber die KKT-Vorbereitung.
+Ungültige Eingaben verändern den letzten gültigen Zustand nicht. Ergebnis- und
+Richtungsvektoren sowie Presolve werden weiterhin pro Aufruf aufgebaut.
+Warmstarts garantieren keine kleinere Iterationszahl. Koeffizienten und Optionen
+sind pro Workspace fest; Änderungen erfordern einen neuen Workspace.
+Beispiel: `cargo run --release --example 30_qp_warmstart --features alloc`.

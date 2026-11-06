@@ -128,6 +128,9 @@ impl<T: Real> KktSystem<T> {
             dense: None,
         })
     }
+    pub fn mode(&self) -> QpKktBackend {
+        self.mode
+    }
     fn dense(&mut self, stats: &mut QpKktStats<T>) -> bool {
         if self.dense.is_some() {
             return true;
