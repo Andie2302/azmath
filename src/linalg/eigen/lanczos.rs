@@ -169,6 +169,7 @@ pub fn lanczos_ritz<T: Real>(
 /// - `h`: Ausgabe, zeilenweise `(k+1) × k` (`h[i·k + j]`), mindestens `(k+1)·k` Elemente; gültig ist der Block
 ///   `(m+1) × m`, der Rest ist 0.
 /// - `work`: mindestens [`arnoldi_work_len`]`(n, k)`. Danach steht die Basis in `work[..(m+1)·n]` (Zeile `j` = `v_j`).
+///   Bei frühem Abbruch ist der zusätzliche Vektor `v_m` null, nicht normiert.
 /// - Rückgabe: die tatsächliche Schrittzahl `m ≤ k`; bei einem invarianten Unterraum (`h_{m,m−1} = 0`) endet das
 ///   Verfahren früher.
 ///
@@ -196,7 +197,8 @@ pub fn arnoldi<T: Real, A: LinearOperator<T> + ?Sized>(
     let (basis, rest) = work.split_at_mut((k + 1) * n);
     let w = &mut rest[..n];
     h[..(k + 1) * k].fill(T::ZERO);
-    let norm0 = dot(start, start).sqrt();
+    basis.fill(T::ZERO);
+    let norm0 = crate::linalg::norm::frobenius(start);
     if bad(norm0) {
         return Err(LinalgError::NotFinite);
     }
@@ -224,7 +226,7 @@ pub fn arnoldi<T: Real, A: LinearOperator<T> + ?Sized>(
                 }
             }
         }
-        let b = dot(w, w).sqrt();
+        let b = crate::linalg::norm::frobenius(w);
         if bad(b) {
             return Err(LinalgError::NotFinite);
         }

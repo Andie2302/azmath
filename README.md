@@ -621,3 +621,16 @@ Richtungsvektoren sowie Presolve werden weiterhin pro Aufruf aufgebaut.
 Warmstarts garantieren keine kleinere Iterationszahl. Koeffizienten und Optionen
 sind pro Workspace fest; Änderungen erfordern einen neuen Workspace.
 Beispiel: `cargo run --release --example 30_qp_warmstart --features alloc`.
+
+### Arnoldi, micromath-Smoke und Embedded-CI
+
+`tests/linalg_arnoldi.rs` prüft für f32/f64 A·Vₘ=Vₘ₊₁·H, Orthogonalität,
+Hessenberg-Struktur, frühes Ende und Fehlerfälle. Arnoldi normiert nun mit
+skalierten Normen; bei invariantem Unterraum ist der zusätzliche Basisvektor null.
+`tests/micromath_smoke.rs` wird nur mit dem tatsächlich aktiven micromath-Backend
+ausgeführt und prüft kleine gültige Probleme, endliche Näherungen, grobe Residuen
+und begrenzte iterative Verfahren. Es ist kein Genauigkeitsnachweis für alle Module.
+Die CI führt Smoke-Tests mit und ohne alloc aus, kompiliert auch die übrigen
+Build-only-Testkonfigurationen explizit mit `cargo test --no-run` und baut die
+Bibliothek für `thumbv7em-none-eabihf` mit libm sowie libm+alloc.
+Der Cross-Build prüft Kompilierbarkeit ohne std, keine Ausführung auf Hardware.
