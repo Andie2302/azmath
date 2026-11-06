@@ -39,5 +39,12 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "qp_extreme"
+path = "fuzz_targets/qp_extreme.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
 members = ["."]

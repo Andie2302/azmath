@@ -23,13 +23,16 @@ starten. AddressSanitizer bleibt aktiv; Leak-Prüfung ist dann nicht enthalten.
 cargo +nightly fuzz run fft    -- -max_total_time=60 -timeout=5 -max_len=512
 cargo +nightly fuzz run sparse -- -max_total_time=60 -timeout=5 -max_len=512
 cargo +nightly fuzz run qp     -- -max_total_time=60 -timeout=5 -max_len=512
+cargo +nightly fuzz run qp_extreme -- -max_total_time=60 -timeout=5 -max_len=512
 ```
 
 - `fft`: beliebige Längen 0–257; Roundtrip, Parseval, reelle FFT, Faltung gegen direkte Summe,
   Fehler bei zu kurzem Zwischenspeicher.
 - `sparse`: COO→CSR mit ungültigen Indizes und nichtendlichen Werten, Umordnungen, LDLᵀ/Cholesky/LU
   dürfen Fehler melden, aber nie paniken; diagonaldominante Matrizen müssen genau gelöst werden.
-- `qp`: `QpWorkspace` und `interior_point_qp_sparse` mit extremen Werten; bei `Optimal` müssen
+- `qp_extreme`: derselbe Rumpf mit Werten bis ±1e300 und 5e-324 und normweiser Zulässigkeitsprüfung (das Abbruchkriterium
+  des Lösers ist normweise). Funde hier sind oft Skalierungsgrenzen und kein Fehler; einordnen vor dem Beheben.
+- `qp`: `QpWorkspace` und `interior_point_qp_sparse` mit moderaten Werten (±8; NaN/Inf/±0 für die Eingabevalidierung); bei `Optimal` müssen
   `A·x = b` und `G·x ≤ h` normweise erfüllt sein (Toleranz relativ zu ‖b‖∞ bzw. ‖h‖∞ und zur Summe der Termbeträge; der Löser garantiert keine zeilenweise Genauigkeit bei gemischten Größenordnungen).
 
 Gemeinsame Hilfen stehen in `fuzz_targets/common.rs`. Gefundene Fehler als Integrationstest festhalten.
