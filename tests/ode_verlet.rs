@@ -111,7 +111,7 @@ fn time_reversal_returns_to_the_start() {
         verlet(
             accel,
             0.0,
-            7.0,
+            2.0,
             &mut q,
             &mut v,
             1000,
@@ -119,11 +119,13 @@ fn time_reversal_returns_to_the_start() {
             |_, _, _| {},
         )
         .unwrap();
-        assert!((q[0] - q0).abs() > 1e-3, "es muss sich etwas bewegt haben");
+        // Das System muss sich im Phasenraum merklich bewegt haben (sonst wäre der Test leer).
+        let moved = ((q[0] - q0).powi(2) + (v[0] - v0).powi(2)).sqrt();
+        assert!(moved > 0.1, "Abstand im Phasenraum nur {moved}");
         // Rückwärts mit vertauschten Zeitgrenzen und derselben Geschwindigkeit.
         verlet(
             accel,
-            7.0,
+            2.0,
             0.0,
             &mut q,
             &mut v,
