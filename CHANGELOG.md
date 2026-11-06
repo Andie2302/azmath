@@ -14,6 +14,7 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 - Arnoldi-Invariantentests, micromath-Smoke-Test, Embedded-Build (`thumbv7em-none-eabihf`) in CI.
 - Eigenschaftstests mit festem Seed für `linalg` und `fft` (`tests/properties_linalg_fft.rs`).
 - Eigenschaftstests mit festem Seed für `sparse` (`tests/sparse_properties.rs`): COO→CSR, Umordnungen, LDLᵀ/Cholesky/LU, Refaktorisierung und Erholung nach Fehlern.
+- Robustheitstests für `QpWorkspace` (`tests/opt_qp_workspace_robustness.rs`): Zufallsfolgen gegen Kaltstarts für alle KKT-Backends, Zustand nach ungültigen Eingaben, Verwerfen des Warmstarts nach Fehlschlägen, Iterationslimit.
 
 ### Geändert
 - Härtung von Wurzelsuche, Quadratur, ODE-Grundlöser, Interpolation, Krylov-Löser.
