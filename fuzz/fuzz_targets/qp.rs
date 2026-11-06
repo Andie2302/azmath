@@ -103,11 +103,15 @@ fuzz_target!(|data: &[u8]| {
                 if s.status == QpStatus::Optimal {
                     // Bei optimaler Meldung muss die Lösung endlich und zulässig (mit Toleranz) sein.
                     assert!(s.x.iter().all(|v| v.is_finite()));
+                    // Das Abbruchkriterium des Lösers ist normweise (relativ zur größten Datengröße),
+                    // nicht zeilenweise: Residuen werden gegen ‖b‖∞ bzw. ‖h‖∞ gemessen.
+                    let b_inf = b.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+                    let h_inf = h.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                     for i in 0..m {
                         let gx: f64 = g.row(i).map(|(j, v)| v * s.x[j]).sum();
                         let gt: f64 = g.row(i).map(|(j, v)| (v * s.x[j]).abs()).sum();
                         assert!(
-                            gx <= h[i] + 1e-3 * (1.0 + h[i].abs() + gt),
+                            gx <= h[i] + 1e-3 * (1.0 + h_inf + gt),
                             "G·x ≤ h verletzt ({label}, Runde {round}, Zeile {i}): G·x={gx}, h={}\n{}",
                             h[i],
                             details(n, &q, &a, &g, &c, &b, &h, s)
@@ -117,7 +121,7 @@ fuzz_target!(|data: &[u8]| {
                         let ax: f64 = a.row(i).map(|(j, v)| v * s.x[j]).sum();
                         let at: f64 = a.row(i).map(|(j, v)| (v * s.x[j]).abs()).sum();
                         assert!(
-                            (ax - b[i]).abs() <= 1e-3 * (1.0 + b[i].abs() + at),
+                            (ax - b[i]).abs() <= 1e-3 * (1.0 + b_inf + at),
                             "A·x = b verletzt ({label}, Runde {round}, Zeile {i}): A·x={ax}, b={}\n{}",
                             b[i],
                             details(n, &q, &a, &g, &c, &b, &h, s)

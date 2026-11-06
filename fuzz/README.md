@@ -30,6 +30,6 @@ cargo +nightly fuzz run qp     -- -max_total_time=60 -timeout=5 -max_len=512
 - `sparse`: COO→CSR mit ungültigen Indizes und nichtendlichen Werten, Umordnungen, LDLᵀ/Cholesky/LU
   dürfen Fehler melden, aber nie paniken; diagonaldominante Matrizen müssen genau gelöst werden.
 - `qp`: `QpWorkspace` und `interior_point_qp_sparse` mit extremen Werten; bei `Optimal` müssen
-  `A·x = b` und `G·x ≤ h` (relativ zur Summe der Termbeträge) erfüllt sein.
+  `A·x = b` und `G·x ≤ h` normweise erfüllt sein (Toleranz relativ zu ‖b‖∞ bzw. ‖h‖∞ und zur Summe der Termbeträge; der Löser garantiert keine zeilenweise Genauigkeit bei gemischten Größenordnungen).
 
 Gemeinsame Hilfen stehen in `fuzz_targets/common.rs`. Gefundene Fehler als Integrationstest festhalten.
