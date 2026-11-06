@@ -16,6 +16,13 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 - Eigenschaftstests mit festem Seed für `sparse` (`tests/sparse_properties.rs`): COO→CSR, Umordnungen, LDLᵀ/Cholesky/LU, Refaktorisierung und Erholung nach Fehlern.
 - Robustheitstests für `QpWorkspace` (`tests/opt_qp_workspace_robustness.rs`): Zufallsfolgen gegen Kaltstarts für alle KKT-Backends, Zustand nach ungültigen Eingaben, Verwerfen des Warmstarts nach Fehlschlägen, Iterationslimit.
 
+- Fuzz-Targets `fft`, `sparse` und `qp` (`fuzz/`).
+
+### Behoben
+- QP-Presolve (`independent_rows`): Widersprüchliche Gleichungen wurden bei sehr unterschiedlich skalierten
+  Zeilen (Einträge ~1e300) als „redundant“ verworfen und `Optimal` gemeldet. Nullzeilen mit rechter Seite ≠ 0
+  sind jetzt immer widersprüchlich; die Toleranz der Restgleichungen ist skalenfrei und zeilenweise.
+
 ### Geändert
 - Härtung von Wurzelsuche, Quadratur, ODE-Grundlöser, Interpolation, Krylov-Löser.
 - `special`: genauere Reflexionsformel für `gamma`/`ln_gamma`, Reihenentwicklung von `erf` nahe 0.

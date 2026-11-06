@@ -9,11 +9,32 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-azmath = { path = ".." }
+azmath = { path = "..", features = ["alloc"] }
 
 [[bin]]
 name = "special"
 path = "fuzz_targets/special.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fft"
+path = "fuzz_targets/fft.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sparse"
+path = "fuzz_targets/sparse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "qp"
+path = "fuzz_targets/qp.rs"
 test = false
 doc = false
 bench = false

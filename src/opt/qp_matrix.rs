@@ -102,7 +102,19 @@ pub(super) fn independent_rows<T: Real>(a: QpMatrix<'_, T>, b: &[T]) -> Result<V
             }
         });
     }
+    // Eine exakte Nullzeile mit rechter Seite ≠ 0 ist ein Widerspruch, unabhängig von der Größe anderer
+    // Zeilen oder rechter Seiten (die Toleranzen unten sind an deren Skala gekoppelt).
+    if rows
+        .iter()
+        .zip(b)
+        .any(|(row, &bi)| row.is_empty() && bi != T::ZERO)
+    {
+        return Err(());
+    }
     let mut rhs = b.to_vec();
+    // Größenschranke je rechter Seite (|b_i| plus eingegangene Vielfache anderer Zeilen): Rundungsfehler
+    // und Widerspruchstoleranz sind relativ zur Zeile, nicht zum größten b des ganzen Systems.
+    let mut mag: Vec<T> = b.iter().map(|v| v.abs()).collect();
     let mut idx: Vec<usize> = (0..p).collect();
     let scale = a.values().iter().fold(T::ZERO, |s, v| s.max(v.abs()));
     let tol = T::from_f64(p.max(n) as f64 * 10.0) * T::EPSILON * scale.max(T::MIN_POSITIVE);
@@ -125,6 +137,7 @@ pub(super) fn independent_rows<T: Real>(a: QpMatrix<'_, T>, b: &[T]) -> Result<V
         }
         rows.swap(best, r);
         rhs.swap(best, r);
+        mag.swap(best, r);
         idx.swap(best, r);
         let tail: Vec<(usize, T)> = rows[r].range(col + 1..).map(|(&j, &v)| (j, v)).collect();
         for i in r + 1..p {
@@ -145,15 +158,22 @@ pub(super) fn independent_rows<T: Real>(a: QpMatrix<'_, T>, b: &[T]) -> Result<V
             }
             let v = rhs[r];
             rhs[i] -= f * v;
-            if !rhs[i].is_finite() {
+            let mr = mag[r];
+            mag[i] += f.abs() * mr;
+            if !rhs[i].is_finite() || !mag[i].is_finite() {
                 return Err(());
             }
         }
         r += 1;
     }
-    let bnorm = b.iter().fold(T::ZERO, |s, v| s.max(v.abs()));
-    let btol = (tol * (T::ONE + bnorm) + T::EPSILON * bnorm).max(tol);
-    if (r < p && !btol.is_finite()) || rhs[r..].iter().any(|v| v.abs() > btol) {
+    // Die Pivottoleranz `tol` hat die Einheit der Matrixeinträge; für Reste der rechten Seite gilt eine
+    // skalenfreie relative Schranke, begrenzt durch die zeilenweise Größe `mag`.
+    let tol_b = tol.min(T::from_f64(p.max(n) as f64 * 10.0) * T::EPSILON);
+    if rhs[r..]
+        .iter()
+        .zip(&mag[r..])
+        .any(|(v, m)| v.abs() > (tol_b + T::EPSILON) * *m)
+    {
         return Err(());
     }
     let mut keep = idx[..r].to_vec();

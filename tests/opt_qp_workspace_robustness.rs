@@ -333,3 +333,75 @@ fn solving_the_same_problem_twice_is_consistent_and_not_slower() {
         assert_same(&first, &second, 1e-6, &format!("{backend:?}"));
     }
 }
+
+/// Gefunden per Fuzzing: eine Nullzeile mit rechter Seite ≠ 0 wurde als „redundant“ verworfen,
+/// sobald eine andere Zeile sehr große Einträge hatte (Toleranz ~ 1e285).
+#[test]
+fn zero_row_with_nonzero_rhs_is_inconsistent_even_next_to_huge_rows() {
+    let q = CsrMatrix::<f64>::identity(1);
+    let g = CsrMatrix::from_dense_slice(0, 1, &[], 0.0).unwrap();
+    for big in [1.0, 1e10, 1e300] {
+        let a = CsrMatrix::from_dense_slice(2, 1, &[0.0, -big], 0.0).unwrap();
+        let s = interior_point_qp_sparse(
+            &q,
+            &[-1.0],
+            &a,
+            &[-2.625, 0.0],
+            &g,
+            &[],
+            QpOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(s.status, QpStatus::NumericalFailure, "big = {big}");
+        let mut w = QpWorkspace::new(q.clone(), a, g.clone(), QpOptions::default());
+        assert_eq!(
+            w.solve(&[-1.0], &[-2.625, 0.0], &[]).unwrap().status,
+            QpStatus::NumericalFailure,
+            "big = {big}"
+        );
+    }
+    // Nullzeile mit rechter Seite 0 bleibt redundant und erlaubt eine Lösung.
+    let a = CsrMatrix::from_dense_slice(2, 1, &[0.0, 1.0], 0.0).unwrap();
+    let s = interior_point_qp_sparse(&q, &[-1.0], &a, &[0.0, 0.5], &g, &[], QpOptions::default())
+        .unwrap();
+    assert_eq!(s.status, QpStatus::Optimal);
+    assert!((s.x[0] - 0.5).abs() < 1e-7);
+}
+
+/// Gefunden per Fuzzing: `[5e-324; 1e300]·x = [7.9; 7.9]` wurde als konsistent und optimal gemeldet.
+#[test]
+fn tiny_row_next_to_huge_row_with_conflicting_rhs_is_not_optimal() {
+    let q = CsrMatrix::<f64>::identity(1);
+    let g = CsrMatrix::from_dense_slice(0, 1, &[], 0.0).unwrap();
+    let a = CsrMatrix::from_dense_slice(2, 1, &[5e-324, 1e300], 0.0).unwrap();
+    let s = interior_point_qp_sparse(
+        &q,
+        &[1.0],
+        &a,
+        &[7.9375, 7.9375],
+        &g,
+        &[],
+        QpOptions::default(),
+    )
+    .unwrap();
+    assert_ne!(s.status, QpStatus::Optimal);
+}
+
+/// Gefunden per Fuzzing: Nullzeile mit b = −8 neben einer Zeile mit b = 1e300.
+#[test]
+fn zero_row_is_inconsistent_next_to_huge_rhs() {
+    let q = CsrMatrix::<f64>::identity(1);
+    let g = CsrMatrix::from_dense_slice(0, 1, &[], 0.0).unwrap();
+    let a = CsrMatrix::from_dense_slice(2, 1, &[1e300, 0.0], 0.0).unwrap();
+    let s = interior_point_qp_sparse(
+        &q,
+        &[-4.8125],
+        &a,
+        &[1e300, -8.0],
+        &g,
+        &[],
+        QpOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(s.status, QpStatus::NumericalFailure);
+}
