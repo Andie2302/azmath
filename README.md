@@ -106,6 +106,19 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   Allokator nötig. Operatoren `+`, `-`, Negation, Skalar-, Matrix-Vektor- und Matrix-Matrix-Produkt.
 - **LU** (`Matrix::solve`, `determinant`, `inverse`, `lu()`): für beliebige quadratische Matrizen, mit
   Teilpivotisierung. Eine `LuDecomposition` löst beliebig viele rechte Seiten günstig.
+- **LU-Diagnostik** (`LuDecomposition` und `DynLu`): `rcond_inf()` schätzt `1/κ∞(A)`
+  nach Hager mit zusätzlichem alternierenden Testvektor, ohne eine Inverse zu bilden.
+  Kleine Werte zeigen empfindliche Systeme an; die Schätzung ist keine zertifizierte Schranke.
+  `solve_refined(b, options)` liefert Lösung und Bericht; `refine(b, &mut x, options)`
+  verbessert eine vorhandene Näherung mit kompensierten Residuen (Summations- und Produktfehler
+  über `mul_add`). Abbruchgründe: `Tolerance`, `Stagnation`, `MaxIterations`.
+  Der Bericht nennt den normweisen Rückwärtsfehler `‖b−Ax‖∞/(‖A‖∞‖x‖∞+‖b‖∞)`;
+  ein kleiner Wert garantiert bei hoher Kondition keinen kleinen Lösungsfehler.
+  Standard: Toleranz `8·ε`, höchstens fünf Korrekturen. Es wird in der Genauigkeit von `T`
+  gerechnet; Verbesserung ist nicht garantiert. Nicht darstellbare Zwischenwerte ergeben `NotFinite`.
+  **Speicher:** LU speichert jetzt zusätzlich die ursprüngliche Matrix (`N²` Skalare).
+  Feste Größen benötigen keinen Heap, dynamische Varianten das Feature `alloc`.
+  Beispiel: [`25_lu_refinement`](examples/25_lu_refinement.rs).
 - **Cholesky** (`Matrix::cholesky`, `solve_spd`): für symmetrisch positiv definite Matrizen,
   schneller als LU. Symmetrie und positive Definitheit werden geprüft.
 - **Dreieckslöser** (`solve_lower`, `solve_upper`, jeweils auch als `_unit`- und

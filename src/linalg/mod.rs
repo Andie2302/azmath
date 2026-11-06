@@ -44,6 +44,7 @@ pub mod iterative;
 /// Interne Rechenkerne auf Slices (auch von `optimize` genutzt). Keine öffentliche API.
 pub(crate) mod kernel;
 mod lu;
+mod lu_refine;
 mod matrix;
 mod norm;
 mod operator;
@@ -61,6 +62,7 @@ pub use equilibrate::{EquilibrateOptions, Equilibrated};
 pub use error::LinalgError;
 pub use gauss::RowEchelon;
 pub use lu::LuDecomposition;
+pub use lu_refine::{RefinementOptions, RefinementResult, RefinementTermination};
 pub use matrix::Matrix;
 pub use operator::{FnOperator, LinearOperator};
 pub use orthogonal::{Orthonormalized, Polar};

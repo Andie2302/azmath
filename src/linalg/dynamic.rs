@@ -391,6 +391,7 @@ impl<T> IndexMut<(usize, usize)> for DynMatrix<T> {
 pub struct DynLu<T> {
     n: usize,
     lu: Vec<T>,
+    original: Vec<T>,
     perm: Vec<usize>,
     odd: bool,
 }
@@ -409,7 +410,13 @@ impl<T: Real> DynLu<T> {
         let mut lu = a.data.clone();
         let mut perm = vec![0usize; n];
         let odd = lu_decompose(&mut lu, n, &mut perm)?;
-        Ok(Self { n, lu, perm, odd })
+        Ok(Self {
+            n,
+            lu,
+            original: a.data.clone(),
+            perm,
+            odd,
+        })
     }
 
     /// Löst `A·x = b`; Fehler, wenn die Länge von `b` nicht passt.
@@ -420,6 +427,57 @@ impl<T: Real> DynLu<T> {
         let mut x = DynVector::zeros(self.n);
         lu_solve(&self.lu, self.n, &self.perm, &b.data, &mut x.data);
         Ok(x)
+    }
+
+    /// Schätzt `1/κ∞(A)`; siehe [`super::LuDecomposition::rcond_inf`].
+    pub fn rcond_inf(&self) -> Result<T, LinalgError> {
+        let n = self.n;
+        super::lu_refine::rcond(
+            &self.original,
+            &self.lu,
+            n,
+            &self.perm,
+            &mut vec![T::ZERO; n],
+            &mut vec![T::ZERO; n],
+            &mut vec![T::ZERO; n],
+            &mut vec![T::ZERO; n],
+        )
+    }
+    /// Verfeinert eine Lösung; siehe [`super::LuDecomposition::refine`].
+    /// Falsche Vektorlängen ergeben `DimensionMismatch`.
+    pub fn refine(
+        &self,
+        b: &DynVector<T>,
+        x: &mut DynVector<T>,
+        opts: super::RefinementOptions<T>,
+    ) -> Result<super::RefinementResult<T>, LinalgError> {
+        let n = self.n;
+        if b.len() != n || x.len() != n {
+            return Err(LinalgError::DimensionMismatch);
+        }
+        super::lu_refine::refine(
+            &self.original,
+            &self.lu,
+            n,
+            &self.perm,
+            &b.data,
+            &mut x.data,
+            opts,
+            &mut vec![T::ZERO; n],
+            &mut vec![T::ZERO; n],
+            &mut vec![T::ZERO; n],
+            &mut vec![T::ZERO; n],
+        )
+    }
+    /// Löst und verfeinert das System; siehe [`Self::refine`].
+    pub fn solve_refined(
+        &self,
+        b: &DynVector<T>,
+        opts: super::RefinementOptions<T>,
+    ) -> Result<(DynVector<T>, super::RefinementResult<T>), LinalgError> {
+        let mut x = self.solve(b)?;
+        let report = self.refine(b, &mut x, opts)?;
+        Ok((x, report))
     }
 
     /// Determinante von `A`.
