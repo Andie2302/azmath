@@ -13,6 +13,7 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 - Referenztests (mpmath, ULP) und Fuzz-Target für `special`; Coverage-Lauf in CI.
 - Arnoldi-Invariantentests, micromath-Smoke-Test, Embedded-Build (`thumbv7em-none-eabihf`) in CI.
 - Eigenschaftstests mit festem Seed für `linalg` und `fft` (`tests/properties_linalg_fft.rs`).
+- Eigenschaftstests mit festem Seed für `sparse` (`tests/sparse_properties.rs`): COO→CSR, Umordnungen, LDLᵀ/Cholesky/LU, Refaktorisierung und Erholung nach Fehlern.
 
 ### Geändert
 - Härtung von Wurzelsuche, Quadratur, ODE-Grundlöser, Interpolation, Krylov-Löser.
