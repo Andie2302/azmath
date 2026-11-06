@@ -6,6 +6,7 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- Symplektisches Störmer-Verlet-Verfahren `ode::verlet` und `ode::verlet_separable` (Ordnung 2, zeitumkehrbar, allokationsfrei) mit Tests (`tests/ode_verlet.rs`), AZM-030.
 - MINRES/PMINRES für reelle symmetrisch-indefinite Systeme, konstante 8*n
   Arbeitselemente, Matrix-/DynMatrix-Hilfsmethoden und f32/f64-Regressionen.
 - Paket-/Publish-Dry-Run und Tests aus dem entpackten Crate in CI;

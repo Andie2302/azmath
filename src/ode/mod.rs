@@ -7,6 +7,7 @@
 //! | [`rk45`] | explizit, **adaptiv** (Dormand-Prince) | 5(4) | die erste Wahl für nicht steife Probleme |
 //! | [`implicit_euler`] | implizit, feste Schrittweite | 1 | **steife** Probleme, sehr robust |
 //! | [`implicit_trapezoid`] | implizit, feste Schrittweite | 2 | steife Probleme, genauer |
+//! | [`verlet`], [`verlet_separable`] | explizit, **symplektisch**, feste Schrittweite | 2 | Hamilton-Systeme und `q'' = a(t, q)`; beschränkter Energiefehler |
 //!
 //! Die Funktionen arbeiten **auf Slices** und brauchen keinen Allokator (wie
 //! [`optimize`](crate::optimize)): Der Zustand `y` (`n` Elemente) wird **in-place** fortgeschrieben,
@@ -64,6 +65,7 @@ mod rk45;
 mod rosenbrock;
 #[cfg(feature = "alloc")]
 mod seulex;
+mod verlet;
 
 pub use adams::{adams_bashforth_moulton, adams_work_len};
 pub use adaptive::{
@@ -90,6 +92,7 @@ pub use rk45::{Rk45Options, Rk45Result, rk45, rk45_work_len};
 pub use rosenbrock::{ros2, ros2_fd, ros2_work_len};
 #[cfg(feature = "alloc")]
 pub use seulex::{SeulexOptions, SeulexResult, seulex, seulex_fd};
+pub use verlet::{verlet, verlet_separable, verlet_work_len};
 
 use core::fmt;
 
