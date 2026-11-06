@@ -5,6 +5,7 @@
 use super::{CooMatrix, CsrMatrix};
 use crate::Real;
 use crate::linalg::LinalgError;
+use alloc::rc::Rc;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -178,6 +179,152 @@ fn ereach<T: Real>(
     mark[k] = false;
 }
 
+/// Wertunabhängige Analyse für Sparse-LDLᵀ und Cholesky bei exakt gleichem CSR-Muster.
+/// Speichert Umordnung, Eliminationsbaum-Erreichbarkeiten und vollständiges Füllmuster.
+/// Die untere Hälfte des Eingangsmusters ist maßgeblich, auch nach Umordnung.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SparseLdlSymbolic {
+    n: usize,
+    row_ptr: Vec<usize>,
+    col_idx: Vec<usize>,
+    perm: Vec<usize>,
+    lp: Vec<usize>,
+    li: Vec<usize>,
+    entries: Vec<Vec<(usize, usize)>>,
+    operations: Vec<Vec<(usize, usize)>>,
+}
+impl SparseLdlSymbolic {
+    /// Analysiert nur Struktur und Dimensionen; Zahlenwerte werden erst bei factorize geprüft.
+    pub fn analyze<T: Real>(a: &CsrMatrix<T>, ordering: Ordering) -> Result<Self, LinalgError> {
+        let n = a.rows();
+        if a.cols() != n {
+            return Err(LinalgError::DimensionMismatch);
+        }
+        let mut coo = CooMatrix::new(n, n);
+        for i in 0..n {
+            for (j, _) in a.row(i) {
+                if j <= i {
+                    let _ = coo.push(i, j, T::ONE);
+                    if i != j {
+                        let _ = coo.push(j, i, T::ONE);
+                    }
+                }
+            }
+        }
+        let pattern = CsrMatrix::from_coo(&coo);
+        let perm = match ordering {
+            Ordering::Natural => (0..n).collect(),
+            Ordering::ReverseCuthillMcKee => rcm_ordering(&pattern),
+            Ordering::MinimumDegree => minimum_degree_ordering(&pattern),
+        };
+        let c = permute_symmetric(&pattern, &perm);
+        let parent = elimination_tree(&c);
+        let mut mark = vec![false; n];
+        let (mut stack, mut path) = (Vec::new(), Vec::new());
+        let mut reaches = vec![Vec::new(); n];
+        let mut count = vec![0; n];
+        for (k, reach) in reaches.iter_mut().enumerate() {
+            ereach(&c, k, &parent, &mut mark, &mut stack, &mut path);
+            reach.extend_from_slice(&stack);
+            for &i in &stack {
+                count[i] += 1;
+            }
+        }
+        let mut lp = vec![0; n + 1];
+        for i in 0..n {
+            lp[i + 1] = lp[i] + count[i];
+        }
+        let mut li = vec![0; lp[n]];
+        let mut operations = vec![Vec::new(); n];
+        count.fill(0);
+        for k in 0..n {
+            for &i in &reaches[k] {
+                let slot = lp[i] + count[i];
+                count[i] += 1;
+                li[slot] = k;
+                operations[k].push((i, slot));
+            }
+        }
+        let mut inv = vec![0; n];
+        for (i, &old) in perm.iter().enumerate() {
+            inv[old] = i;
+        }
+        let mut entries = vec![Vec::new(); n];
+        for i in 0..n {
+            for src in a.row_ptr()[i]..a.row_ptr()[i + 1] {
+                let j = a.col_idx()[src];
+                if j <= i {
+                    let (r, c) = (inv[i].max(inv[j]), inv[i].min(inv[j]));
+                    entries[r].push((c, src));
+                }
+            }
+        }
+        Ok(Self {
+            n,
+            row_ptr: a.row_ptr().to_vec(),
+            col_idx: a.col_idx().to_vec(),
+            perm,
+            lp,
+            li,
+            entries,
+            operations,
+        })
+    }
+    /// Dimension.
+    pub fn n(&self) -> usize {
+        self.n
+    }
+    /// Vorhergesagte Einträge unterhalb der Diagonalen von L.
+    pub fn nnz_l(&self) -> usize {
+        self.li.len()
+    }
+    /// Umordnung, neuer Index → ursprünglicher Index.
+    pub fn permutation(&self) -> &[usize] {
+        &self.perm
+    }
+    fn validate<T: Real>(&self, a: &CsrMatrix<T>) -> Result<(), LinalgError> {
+        if a.rows() != self.n || a.cols() != self.n {
+            return Err(LinalgError::DimensionMismatch);
+        }
+        if a.row_ptr() != self.row_ptr || a.col_idx() != self.col_idx {
+            return Err(LinalgError::InvalidInput);
+        }
+        if a.values().iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
+        Ok(())
+    }
+    /// Erzeugt numerische Faktoren und einmalig deren Arbeitspuffer.
+    pub fn factorize<T: Real>(&self, a: &CsrMatrix<T>) -> Result<SparseLdl<T>, LinalgError> {
+        let mut factor = SparseLdl {
+            symbolic: Rc::new(self.clone()),
+            lx: vec![T::ZERO; self.li.len()],
+            d: vec![T::ZERO; self.n],
+            y: vec![T::ZERO; self.n],
+            valid: false,
+        };
+        factor.refactor(a)?;
+        Ok(factor)
+    }
+    /// Cholesky-Faktorisierung desselben Musters mit Prüfung positiver Pivots.
+    pub fn factorize_cholesky<T: Real>(
+        &self,
+        a: &CsrMatrix<T>,
+    ) -> Result<SparseCholesky<T>, LinalgError> {
+        let mut factor = SparseCholesky {
+            ldl: SparseLdl {
+                symbolic: Rc::new(self.clone()),
+                lx: vec![T::ZERO; self.li.len()],
+                d: vec![T::ZERO; self.n],
+                y: vec![T::ZERO; self.n],
+                valid: false,
+            },
+        };
+        factor.refactor(a)?;
+        Ok(factor)
+    }
+}
+
 /// LDLᵀ-Zerlegung `P·A·Pᵀ = L·D·Lᵀ` einer symmetrischen dünn besetzten Matrix (`L` untere Einheitsdreiecksmatrix, `D` diagonal)
 /// **ohne Pivotisierung**. Das funktioniert für symmetrisch positiv definite und für „quasi-definite“ Matrizen (zum Beispiel
 /// KKT-Matrizen `[[H, Aᵀ], [A, −δI]]`); bei einer Null als Pivot meldet sie [`LinalgError::Singular`]. Von `A` wird nur die untere Hälfte
@@ -203,102 +350,68 @@ fn ereach<T: Real>(
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct SparseLdl<T> {
-    n: usize,
-    /// `perm[neu] = alt`
-    perm: Vec<usize>,
-    lp: Vec<usize>,
-    li: Vec<usize>,
+    symbolic: Rc<SparseLdlSymbolic>,
     lx: Vec<T>,
     d: Vec<T>,
+    y: Vec<T>,
+    valid: bool,
 }
-
 impl<T: Real> SparseLdl<T> {
-    /// Faktorisiert `a` (quadratisch) nach der gewählten Umordnung.
-    ///
-    /// Fehler: [`LinalgError::DimensionMismatch`] (nicht quadratisch), [`LinalgError::NotFinite`], [`LinalgError::Singular`]
-    /// (Null als Pivot).
+    /// Analysiert und faktorisiert a; für Wiederholungen Analyse oder Faktor aufbewahren.
     pub fn new(a: &CsrMatrix<T>, ordering: Ordering) -> Result<Self, LinalgError> {
-        let n = a.rows();
-        if a.cols() != n {
-            return Err(LinalgError::DimensionMismatch);
-        }
-        if a.values().iter().any(|v| v.is_nan() || v.is_infinite()) {
-            return Err(LinalgError::NotFinite);
-        }
-        let perm: Vec<usize> = match ordering {
-            Ordering::Natural => (0..n).collect(),
-            Ordering::ReverseCuthillMcKee => rcm_ordering(a),
-            Ordering::MinimumDegree => minimum_degree_ordering(a),
-        };
-        let permuted;
-        let c: &CsrMatrix<T> = if ordering == Ordering::Natural {
-            a
-        } else {
-            permuted = permute_symmetric(a, &perm);
-            &permuted
-        };
-        // Symbolische Analyse: Eliminationsbaum und Spaltenzahlen von L
-        let parent = elimination_tree(c);
-        let mut mark = vec![false; n];
-        let (mut stack, mut path) = (Vec::new(), Vec::new());
-        let mut count = vec![0usize; n];
-        for k in 0..n {
-            ereach(c, k, &parent, &mut mark, &mut stack, &mut path);
-            for &i in &stack {
-                count[i] += 1;
+        SparseLdlSymbolic::analyze(a, ordering)?.factorize(a)
+    }
+    /// Referenz auf die wertunabhängige Analyse.
+    pub fn symbolic(&self) -> &SparseLdlSymbolic {
+        &self.symbolic
+    }
+    /// Ob die letzte numerische Faktorisierung erfolgreich war.
+    pub fn is_valid(&self) -> bool {
+        self.valid
+    }
+    /// Neue Zahlenwerte bei exakt gleichem CSR-Muster, ohne Allokationen.
+    /// Struktur-/Eingabefehler erhalten den alten Faktor. Numerische Fehler invalidieren
+    /// ihn bis zur nächsten erfolgreichen Refaktorisierung; solve meldet dann InvalidInput.
+    pub fn refactor(&mut self, a: &CsrMatrix<T>) -> Result<(), LinalgError> {
+        self.symbolic.validate(a)?;
+        self.valid = false;
+        self.y.fill(T::ZERO);
+        self.d.fill(T::ZERO);
+        self.lx.fill(T::ZERO);
+        for k in 0..self.symbolic.n {
+            for &(j, src) in &self.symbolic.entries[k] {
+                self.y[j] = a.values()[src];
             }
-        }
-        let mut lp = vec![0usize; n + 1];
-        for i in 0..n {
-            lp[i + 1] = lp[i] + count[i];
-        }
-        let mut li = vec![0usize; lp[n]];
-        let mut lx = vec![T::ZERO; lp[n]];
-        let mut lnz = vec![0usize; n];
-        let mut d = vec![T::ZERO; n];
-        let mut y = vec![T::ZERO; n];
-        // Numerische Faktorisierung (zeilenweise, „up-looking“)
-        for k in 0..n {
-            ereach(c, k, &parent, &mut mark, &mut stack, &mut path);
-            for (j, v) in c.row(k) {
-                if j <= k {
-                    y[j] = v;
+            let mut dk = self.y[k];
+            self.y[k] = T::ZERO;
+            for &(i, slot) in &self.symbolic.operations[k] {
+                let yi = self.y[i];
+                self.y[i] = T::ZERO;
+                for p in self.symbolic.lp[i]..slot {
+                    self.y[self.symbolic.li[p]] -= self.lx[p] * yi;
                 }
-            }
-            let mut dk = y[k];
-            y[k] = T::ZERO;
-            for &i in &stack {
-                let yi = y[i];
-                y[i] = T::ZERO;
-                for p in lp[i]..lp[i] + lnz[i] {
-                    let row = li[p];
-                    y[row] -= lx[p] * yi;
-                }
-                let lki = yi / d[i];
+                let lki = yi / self.d[i];
                 dk -= lki * yi;
-                let p = lp[i] + lnz[i];
-                li[p] = k;
-                lx[p] = lki;
-                lnz[i] += 1;
+                if !lki.is_finite() || !dk.is_finite() {
+                    return Err(LinalgError::NotFinite);
+                }
+                self.lx[slot] = lki;
             }
-            if dk == T::ZERO || dk.is_nan() {
+            if !dk.is_finite() {
+                return Err(LinalgError::NotFinite);
+            }
+            if dk == T::ZERO {
                 return Err(LinalgError::Singular);
             }
-            d[k] = dk;
+            self.d[k] = dk;
         }
-        Ok(Self {
-            n,
-            perm,
-            lp,
-            li,
-            lx,
-            d,
-        })
+        self.valid = true;
+        Ok(())
     }
 
     /// Größe der Matrix.
     pub fn n(&self) -> usize {
-        self.n
+        self.symbolic.n
     }
 
     /// Anzahl der gespeicherten Einträge von `L` unterhalb der Diagonale (Maß für das Auffüllen).
@@ -313,28 +426,34 @@ impl<T: Real> SparseLdl<T> {
 
     /// Die verwendete Umordnung (`perm[neu] = alt`).
     pub fn permutation(&self) -> &[usize] {
-        &self.perm
+        &self.symbolic.perm
     }
 
     /// Trägheit: Anzahl positiver und negativer Einträge von `D` (nach Sylvester die Zahl positiver und negativer
     /// Eigenwerte von `A`). Bei KKT-Matrizen zeigt sie, ob die Matrix die richtige Trägheit hat.
     pub fn inertia(&self) -> (usize, usize) {
         let pos = self.d.iter().filter(|v| **v > T::ZERO).count();
-        (pos, self.n - pos)
+        (pos, self.symbolic.n - pos)
     }
 
     /// Löst `A·x = b`. Fehler bei falscher Länge von `b`.
     pub fn solve(&self, b: &[T]) -> Result<Vec<T>, LinalgError> {
-        if b.len() != self.n {
+        if !self.valid {
+            return Err(LinalgError::InvalidInput);
+        }
+        if b.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
+        if b.len() != self.symbolic.n {
             return Err(LinalgError::DimensionMismatch);
         }
-        let n = self.n;
-        let mut z: Vec<T> = (0..n).map(|i| b[self.perm[i]]).collect();
+        let n = self.symbolic.n;
+        let mut z: Vec<T> = (0..n).map(|i| b[self.symbolic.perm[i]]).collect();
         // L·w = z (spaltenweise)
         for j in 0..n {
             let zj = z[j];
-            for p in self.lp[j]..self.lp[j + 1] {
-                z[self.li[p]] -= self.lx[p] * zj;
+            for p in self.symbolic.lp[j]..self.symbolic.lp[j + 1] {
+                z[self.symbolic.li[p]] -= self.lx[p] * zj;
             }
         }
         for j in 0..n {
@@ -343,14 +462,17 @@ impl<T: Real> SparseLdl<T> {
         // Lᵀ·v = w
         for j in (0..n).rev() {
             let mut s = z[j];
-            for p in self.lp[j]..self.lp[j + 1] {
-                s -= self.lx[p] * z[self.li[p]];
+            for p in self.symbolic.lp[j]..self.symbolic.lp[j + 1] {
+                s -= self.lx[p] * z[self.symbolic.li[p]];
             }
             z[j] = s;
         }
         let mut x = vec![T::ZERO; n];
         for i in 0..n {
-            x[self.perm[i]] = z[i];
+            x[self.symbolic.perm[i]] = z[i];
+        }
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
         }
         Ok(x)
     }
@@ -366,15 +488,29 @@ pub struct SparseCholesky<T> {
 impl<T: Real> SparseCholesky<T> {
     /// Faktorisiert `a`. Fehler wie bei [`SparseLdl::new`], zusätzlich [`LinalgError::NotPositiveDefinite`], wenn ein Pivot `≤ 0` ist.
     pub fn new(a: &CsrMatrix<T>, ordering: Ordering) -> Result<Self, LinalgError> {
-        let ldl = match SparseLdl::new(a, ordering) {
-            Ok(l) => l,
+        SparseLdlSymbolic::analyze(a, ordering)?.factorize_cholesky(a)
+    }
+    /// Erneuert Zahlenwerte ohne neue Analyse oder Allokationen; verlangt positive Pivots.
+    /// Bei numerischem Fehlschlag ist der Faktor ungültig; Strukturfehler erhalten ihn.
+    pub fn refactor(&mut self, a: &CsrMatrix<T>) -> Result<(), LinalgError> {
+        match self.ldl.refactor(a) {
             Err(LinalgError::Singular) => return Err(LinalgError::NotPositiveDefinite),
             Err(e) => return Err(e),
-        };
-        if ldl.d().iter().any(|v| *v <= T::ZERO) {
+            Ok(()) => {}
+        }
+        if self.ldl.d.iter().any(|v| *v <= T::ZERO) {
+            self.ldl.valid = false;
             return Err(LinalgError::NotPositiveDefinite);
         }
-        Ok(Self { ldl })
+        Ok(())
+    }
+    /// Ob die Faktoren gültig sind.
+    pub fn is_valid(&self) -> bool {
+        self.ldl.is_valid()
+    }
+    /// Wertunabhängige Analyse.
+    pub fn symbolic(&self) -> &SparseLdlSymbolic {
+        self.ldl.symbolic()
     }
 
     /// Anzahl der gespeicherten Einträge von `L` unterhalb der Diagonale.

@@ -155,6 +155,15 @@ Umsetzung:
 
 ---
 
+### Wiederverwendung von Sparse-Strukturen
+
+✅ `SparseLdlSymbolic` und `SparseLuSymbolic`: Analyse getrennt von Zahlenwerten,
+Refaktorisierung mit Musterprüfung und Fehlerzustand, Cholesky unterstützt dieselbe
+LDLᵀ-Analyse. LDLᵀ/Cholesky ohne Allokationen beim Refaktorisieren; LU behält
+wertabhängige Pivotierung und kann zusätzliche Spaltenkapazität benötigen.
+Benchmark für Poisson-/KKT-/ODE-Muster: `examples/27_sparse_refactor_bench.rs`.
+Offen: direkte Sparse-Backend-Anbindung in QP/NLP und impliziten ODE-Lösern.
+
 ## 3. Abhängigkeitsgraph
 
 ```

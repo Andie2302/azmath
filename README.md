@@ -202,6 +202,32 @@ Näherungen von `micromath` wirken sich hier also nicht aus. **Cholesky und QR b
 `sqrt`**: mit `micromath` (bewusst schnell, aber ungenau) können die Ergebnisse deutlich abweichen
 (`sqrt(0)` ist dort z. B. nur ≈ 8e-20). Für genaue Werte `std` oder `libm` verwenden.
 
+### Wiederholte Sparse-Faktorisierungen (`alloc`)
+
+`SparseLdlSymbolic::analyze(&a, ordering)` und `SparseLuSymbolic::analyze(&a, ordering)`
+trennen wertunabhängige Vorbereitung und numerische Faktorisierung.
+`plan.factorize(&a)` erzeugt einen Faktor, `factor.refactor(&a)` aktualisiert ihn
+für neue Werte bei **exakt gleichem CSR-Muster** (Dimension, Zeilenzeiger, Spaltenindizes).
+Explizit gespeicherte Nullen dürfen ihre Werte wechseln, ohne das Muster zu ändern.
+LDLᵀ liest die ursprüngliche untere Hälfte auch nach Umordnung konsistent.
+
+LDLᵀ und `plan.factorize_cholesky(&a)` speichern das vollständige Füllmuster und
+benötigen bei `refactor` keine Allokationen. LU speichert Umordnung und Quellindizes;
+Zeilenpivots und Fill-in bleiben wertabhängig, Spaltenkapazitäten werden wiederverwendet
+und dürfen bei Bedarf wachsen. Sparse-LDLᵀ hat weiterhin **keine** numerische Pivotierung;
+für allgemeine indefinite Matrizen bleibt die dichte pivotierte LDLᵀ verfügbar.
+
+Strukturfehler (`InvalidInput`), Dimensionsfehler und nichtendliche Eingaben erhalten
+den bisherigen Faktor. Scheitert die numerische Faktorisierung, ist `is_valid()` falsch
+und Lösen ergibt `InvalidInput`, bis `refactor` wieder erfolgreich ist. Numerische
+Diagnosezugriffe auf D/Determinante/Trägheit setzen einen gültigen Faktor voraus.
+
+Benchmark mit Poisson-, KKT- und ODE-Mustern:
+[`27_sparse_refactor_bench`](examples/27_sparse_refactor_bench.rs),
+[Messbedingungen und Ergebnisse](docs/benchmarks/sparse-refactor.md).
+Die Beispiele prüfen wiederholte lineare Systeme; QP und ODE wählen dadurch noch
+nicht automatisch einen Sparse-Backend.
+
 ## Nullstellen
 
 Das Modul `azmath::roots` löst `f(x) = 0` für Funktionen einer Veränderlichen. Die Funktionen

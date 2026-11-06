@@ -48,11 +48,12 @@ pub use coo::CooMatrix;
 pub use csr::CsrMatrix;
 #[cfg(feature = "alloc")]
 pub use direct::{
-    Ordering, SparseCholesky, SparseLdl, minimum_degree_ordering, permute_symmetric, rcm_ordering,
+    Ordering, SparseCholesky, SparseLdl, SparseLdlSymbolic, minimum_degree_ordering,
+    permute_symmetric, rcm_ordering,
 };
 pub use error::SparseError;
 #[cfg(feature = "alloc")]
-pub use lu::SparseLu;
+pub use lu::{SparseLu, SparseLuSymbolic};
 #[cfg(feature = "alloc")]
 pub use precond::{Ic0, Ilu0, Ssor};
 pub use view::CsrView;

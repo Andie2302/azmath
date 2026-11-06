@@ -1,10 +1,9 @@
 //! Direkter Löser für allgemeine (nichtsymmetrische) dünn besetzte Matrizen: LU mit Zeilenpivotisierung.
 
-use super::{
-    CooMatrix, CsrMatrix, Ordering, minimum_degree_ordering, permute_symmetric, rcm_ordering,
-};
+use super::{CooMatrix, CsrMatrix, Ordering, minimum_degree_ordering, rcm_ordering};
 use crate::Real;
 use crate::linalg::LinalgError;
+use alloc::rc::Rc;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -39,6 +38,9 @@ pub struct SparseLu<T> {
     /// `U`-Spalten ohne Diagonale: `(Schritt k < j, Wert)`
     ucols: Vec<Vec<(usize, T)>>,
     udiag: Vec<T>,
+    symbolic: Rc<SparseLuSymbolic>,
+    work: Vec<T>,
+    valid: bool,
 }
 
 fn symmetric_pattern<T: Real>(a: &CsrMatrix<T>) -> CsrMatrix<T> {
@@ -53,93 +55,161 @@ fn symmetric_pattern<T: Real>(a: &CsrMatrix<T>) -> CsrMatrix<T> {
     CsrMatrix::from_coo(&coo)
 }
 
-impl<T: Real> SparseLu<T> {
-    /// Faktorisiert `a` (quadratisch). Fehler: [`LinalgError::DimensionMismatch`], [`LinalgError::NotFinite`],
-    /// [`LinalgError::Singular`] (kein von Null verschiedener Pivot in einer Spalte).
-    pub fn new(a: &CsrMatrix<T>, ordering: Ordering) -> Result<Self, LinalgError> {
+/// Wertunabhängige Vorbereitung für pivotiertes Sparse-LU.
+/// Speichert das exakte CSR-Muster, Fill-in-Umordnung und spaltenweise Quellindizes.
+/// Zeilenpivots und L/U-Füllmuster bleiben wertabhängig und werden numerisch neu bestimmt.
+#[derive(Debug, Clone)]
+pub struct SparseLuSymbolic {
+    n: usize,
+    row_ptr: Vec<usize>,
+    col_idx: Vec<usize>,
+    perm: Vec<usize>,
+    cols: Vec<Vec<(usize, usize)>>,
+}
+impl SparseLuSymbolic {
+    /// Bereitet eine quadratische Struktur vor; Zahlenwerte sind hierfür unerheblich.
+    pub fn analyze<T: Real>(a: &CsrMatrix<T>, ordering: Ordering) -> Result<Self, LinalgError> {
         let n = a.rows();
         if a.cols() != n {
             return Err(LinalgError::DimensionMismatch);
         }
-        if a.values().iter().any(|v| !v.is_finite()) {
-            return Err(LinalgError::NotFinite);
-        }
-        let perm: Vec<usize> = match ordering {
+        let perm = match ordering {
             Ordering::Natural => (0..n).collect(),
             Ordering::ReverseCuthillMcKee => rcm_ordering(&symmetric_pattern(a)),
             Ordering::MinimumDegree => minimum_degree_ordering(&symmetric_pattern(a)),
         };
-        let c = if ordering == Ordering::Natural {
-            a.clone()
-        } else {
-            permute_symmetric(a, &perm)
-        };
-        // spaltenweise Kopie
-        let mut cols: Vec<Vec<(usize, T)>> = vec![Vec::new(); n];
-        for r in 0..n {
-            for (j, v) in c.row(r) {
-                cols[j].push((r, v));
-            }
+        let mut inv = vec![0; n];
+        for (i, &p) in perm.iter().enumerate() {
+            inv[p] = i;
         }
-        let none = usize::MAX;
-        let mut pinv = vec![none; n];
-        let mut prow = vec![0usize; n];
-        let mut lcols: Vec<Vec<(usize, T)>> = Vec::with_capacity(n);
-        let mut ucols: Vec<Vec<(usize, T)>> = Vec::with_capacity(n);
-        let mut udiag = Vec::with_capacity(n);
-        let mut x = vec![T::ZERO; n];
-        for j in 0..n {
-            for &(i, v) in &cols[j] {
-                x[i] = v;
+        let mut cols = vec![Vec::new(); n];
+        for r in 0..n {
+            for src in a.row_ptr()[r]..a.row_ptr()[r + 1] {
+                cols[inv[a.col_idx()[src]]].push((inv[r], src));
             }
-            let mut ucol = Vec::new();
-            for k in 0..j {
-                let ukj = x[prow[k]];
-                if ukj != T::ZERO {
-                    ucol.push((k, ukj));
-                    for &(i, l) in &lcols[k] {
-                        x[i] -= l * ukj;
-                    }
-                }
-                x[prow[k]] = T::ZERO;
-            }
-            // Pivot unter den noch nicht gewählten Zeilen
-            let mut p = none;
-            let mut best = T::ZERO;
-            for i in 0..n {
-                if pinv[i] == none && x[i].abs() > best {
-                    best = x[i].abs();
-                    p = i;
-                }
-            }
-            if p == none {
-                return Err(LinalgError::Singular);
-            }
-            let piv = x[p];
-            let mut lcol = Vec::new();
-            for i in 0..n {
-                if pinv[i] == none && i != p && x[i] != T::ZERO {
-                    lcol.push((i, x[i] / piv));
-                }
-                if pinv[i] == none {
-                    x[i] = T::ZERO;
-                }
-            }
-            pinv[p] = j;
-            prow[j] = p;
-            lcols.push(lcol);
-            ucols.push(ucol);
-            udiag.push(piv);
         }
         Ok(Self {
             n,
+            row_ptr: a.row_ptr().to_vec(),
+            col_idx: a.col_idx().to_vec(),
             perm,
-            prow,
-            pinv,
-            lcols,
-            ucols,
-            udiag,
+            cols,
         })
+    }
+    /// Dimension.
+    pub fn n(&self) -> usize {
+        self.n
+    }
+    /// Symmetrische Fill-in-Umordnung (nicht die numerische Zeilenpivotierung).
+    pub fn permutation(&self) -> &[usize] {
+        &self.perm
+    }
+    /// Erzeugt numerische Faktoren und deren wiederverwendbare Puffer.
+    pub fn factorize<T: Real>(&self, a: &CsrMatrix<T>) -> Result<SparseLu<T>, LinalgError> {
+        let n = self.n;
+        let mut factor = SparseLu {
+            n,
+            perm: self.perm.clone(),
+            prow: vec![0; n],
+            pinv: vec![usize::MAX; n],
+            lcols: vec![Vec::new(); n],
+            ucols: vec![Vec::new(); n],
+            udiag: vec![T::ZERO; n],
+            symbolic: Rc::new(self.clone()),
+            work: vec![T::ZERO; n],
+            valid: false,
+        };
+        factor.refactor(a)?;
+        Ok(factor)
+    }
+}
+
+impl<T: Real> SparseLu<T> {
+    /// Faktorisiert `a` (quadratisch). Fehler: [`LinalgError::DimensionMismatch`], [`LinalgError::NotFinite`],
+    /// [`LinalgError::Singular`] (kein von Null verschiedener Pivot in einer Spalte).
+    pub fn new(a: &CsrMatrix<T>, ordering: Ordering) -> Result<Self, LinalgError> {
+        SparseLuSymbolic::analyze(a, ordering)?.factorize(a)
+    }
+    /// Wertunabhängige Vorbereitung.
+    pub fn symbolic(&self) -> &SparseLuSymbolic {
+        &self.symbolic
+    }
+    /// Ob eine gültige numerische Faktorisierung vorliegt.
+    pub fn is_valid(&self) -> bool {
+        self.valid
+    }
+    /// Aktualisiert Zahlenwerte bei exakt gleichem CSR-Muster.
+    /// Umordnung/Zugriffsmuster bleiben erhalten; numerische Pivots und Fill-in werden
+    /// neu bestimmt. Spaltenkapazitäten werden wiederverwendet, können aber wachsen.
+    /// Struktur-/Eingabefehler erhalten die Faktoren, numerische Fehler invalidieren sie.
+    pub fn refactor(&mut self, a: &CsrMatrix<T>) -> Result<(), LinalgError> {
+        let n = self.n;
+        if a.rows() != n || a.cols() != n {
+            return Err(LinalgError::DimensionMismatch);
+        }
+        if a.row_ptr() != self.symbolic.row_ptr || a.col_idx() != self.symbolic.col_idx {
+            return Err(LinalgError::InvalidInput);
+        }
+        if a.values().iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
+        self.valid = false;
+        self.work.fill(T::ZERO);
+        self.pinv.fill(usize::MAX);
+        for j in 0..n {
+            self.lcols[j].clear();
+            self.ucols[j].clear();
+            for &(i, src) in &self.symbolic.cols[j] {
+                self.work[i] = a.values()[src];
+            }
+            for k in 0..j {
+                let u = self.work[self.prow[k]];
+                if !u.is_finite() {
+                    return Err(LinalgError::NotFinite);
+                }
+                if u != T::ZERO {
+                    self.ucols[j].push((k, u));
+                    for &(i, l) in &self.lcols[k] {
+                        self.work[i] -= l * u;
+                    }
+                }
+                self.work[self.prow[k]] = T::ZERO;
+            }
+            let mut pivot = usize::MAX;
+            let mut best = T::ZERO;
+            for i in 0..n {
+                if self.pinv[i] == usize::MAX {
+                    if !self.work[i].is_finite() {
+                        return Err(LinalgError::NotFinite);
+                    }
+                    if self.work[i].abs() > best {
+                        best = self.work[i].abs();
+                        pivot = i;
+                    }
+                }
+            }
+            if pivot == usize::MAX {
+                return Err(LinalgError::Singular);
+            }
+            let d = self.work[pivot];
+            for i in 0..n {
+                if self.pinv[i] == usize::MAX {
+                    if i != pivot && self.work[i] != T::ZERO {
+                        let l = self.work[i] / d;
+                        if !l.is_finite() {
+                            return Err(LinalgError::NotFinite);
+                        }
+                        self.lcols[j].push((i, l));
+                    }
+                    self.work[i] = T::ZERO;
+                }
+            }
+            self.pinv[pivot] = j;
+            self.prow[j] = pivot;
+            self.udiag[j] = d;
+        }
+        self.valid = true;
+        Ok(())
     }
 
     /// Dimension.
@@ -187,6 +257,12 @@ impl<T: Real> SparseLu<T> {
     /// Löst `A·x = b`.
     pub fn solve(&self, b: &[T]) -> Result<Vec<T>, LinalgError> {
         let n = self.n;
+        if !self.valid {
+            return Err(LinalgError::InvalidInput);
+        }
+        if b.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
         if b.len() != n {
             return Err(LinalgError::DimensionMismatch);
         }
@@ -209,12 +285,21 @@ impl<T: Real> SparseLu<T> {
         for i in 0..n {
             x[self.perm[i]] = z[i];
         }
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
         Ok(x)
     }
 
     /// Löst `Aᵀ·x = b`.
     pub fn solve_transposed(&self, b: &[T]) -> Result<Vec<T>, LinalgError> {
         let n = self.n;
+        if !self.valid {
+            return Err(LinalgError::InvalidInput);
+        }
+        if b.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
+        }
         if b.len() != n {
             return Err(LinalgError::DimensionMismatch);
         }
@@ -245,6 +330,9 @@ impl<T: Real> SparseLu<T> {
         let mut x = vec![T::ZERO; n];
         for i in 0..n {
             x[self.perm[i]] = y[i];
+        }
+        if x.iter().any(|v| !v.is_finite()) {
+            return Err(LinalgError::NotFinite);
         }
         Ok(x)
     }
