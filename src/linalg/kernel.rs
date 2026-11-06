@@ -349,49 +349,7 @@ pub fn qr_decompose<T: Real>(
     }
 
     for k in 0..n {
-        let mut scale = T::ZERO;
-        for i in k..m {
-            scale = scale.max(a[i * n + k].abs());
-        }
-        // Exakte Nullprüfung vor sqrt (auch für Näherungs-Backends).
-        if scale == T::ZERO {
-            tau[k] = T::ZERO;
-            continue;
-        }
-        let mut norm2 = T::ZERO;
-        for i in k..m {
-            let value = a[i * n + k] / scale;
-            norm2 += value * value;
-        }
-        let norm = norm2.sqrt();
-        let akk = a[k * n + k] / scale;
-        let alpha = if akk > T::ZERO { -norm } else { norm };
-        let v0 = akk - alpha;
-        let t = T::ONE - akk / alpha;
-        tau[k] = t;
-        for i in (k + 1)..m {
-            a[i * n + k] = (a[i * n + k] / scale) / v0;
-        }
-        for j in (k + 1)..n {
-            let (s, scale) = reflector_projection(
-                k,
-                m,
-                t,
-                |i| if i == k { T::ONE } else { a[i * n + k] },
-                |i| a[i * n + j],
-            );
-            for i in k..m {
-                let w = if i == k { T::ONE } else { a[i * n + k] };
-                a[i * n + j] = reflector_entry(a[i * n + j], w, s, scale);
-                if !a[i * n + j].is_finite() {
-                    return Err(LinalgError::NotFinite);
-                }
-            }
-        }
-        a[k * n + k] = alpha * scale;
-        if !a[k * n + k].is_finite() {
-            return Err(LinalgError::NotFinite);
-        }
+        qr_householder_step(a, m, n, tau, k)?;
     }
 
     let mut rmax = T::ZERO;
@@ -404,6 +362,175 @@ pub fn qr_decompose<T: Real>(
         if d.is_nan() || d <= tol {
             return Err(LinalgError::Singular);
         }
+    }
+    Ok(())
+}
+
+// Gemeinsamer skalierter Householder-Schritt für QR mit und ohne Pivotierung.
+fn qr_householder_step<T: Real>(
+    a: &mut [T],
+    m: usize,
+    n: usize,
+    tau: &mut [T],
+    k: usize,
+) -> Result<(), LinalgError> {
+    let mut scale = T::ZERO;
+    for i in k..m {
+        scale = scale.max(a[i * n + k].abs());
+    }
+    // Exakte Nullprüfung vor sqrt (auch für Näherungs-Backends).
+    if scale == T::ZERO {
+        tau[k] = T::ZERO;
+        return Ok(());
+    }
+    let mut norm2 = T::ZERO;
+    for i in k..m {
+        let value = a[i * n + k] / scale;
+        norm2 += value * value;
+    }
+    let norm = norm2.sqrt();
+    let akk = a[k * n + k] / scale;
+    let alpha = if akk > T::ZERO { -norm } else { norm };
+    let v0 = akk - alpha;
+    let t = T::ONE - akk / alpha;
+    tau[k] = t;
+    for i in (k + 1)..m {
+        a[i * n + k] = (a[i * n + k] / scale) / v0;
+    }
+    for j in (k + 1)..n {
+        let (s, scale) = reflector_projection(
+            k,
+            m,
+            t,
+            |i| if i == k { T::ONE } else { a[i * n + k] },
+            |i| a[i * n + j],
+        );
+        for i in k..m {
+            let w = if i == k { T::ONE } else { a[i * n + k] };
+            a[i * n + j] = reflector_entry(a[i * n + j], w, s, scale);
+            if !a[i * n + j].is_finite() {
+                return Err(LinalgError::NotFinite);
+            }
+        }
+    }
+    a[k * n + k] = alpha * scale;
+    if !a[k * n + k].is_finite() {
+        return Err(LinalgError::NotFinite);
+    }
+    Ok(())
+}
+
+/// Householder-QR mit Spaltenpivotierung: A[:, permutation] = Q·R.
+/// Rangdefizite sind erlaubt. Restspaltennormen werden in jedem Schritt neu berechnet.
+pub fn qr_pivoted_decompose<T: Real>(
+    a: &mut [T],
+    m: usize,
+    n: usize,
+    tau: &mut [T],
+    permutation: &mut [usize],
+) -> Result<(), LinalgError> {
+    debug_assert_eq!(a.len(), m * n);
+    debug_assert_eq!(tau.len(), n);
+    debug_assert_eq!(permutation.len(), n);
+    debug_assert!(m >= n);
+    if a.iter().any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
+    }
+    for (j, p) in permutation.iter_mut().enumerate() {
+        *p = j;
+    }
+    for k in 0..n {
+        let mut pivot = k;
+        let mut largest = T::ZERO;
+        for j in k..n {
+            let mut scale = T::ZERO;
+            for i in k..m {
+                scale = scale.max(a[i * n + j].abs());
+            }
+            let mut length = T::ZERO;
+            if scale != T::ZERO {
+                let mut sum = T::ZERO;
+                for i in k..m {
+                    let v = a[i * n + j] / scale;
+                    sum += v * v;
+                }
+                length = scale * sum.sqrt();
+                if !length.is_finite() {
+                    return Err(LinalgError::NotFinite);
+                }
+            }
+            if length > largest {
+                largest = length;
+                pivot = j;
+            }
+        }
+        if pivot != k {
+            for i in 0..m {
+                a.swap(i * n + k, i * n + pivot);
+            }
+            permutation.swap(k, pivot);
+        }
+        qr_householder_step(a, m, n, tau, k)?;
+    }
+    Ok(())
+}
+
+/// Standardschwelle relativ zum ersten (größten) Pivot.
+pub fn qr_pivoted_tolerance<T: Real>(a: &[T], m: usize, n: usize) -> T {
+    if n == 0 {
+        T::ZERO
+    } else {
+        (T::from_usize(m) * T::EPSILON).min(T::ONE) * a[0].abs()
+    }
+}
+
+/// Führender numerisch regulärer Block von R; absolute Schwelle.
+pub fn qr_pivoted_rank<T: Real>(a: &[T], n: usize, tol: T) -> Result<usize, LinalgError> {
+    if !tol.is_finite() || tol < T::ZERO {
+        return Err(LinalgError::InvalidInput);
+    }
+    Ok((0..n).take_while(|&i| a[i * n + i].abs() > tol).count())
+}
+
+/// Geprüfte Basislösung: freie Koordinaten in pivotierter Reihenfolge sind null.
+/// y enthält anfangs b und danach Qᵀb; x wird in ursprünglicher Spaltenreihenfolge ausgegeben.
+pub fn qr_pivoted_solve<T: Real>(
+    a: &[T],
+    m: usize,
+    n: usize,
+    tau: &[T],
+    permutation: &[usize],
+    rank: usize,
+    y: &mut [T],
+    x: &mut [T],
+) -> Result<(), LinalgError> {
+    if y.iter().any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
+    }
+    qr_apply_qt(a, m, n, tau, y);
+    if y.iter().any(|v| !v.is_finite()) {
+        return Err(LinalgError::NotFinite);
+    }
+    x.fill(T::ZERO);
+    for i in (0..rank).rev() {
+        let mut s = y[i];
+        for j in i + 1..rank {
+            s -= a[i * n + j] * x[permutation[j]];
+        }
+        let d = a[i * n + i];
+        let value = if !s.is_finite() && d.abs() > T::ONE {
+            let mut v = y[i] / d;
+            for j in i + 1..rank {
+                v -= (a[i * n + j] / d) * x[permutation[j]];
+            }
+            v
+        } else {
+            s / d
+        };
+        if !value.is_finite() {
+            return Err(LinalgError::NotFinite);
+        }
+        x[permutation[i]] = value;
     }
     Ok(())
 }

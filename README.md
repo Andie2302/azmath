@@ -114,9 +114,15 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   LU), die `_transposed`-Varianten lösen `Lᵀ·x = b` bzw. `Uᵀ·x = b`, ohne die Matrix zu
   transponieren (so löst man etwa Cholesky in zwei Schritten). Ein Diagonalelement 0 oder NaN
   ergibt `LinalgError::Singular`.
-- **QR** (`Matrix::qr`, `least_squares`): Householder-Verfahren für `M × N`-Matrizen mit `M ≥ N`.
-  Löst überbestimmte Systeme im Sinne der kleinsten Quadrate (Ausgleichsgeraden, Polynomfits)
-  und liefert `Q`, `R` und die Residuumsnorm.
+- **QR** für `M × N`-Matrizen mit `M ≥ N`: `Matrix::qr` liefert die Householder-Zerlegung
+  ohne Pivotierung bei vollem Spaltenrang. `Matrix::qr_pivoted` (`PivotedQr`, mit `alloc`:
+  `DynPivotedQr`) liefert `A[:, permutation] = Q·R`, die Spaltenpermutation, den geschätzten
+  numerischen Rang sowie `Q`, `R` und die Residuumsnorm, auch bei Rangmangel.
+  `least_squares` verwendet standardmäßig QR mit Spaltenpivotierung. Bei Rangmangel sind die
+  freien pivotierten Koordinaten der Basislösung 0; für eine Lösung kleinster Norm die SVD verwenden.
+  Die absolute Standardschwelle ist `min(M·ε, 1)·|R₀₀|`; `rank_with_tolerance` und
+  `solve_with_tolerance` erlauben eine eigene Schwelle. Rangschätzung hängt von der Spaltenskalierung
+  ab und ist keine SVD: Bei stark unterschiedlichen Einheiten vorher äquilibrieren.
 - **Iterative Löser** (`azmath::linalg::iterative`): CG (`cg`, `pcg`) für große symmetrisch positiv
   definite Systeme, **matrixfrei** über das Trait `LinearOperator` (dichte `Matrix`/`DynMatrix`,
   eigene Stencils oder beliebige Closures über `FnOperator`). Der Arbeitsspeicher wird als Slice
@@ -133,7 +139,7 @@ Es nutzt nur das `Real`-Trait und funktioniert daher mit jedem Backend.
   (aufsteigend) und orthonormale Eigenvektoren einer symmetrischen Matrix (zyklisches Jacobi-Verfahren,
   sehr genau auch für kleine Eigenwerte). `Matrix::svd` berechnet die dünne SVD `A = U·Σ·Vᵀ` (`M ≥ N`,
   einseitiges Jacobi-Verfahren) samt `rank()`, `condition_number()`, `pseudo_inverse()` und `solve()`, der
-  Lösung **kleinster Norm** auch bei Rangmangel (wo QR `Singular` meldet). Matrixfrei gibt es
+  Lösung **kleinster Norm** auch bei Rangmangel (im Unterschied zur Basislösung des pivotierten QR). Matrixfrei gibt es
   `power_iteration` (betragsgrößter Eigenwert, nur `A·x` nötig) und `inverse_iteration` (Eigenwert nahe
   einem `shift`, bequem als `Matrix::eigenpair_near`). Mit `alloc` stehen `DynMatrix::symmetric_eigen`,
   `svd`, `dominant_eigenpair` und `eigenpair_near` bereit. Nicht enthalten: Eigenwerte nichtsymmetrischer
@@ -247,7 +253,7 @@ Ausgleichsprobleme `min ‖r(x)‖₂`.
 | Funktion | Problem | Verfahren |
 |---|---|---|
 | `newton_system` | `F(x) = 0`, `n` Gleichungen und Unbekannte | Newton mit Schrittweitensteuerung (QR) |
-| `gauss_newton` | `min ‖r(x)‖` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
+| `gauss_newton` | `min ‖r(x)‖` mit `m ≥ n` Residuen | Gauß-Newton (QR mit Spaltenpivotierung), auch bei Rangmangel |
 | `levenberg_marquardt` | `min ‖r(x)‖` | gedämpft, robust bei schlechtem Startwert und Rangmangel |
 
 Zu jedem gibt es eine Variante `*_fd` mit Jacobi-Matrix aus Vorwärtsdifferenzen
@@ -258,6 +264,13 @@ passen sie zu festen Größen wie zu zur Laufzeit bekannten Datenmengen (Kurvena
 den Abbruchgrund (`Termination`: `Residual`, `Step`, `Gradient`, `Cost`). Fehler
 (`OptimizeError`, `#[non_exhaustive]`): `InvalidInput`, `NotFinite`, `SingularJacobian`,
 `NoConvergence`.
+
+**API-Änderung:** `gauss_newton` und `gauss_newton_fd` benötigen nach `work` einen zusätzlichen
+`&mut [usize]`-Puffer `permutation` mit mindestens `n` Elementen, etwa `&mut [0; N]`.
+Beide verwenden jetzt QR mit Spaltenpivotierung und berechnen bei Rangmangel einen Basisschritt
+(freie pivotierte Schrittkoordinaten 0). Der Inhalt des Indexpuffers wird überschrieben;
+die Rechenpufferlänge `gauss_newton_work_len(m, n)` bleibt gleich. Beispiel:
+[`examples/24_pivoted_qr.rs`](examples/24_pivoted_qr.rs).
 
 ```rust
 use azmath::optimize::{levenberg_marquardt_fd, levenberg_marquardt_work_len, OptimizeOptions};
@@ -280,8 +293,8 @@ assert!((p[0] - 2.0).abs() < 1e-7 && (p[1] + 1.0).abs() < 1e-7);
 Hinweise: Alle Verfahren sind **lokal**; sie finden eine Lösung nahe am Startwert (bei Plateaus oder
 mehreren Lösungen nicht zwingend die beste). Levenberg-Marquardt löst das um die Dämpfung erweiterte
 Least-Squares-System per Givens-QR, ohne `JᵀJ` zu bilden und dessen Konditionszahl zu quadrieren.
-Gauß-Newton und Newton verwenden Householder-QR. Die Schnittstellen, die Workspace-Größe und
-die Unterstützung für `no_std` ohne Allokator bleiben erhalten.
+Gauß-Newton verwendet Householder-QR mit Spaltenpivotierung, Newton ohne Spaltenpivotierung.
+Alle drei Verfahren unterstützen `no_std` ohne Allokator.
 
 ## Differentialgleichungen
 
@@ -447,6 +460,7 @@ cargo run --release --example 17_multigrid
 | `18_autodiff`               | Autodiff: exakte Jacobi-Matrix für Levenberg-Marquardt, Hessematrix |
 | `19_rotations`              | Rotationen: Quaternionen, slerp, Euler-Winkel mit Gimbal Lock, Drift beheben |
 | `20_sparse`                 | Sparse: CSR, CG mit IC(0)/SSOR, Lanczos-Eigenwerte (`--features alloc`) |
+| `24_pivoted_qr`             | Spaltenpivotierung, Rangmangel, Basislösung gegenüber SVD, Gauß-Newton |
 
 ## Tests
 

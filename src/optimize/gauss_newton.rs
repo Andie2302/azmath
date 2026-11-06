@@ -4,7 +4,10 @@ use super::{
 };
 use crate::Real;
 use crate::linalg::LinalgError;
-use crate::linalg::kernel::{qr_decompose, qr_solve};
+use crate::linalg::kernel::{
+    qr_decompose, qr_pivoted_decompose, qr_pivoted_rank, qr_pivoted_solve, qr_pivoted_tolerance,
+    qr_solve,
+};
 
 /// Benötigter Arbeitsspeicher für [`gauss_newton`] und [`gauss_newton_fd`] bei `m` Residuen und
 /// `n` Parametern.
@@ -25,16 +28,21 @@ fn gn_core<T, R, J>(
     m: usize,
     opts: OptimizeOptions<T>,
     work: &mut [T],
-    root: bool,
+    mut permutation: Option<&mut [usize]>,
 ) -> Result<OptimizeResult<T>, OptimizeError>
 where
     T: Real,
     R: FnMut(&[T], &mut [T]),
     J: FnMut(&[T], &mut [T]),
 {
+    let root = permutation.is_none();
     super::validate_options(opts)?;
     let n = x.len();
-    if n == 0 || m < n || work.len() < gauss_newton_work_len(m, n) {
+    if n == 0
+        || m < n
+        || work.len() < gauss_newton_work_len(m, n)
+        || permutation.as_ref().is_some_and(|p| p.len() < n)
+    {
         return Err(OptimizeError::InvalidInput);
     }
     if x.iter().any(|v| !finite(*v)) {
@@ -95,16 +103,24 @@ where
                 });
             }
         }
-        // Gauß-Newton-Schritt: min ‖J·δ + r‖  (per QR)
-        match qr_decompose(jm, m, n, tau) {
+        // Pivotierte Variante: Basislösung auch bei Rangmangel, mit echtem usize-Puffer.
+        for (yi, ri) in y.iter_mut().zip(r.iter()) {
+            *yi = -*ri;
+        }
+        let solved = if let Some(p) = permutation.as_deref_mut() {
+            let p = &mut p[..n];
+            qr_pivoted_decompose(jm, m, n, tau, p).and_then(|()| {
+                let rank = qr_pivoted_rank(jm, n, qr_pivoted_tolerance(jm, m, n))?;
+                qr_pivoted_solve(jm, m, n, tau, p, rank, y, dx)
+            })
+        } else {
+            qr_decompose(jm, m, n, tau).map(|()| qr_solve(jm, m, n, tau, y, dx))
+        };
+        match solved {
             Ok(()) => {}
             Err(LinalgError::NotFinite) => return Err(OptimizeError::NotFinite),
             Err(_) => return Err(OptimizeError::SingularJacobian),
         }
-        for (yi, ri) in y.iter_mut().zip(r.iter()) {
-            *yi = -*ri;
-        }
-        qr_solve(jm, m, n, tau, y, dx);
         let step = norm(dx);
         if !finite(step) {
             return Err(OptimizeError::NotFinite);
@@ -157,19 +173,23 @@ where
 
 /// Gauß-Newton-Verfahren für `min ‖r(x)‖₂` mit `m ≥ n` Residuen und `n` Parametern.
 ///
-/// Jeder Schritt löst das linearisierte Ausgleichsproblem `min ‖J·δ + r‖` per QR-Zerlegung
+/// Jeder Schritt löst das linearisierte Ausgleichsproblem `min ‖J·δ + r‖` per QR mit Spaltenpivotierung
 /// (numerisch stabiler als die Normalengleichungen) und halbiert die Schrittweite, bis das
 /// Residuum nicht mehr wächst. Das Verfahren konvergiert schnell, wenn das Residuum an der Lösung
-/// klein ist, braucht aber einen brauchbaren Startwert und eine Jacobi-Matrix mit vollem
-/// Spaltenrang; sonst ist [`levenberg_marquardt`](super::levenberg_marquardt) die bessere Wahl.
+/// klein ist, braucht aber einen brauchbaren Startwert. Bei Rangmangel wird eine Basislösung
+/// verwendet: freie pivotierte Schrittkoordinaten bleiben 0 (nicht kleinste Norm).
+/// Der Rang wird mit `min(m·ε, 1)·|R₀₀|` geschätzt; Parameter bei Bedarf vorher skalieren.
+/// Bei schlechtem Startwert ist [`levenberg_marquardt`](super::levenberg_marquardt) oft robuster.
 ///
 /// - `residual(x, r)` schreibt `r(x)`; `jacobian(x, j)` schreibt die Jacobi-Matrix zeilenweise
 ///   (`j[i*n + k] = ∂rᵢ/∂xₖ`).
 /// - `x`: Startwert und Ergebnis (`n` Elemente), `m`: Anzahl der Residuen.
 /// - `work`: mindestens [`gauss_newton_work_len`]`(m, n)` Elemente.
+/// - `permutation`: zusätzlicher `usize`-Puffer mit mindestens `n` Elementen, wird überschrieben.
+///   Anfangsinhalt beliebig, kein Allokator nötig.
 ///
 /// Fehler: [`OptimizeError::InvalidInput`], [`OptimizeError::NotFinite`],
-/// [`OptimizeError::SingularJacobian`], [`OptimizeError::NoConvergence`].
+/// [`OptimizeError::NoConvergence`].
 pub fn gauss_newton<T: Real>(
     residual: impl FnMut(&[T], &mut [T]),
     jacobian: impl FnMut(&[T], &mut [T]),
@@ -177,8 +197,17 @@ pub fn gauss_newton<T: Real>(
     m: usize,
     opts: OptimizeOptions<T>,
     work: &mut [T],
+    permutation: &mut [usize],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
-    gn_core(residual, Jac::Analytic(jacobian), x, m, opts, work, false)
+    gn_core(
+        residual,
+        Jac::Analytic(jacobian),
+        x,
+        m,
+        opts,
+        work,
+        Some(permutation),
+    )
 }
 
 /// Wie [`gauss_newton`], bestimmt die Jacobi-Matrix aber selbst per Vorwärtsdifferenzen
@@ -189,6 +218,7 @@ pub fn gauss_newton_fd<T: Real>(
     m: usize,
     opts: OptimizeOptions<T>,
     work: &mut [T],
+    permutation: &mut [usize],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
     gn_core(
         residual,
@@ -197,7 +227,7 @@ pub fn gauss_newton_fd<T: Real>(
         m,
         opts,
         work,
-        false,
+        Some(permutation),
     )
 }
 
@@ -216,7 +246,7 @@ pub fn gauss_newton_fd<T: Real>(
 /// [`OptimizeError::NoConvergence`]. `tol_g` wird bei Gleichungslösern nicht verwendet.
 /// Alle Toleranzen müssen endlich und nichtnegativ sein.
 ///
-/// Fehler wie bei [`gauss_newton`].
+/// Fehler wie bei [`gauss_newton`], zusätzlich [`OptimizeError::SingularJacobian`].
 ///
 /// ```
 /// # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -244,7 +274,7 @@ pub fn newton_system<T: Real>(
     work: &mut [T],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
     let n = x.len();
-    gn_core(f, Jac::Analytic(jacobian), x, n, opts, work, true)
+    gn_core(f, Jac::Analytic(jacobian), x, n, opts, work, None)
 }
 
 /// Wie [`newton_system`], bestimmt die Jacobi-Matrix aber selbst per Vorwärtsdifferenzen.
@@ -255,5 +285,5 @@ pub fn newton_system_fd<T: Real>(
     work: &mut [T],
 ) -> Result<OptimizeResult<T>, OptimizeError> {
     let n = x.len();
-    gn_core(f, Jac::Numeric::<NoJacobian<T>>, x, n, opts, work, true)
+    gn_core(f, Jac::Numeric::<NoJacobian<T>>, x, n, opts, work, None)
 }

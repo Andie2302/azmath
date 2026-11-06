@@ -20,7 +20,8 @@
 //! - Gauß-Elimination als benannte Funktionen: `Matrix::gauss_solve`, `Matrix::rank`, `Matrix::row_echelon`.
 //! - [`Cholesky`] löst symmetrisch positiv definite Systeme schneller als LU.
 //! - [`QrDecomposition`] (Householder) löst überbestimmte Systeme im Sinne der kleinsten
-//!   Quadrate, etwa für Ausgleichsgeraden.
+//!   Quadrate bei vollem Spaltenrang. [`PivotedQr`] ergänzt Spaltenpivotierung,
+//!   Rangschätzung und Basislösungen bei Rangmangel; `least_squares` verwendet diese Variante.
 //!
 //! ```
 //! # #[cfg(any(feature = "std", feature = "libm"))] {
@@ -48,6 +49,7 @@ mod norm;
 mod operator;
 mod orthogonal;
 mod qr;
+mod qr_pivoted;
 mod tridiagonal;
 mod vector;
 
@@ -63,6 +65,9 @@ pub use matrix::Matrix;
 pub use operator::{FnOperator, LinearOperator};
 pub use orthogonal::{Orthonormalized, Polar};
 pub use qr::QrDecomposition;
+#[cfg(feature = "alloc")]
+pub use qr_pivoted::DynPivotedQr;
+pub use qr_pivoted::PivotedQr;
 pub use tridiagonal::{
     cyclic_tridiagonal_work_len, solve_cyclic_tridiagonal, solve_tridiagonal, tridiagonal_work_len,
 };

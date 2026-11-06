@@ -348,9 +348,10 @@ impl<T: Real> DynMatrix<T> {
         DynQr::new(self)
     }
 
-    /// Kleinste-Quadrate-Lösung von `min ‖self · x − b‖₂` (per QR).
+    /// Kleinste-Quadrate-Basislösung per QR mit Spaltenpivotierung, auch bei Rangmangel.
+    /// Für eine Lösung kleinster Norm bei Rangmangel die SVD verwenden.
     pub fn least_squares(&self, b: &DynVector<T>) -> Result<DynVector<T>, LinalgError> {
-        self.qr()?.solve(b)
+        self.qr_pivoted()?.solve(b)
     }
 
     /// Determinante; Fehler bei nicht quadratischen Matrizen.

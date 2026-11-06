@@ -59,7 +59,7 @@ fn main() {
 
     let mut g = [1.0, -0.2];
     let mut gwork = [0.0; gauss_newton_work_len(8, 2)];
-    gauss_newton(residual, jacobian, &mut g, 8, opts, &mut gwork).unwrap();
+    gauss_newton(residual, jacobian, &mut g, 8, opts, &mut gwork, &mut [0; 2]).unwrap();
     println!("  Gauß-Newton        : a = {:.5}, b = {:.5}", g[0], g[1]);
 
     // --- 2. Gauß-Peak, Anzahl der Messpunkte zur Laufzeit

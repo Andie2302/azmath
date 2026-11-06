@@ -282,10 +282,11 @@ impl<T: Real, const M: usize, const N: usize> Matrix<T, M, N> {
         QrDecomposition::new(self)
     }
 
-    /// Kleinste-Quadrate-Lösung von `min ‖self · x − b‖₂` (per QR).
+    /// Kleinste-Quadrate-Basislösung per QR mit Spaltenpivotierung, auch bei Rangmangel.
+    /// Für eine Lösung kleinster Norm bei Rangmangel die SVD verwenden.
     /// [`LinalgError::NotFinite`] auch bei ungültiger rechter Seite oder nichtendlichem Ergebnis.
     pub fn least_squares(&self, b: &Vector<T, M>) -> Result<Vector<T, N>, LinalgError> {
-        self.qr()?.try_solve(b)
+        self.qr_pivoted()?.solve(b)
     }
 }
 

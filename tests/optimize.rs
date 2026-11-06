@@ -241,7 +241,16 @@ fn gauss_newton_exponential_fit_exact_data() {
     let y = exp_data(2.5, -1.3);
     let mut p = [2.0, -1.0];
     let mut work = [0.0; gauss_newton_work_len(8, 2)];
-    let r = gauss_newton(exp_residual(y), exp_jac, &mut p, 8, opts(), &mut work).unwrap();
+    let r = gauss_newton(
+        exp_residual(y),
+        exp_jac,
+        &mut p,
+        8,
+        opts(),
+        &mut work,
+        &mut [0; 2],
+    )
+    .unwrap();
     close(p[0], 2.5, 1e-9);
     close(p[1], -1.3, 1e-9);
     assert!(r.residual_norm < 1e-8);
@@ -265,7 +274,7 @@ fn gauss_newton_linear_problem_equals_least_squares() {
     };
     let mut p = [0.0, 0.0];
     let mut work = [0.0; gauss_newton_work_len(4, 2)];
-    let r = gauss_newton(res, jac, &mut p, 4, opts(), &mut work).unwrap();
+    let r = gauss_newton(res, jac, &mut p, 4, opts(), &mut work, &mut [0; 2]).unwrap();
     close(p[0], -0.5, 1e-12);
     close(p[1], 1.2, 1e-12);
     // Residuum ist nicht null: Abbruch über Gradient oder Schrittweite
@@ -286,8 +295,17 @@ fn gauss_newton_fd_matches_analytic() {
     let y = exp_data(2.5, -1.3);
     let (mut p1, mut p2) = ([2.0, -1.0], [2.0, -1.0]);
     let mut work = [0.0; gauss_newton_work_len(8, 2)];
-    gauss_newton(exp_residual(y), exp_jac, &mut p1, 8, opts(), &mut work).unwrap();
-    gauss_newton_fd(exp_residual(y), &mut p2, 8, opts(), &mut work).unwrap();
+    gauss_newton(
+        exp_residual(y),
+        exp_jac,
+        &mut p1,
+        8,
+        opts(),
+        &mut work,
+        &mut [0; 2],
+    )
+    .unwrap();
+    gauss_newton_fd(exp_residual(y), &mut p2, 8, opts(), &mut work, &mut [0; 2]).unwrap();
     close(p1[0], p2[0], 1e-6);
     close(p1[1], p2[1], 1e-6);
 }
@@ -302,10 +320,9 @@ fn gauss_newton_rank_deficient_jacobian() {
     let jac = |_p: &[f64], j: &mut [f64]| j.copy_from_slice(&[1.0, 1.0, 1.0, 1.0]);
     let mut p = [0.0, 0.0];
     let mut work = [0.0; gauss_newton_work_len(2, 2)];
-    assert_eq!(
-        gauss_newton(res, jac, &mut p, 2, opts(), &mut work),
-        Err(OptimizeError::SingularJacobian)
-    );
+    let result = gauss_newton(res, jac, &mut p, 2, opts(), &mut work, &mut [0; 2]).unwrap();
+    close(p[0] + p[1], 3.0, 1e-10);
+    assert!(result.residual_norm < 1e-10);
 }
 
 // ---------------------------------------------------------------------------
@@ -386,7 +403,16 @@ fn lm_noisy_data_agrees_with_gauss_newton() {
     let (mut pl, mut pg) = ([1.0, -0.2], [1.0, -0.2]);
     let mut work = [0.0; levenberg_marquardt_work_len(8, 2)];
     let rl = levenberg_marquardt(exp_residual(y), exp_jac, &mut pl, 8, opts(), &mut work).unwrap();
-    let rg = gauss_newton(exp_residual(y), exp_jac, &mut pg, 8, opts(), &mut work).unwrap();
+    let rg = gauss_newton(
+        exp_residual(y),
+        exp_jac,
+        &mut pg,
+        8,
+        opts(),
+        &mut work,
+        &mut [0; 2],
+    )
+    .unwrap();
     close(pl[0], pg[0], 1e-6);
     close(pl[1], pg[1], 1e-6);
     close(rl.residual_norm, rg.residual_norm, 1e-9);
@@ -541,7 +567,15 @@ fn invalid_input_is_rejected() {
         Err(OptimizeError::InvalidInput)
     );
     assert_eq!(
-        gauss_newton(rosenbrock, rosenbrock_jac, &mut x, 1, opts(), &mut work),
+        gauss_newton(
+            rosenbrock,
+            rosenbrock_jac,
+            &mut x,
+            1,
+            opts(),
+            &mut work,
+            &mut [0; 2]
+        ),
         Err(OptimizeError::InvalidInput)
     );
     // leeres x
@@ -573,7 +607,7 @@ fn non_finite_values_are_reported() {
     let nan_res = |_x: &[f64], r: &mut [f64]| r.fill(f64::NAN);
     let mut x = [1.0, 1.0];
     assert_eq!(
-        gauss_newton_fd(nan_res, &mut x, 2, opts(), &mut work),
+        gauss_newton_fd(nan_res, &mut x, 2, opts(), &mut work, &mut [0; 2]),
         Err(OptimizeError::NotFinite)
     );
     let nan_jac = |_x: &[f64], j: &mut [f64]| j.fill(f64::NAN);

@@ -5,7 +5,7 @@
 //! | [`newton_system`] | `F(x) = 0` mit `n` Gleichungen, `n` Unbekannten | Newton mit Schrittweitensteuerung |
 //! | [`dogleg`] | `F(x) = 0` | Vertrauensbereich (Powell-Dogleg), robust bei schlechtem Startwert |
 //! | [`broyden`] | `F(x) = 0` | Broyden (Rang-1-Update der inversen Jacobi-Matrix), nur eine Jacobi-Matrix am Start |
-//! | [`gauss_newton`] | `min ‖r(x)‖₂` mit `m ≥ n` Residuen | Gauß-Newton (QR) mit Schrittweitensteuerung |
+//! | [`gauss_newton`] | `min ‖r(x)‖₂` mit `m ≥ n` Residuen | Gauß-Newton (QR mit Spaltenpivotierung) mit Schrittweitensteuerung |
 //! | [`levenberg_marquardt`] | `min ‖r(x)‖₂` | Levenberg-Marquardt, robust auch bei schlechtem Startwert und Rangmangel |
 //! | [`brent_min`], [`golden_section`] | eindimensionales Minimum auf einem Intervall, ableitungsfrei |
 //! | [`nelder_mead`] | `min f(x)` ohne Gradienten (Simplexverfahren) |
@@ -75,7 +75,8 @@
 //! - Alle Verfahren sind **lokal**: Sie finden eine Lösung nahe am Startwert, nicht unbedingt die
 //!   global beste. Bei schlechtem Startwert ist Levenberg-Marquardt die robustere Wahl.
 //! - Levenberg-Marquardt löst das um die Dämpfung erweiterte Least-Squares-System per
-//!   Givens-QR, ohne `JᵀJ` zu bilden. Gauß-Newton und Newton verwenden Householder-QR.
+//!   Givens-QR, ohne `JᵀJ` zu bilden. Gauß-Newton verwendet Householder-QR mit
+//!   Spaltenpivotierung und Basislösungen bei Rangmangel; Newton verwendet QR ohne Spaltenpivotierung.
 //! - Mit `micromath` (bewusst ungenau, die Normen brauchen `sqrt`) werden strenge Toleranzen
 //!   unter Umständen nie erreicht; für verlässliche Ergebnisse `std` oder `libm` verwenden.
 
@@ -178,13 +179,14 @@ pub struct OptimizeResult<T> {
 #[non_exhaustive]
 pub enum OptimizeError {
     /// Ungültige Größen: `x` leer, `m < n`, `x` hat nicht `n` Elemente oder der
-    /// Arbeitsspeicher ist kürzer als `*_work_len`. Gleichungslöser und Gauß-Newton prüfen
+    /// Arbeitsspeicher ist kürzer als `*_work_len` oder der Gauß-Newton-Indexpuffer
+    /// ist zu kurz. Gleichungslöser und Gauß-Newton prüfen
     /// außerdem, dass alle Toleranzen endlich und nichtnegativ sind.
     InvalidInput,
     /// NaN oder Unendlich in Residuum, Jacobi-Matrix oder Startwert.
     NotFinite,
-    /// Die Jacobi-Matrix hat Rangmangel (Newton, Gauß-Newton); Levenberg-Marquardt ist dagegen
-    /// robust.
+    /// Die Jacobi-Matrix hat Rangmangel (Newton). Gauß-Newton verwendet bei Rangmangel
+    /// eine Basislösung, Levenberg-Marquardt einen gedämpften Schritt.
     SingularJacobian,
     /// Kein Fortschritt mehr möglich oder `max_iter` erreicht. `x` enthält den letzten Stand.
     NoConvergence,

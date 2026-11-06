@@ -61,7 +61,8 @@ GMRES oder Interpolation), **L** = groß (wie ODE oder Multigrid), **XL** = Proj
 | ✅ | **Gauß-Elimination** (`gauss_solve`, `rank`, `row_echelon`)                                                                                         | S       | LU ✅                      |
 | ✅ | Banded-LU/-Cholesky (`BandLu`, `BandCholesky`)                                                                                                      | M       | Bandformat                 |
 | ✅ | Links-Vorkonditionierer (`pgmres_left`), ILU(0), IC(0), SSOR (ungetestet)                                                                           | M       | Sparse                     |
-| ⬜ | Iterative Verfeinerung, Konditionsschätzer, QR mit Spaltenpivot, LDLᵀ                                                                               | S–M     | –                          |
+| ✅ | QR mit Spaltenpivotierung (`PivotedQr`, `DynPivotedQr`): Rangschätzung, Basislösungen; Standard in `least_squares` und Gauß-Newton (zusätzlicher `usize`-Puffer) | M | – |
+| ⬜ | Iterative Verfeinerung, Konditionsschätzer, LDLᵀ                                                                               | S–M     | –                          |
 | ⚠️ | Eigenwerte **nichtsymmetrisch**: Balancieren, Hessenberg, QR mit Doppelshift ✅ (nur Eigenwerte); Schur-Vektoren, Eigenvektoren, verallgemeinert ⬜ | L       | `Complex`                  |
 | ⚠️ | Lanczos ✅ (Ritz-Werte), Arnoldi-Zerlegung ✅ (ungetestet); Ritz-Werte aus Arnoldi folgen mit dem nichtsymmetrischen Eigenlöser                     | M       | Sparse/`LinearOperator` ✅ |
 | ⬜ | Algebraisches Multigrid (AMG)                                                                                                                       | XL      | Sparse                     |
