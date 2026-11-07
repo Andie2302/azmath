@@ -6,6 +6,7 @@
 //! | [`fornberg_weights`] | Gewichte der `m`-ten Ableitung für beliebige Knoten |
 //! | [`first_derivative_1d`], [`second_derivative_1d`] | Ableitungen auf gleichmäßigem 1D-Gitter (2. Ordnung, auch am Rand) |
 //! | [`laplacian_2d`] | 5-Punkte-Laplace-Operator auf einem Rechteckgitter |
+//! | `poisson` | Zellzentrierter 2D-Poisson-Operator (CSR) mit Dirichlet/Neumann/periodisch, Nullraum (Feature `alloc`) |
 //! | [`heat_rhs_1d`] | Rechte Seite der Linienmethode für `u_t = α·u_xx` mit Dirichlet-Rand, passend zu den ODE-Lösern |
 //!
 //! Slices zu kurz oder Gitterabstand/Dimensionen ungültig: **Panik** (wie bei [`diff`](crate::diff)).
@@ -23,6 +24,9 @@
 //! ```
 
 use crate::Real;
+
+#[cfg(feature = "alloc")]
+pub mod poisson;
 
 /// Arbeitsspeicher für [`fornberg_weights`] bei `n_nodes` Knoten und Ableitungsordnung `order`.
 pub const fn fornberg_work_len(n_nodes: usize, order: usize) -> usize {

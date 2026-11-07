@@ -6,6 +6,12 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- `fdm::poisson` (Feature `alloc`): zellzentrierter 2D-Poisson-Operator `−Δ` als CSR mit
+  Dirichlet-, Neumann- und periodischen Rändern je Achse, `has_nullspace`,
+  `check_compatibility`, `project_mean_zero` und `solve_poisson_2d` (CG auf dem Unterraum
+  mit Mittelwert 0). Tests: Symmetrie, `A·1 = 0`, Flussbilanz, Ordnung 2 auf drei Gittern,
+  Abweisung inkompatibler rechter Seiten (AZM-040, Teilstand: Multigrid-Nullraumerhalt
+  und variable Koeffizienten stehen noch aus).
 - Allokationsfreies zweistufiges Gauss–Legendre-RK4 (`ode::gauss_legendre4`,
   `gauss_legendre4_fd`): gekoppelte Newton-Stufen, feste Schritte, analytische oder
   numerische Jacobi-Matrix; f32/f64-Tests zu Ordnung, Zeitumkehr, quadratischen
