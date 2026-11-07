@@ -10,8 +10,11 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
   Dirichlet-, Neumann- und periodischen Rändern je Achse, `has_nullspace`,
   `check_compatibility`, `project_mean_zero` und `solve_poisson_2d` (CG auf dem Unterraum
   mit Mittelwert 0). Tests: Symmetrie, `A·1 = 0`, Flussbilanz, Ordnung 2 auf drei Gittern,
-  Abweisung inkompatibler rechter Seiten (AZM-040, Teilstand: Multigrid-Nullraumerhalt
-  und variable Koeffizienten stehen noch aus).
+  Abweisung inkompatibler rechter Seiten.
+- `multigrid::CellMultigrid2d` (Feature `alloc`): Mehrgitter für den Zell-Operator mit
+  Dirichlet/Neumann/periodisch; Restriktion und Prolongation erhalten Konstanten, Korrekturen
+  bleiben mittelwertfrei; symmetrischer V-Zyklus, nutzbar als PCG-Vorkonditionierer (AZM-040;
+  variable Koeffizienten, Anisotropie und 3D stehen noch aus).
 - Allokationsfreies zweistufiges Gauss–Legendre-RK4 (`ode::gauss_legendre4`,
   `gauss_legendre4_fd`): gekoppelte Newton-Stufen, feste Schritte, analytische oder
   numerische Jacobi-Matrix; f32/f64-Tests zu Ordnung, Zeitumkehr, quadratischen

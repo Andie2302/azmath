@@ -90,3 +90,67 @@ fn rejects_incompatible_rhs_and_bad_grid() {
         Err(PoissonError::NotFinite)
     );
 }
+
+// --- Zell-Multigrid (AZM-040, Nullraumerhalt) ---
+use azmath::linalg::iterative::pcg;
+use azmath::multigrid::CellMultigrid2d;
+
+fn pcg_iters(bx: Boundary, by: Boundary, n: usize) -> (usize, Vec<f64>) {
+    let h = 1.0 / n as f64;
+    let a = poisson_2d(n, n, h, h, bx, by).unwrap();
+    let mg = CellMultigrid2d::new(n, n, h, h, bx, by, 2).unwrap();
+    let mut b = vec![0.0; n * n];
+    for j in 0..n {
+        for i in 0..n {
+            let (x, y) = ((i as f64 + 0.5) * h, (j as f64 + 0.5) * h);
+            b[j * n + i] = (2.0 * PI * x).cos() * (2.0 * PI * y).cos()
+                + 0.5 * (4.0 * PI * x).sin() * (2.0 * PI * y).cos();
+        }
+    }
+    if has_nullspace(bx, by) {
+        project_mean_zero(&mut b);
+    }
+    let mut x = vec![0.0; n * n];
+    let mut work = vec![0.0; 4 * n * n];
+    let r = pcg(&a, &mg, &b, &mut x, IterOptions::new(1e-10, 200), &mut work).unwrap();
+    (r.iterations, x)
+}
+
+#[test]
+fn multigrid_preserves_constants_and_nullspace() {
+    for (bx, by) in [
+        (Boundary::Neumann, Boundary::Neumann),
+        (Boundary::Periodic, Boundary::Periodic),
+        (Boundary::Neumann, Boundary::Periodic),
+    ] {
+        let n = 32;
+        let mg = CellMultigrid2d::new(n, n, 1.0 / 32.0, 1.0 / 32.0, bx, by, 2).unwrap();
+        assert!(mg.num_levels() >= 3);
+        // Konstante als Residuum wird vollständig herausprojiziert: keine Korrektur
+        let r = vec![3.0f64; n * n];
+        let mut z = vec![1.0f64; n * n];
+        use azmath::linalg::iterative::Preconditioner;
+        mg.apply(&r, &mut z);
+        assert!(z.iter().all(|v| v.abs() < 1e-12), "{bx:?}/{by:?}");
+        // PCG-Lösung hat Mittelwert 0
+        let (_, x) = pcg_iters(bx, by, n);
+        let mean = x.iter().sum::<f64>() / x.len() as f64;
+        assert!(mean.abs() < 1e-10, "Mittelwert {mean}");
+    }
+}
+
+#[test]
+fn multigrid_pcg_iterations_grid_independent() {
+    for (bx, by) in [
+        (Boundary::Dirichlet, Boundary::Dirichlet),
+        (Boundary::Neumann, Boundary::Neumann),
+        (Boundary::Periodic, Boundary::Periodic),
+    ] {
+        let it: Vec<usize> = [32, 64, 128]
+            .iter()
+            .map(|&n| pcg_iters(bx, by, n).0)
+            .collect();
+        assert!(it.iter().all(|&k| k <= 30), "{bx:?}: {it:?}");
+        assert!(it[2] <= it[0] + 5, "{bx:?}: nicht gitterunabhängig {it:?}");
+    }
+}

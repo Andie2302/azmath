@@ -60,6 +60,10 @@ pub use precond::{MultigridPreconditioner, Poisson1d, Poisson2d};
 pub use twod::{cycle_2d, solve_2d, work_len_2d};
 
 #[cfg(feature = "alloc")]
+mod cell2d;
+#[cfg(feature = "alloc")]
+pub use cell2d::CellMultigrid2d;
+#[cfg(feature = "alloc")]
 mod owned;
 #[cfg(feature = "alloc")]
 pub use owned::{solve_1d_vec, solve_2d_vec};
