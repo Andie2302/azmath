@@ -39,9 +39,12 @@ Die Nachweise und Grenzen stehen beim jeweiligen Modul und unter
 sind mit lokalen Nachweisen abgeschlossen. Das Crate wurde nicht veröffentlicht.
 Details: [Release- und MINRES-Prüfung](docs/quality/release-minres.md).
 
-1. **AZM-030/031:** Verlet und implizites Gauss–Legendre-Runge–Kutta.
-   Gauss–Legendre-Quadratur ist bereits vorhanden und davon verschieden.
-2. **AZM-040/041:** Neumann-/periodische Operatoren, Nullräume und FEM-Randbedingungen.
+**AZM-030/031** sind ebenfalls abgeschlossen: Verlet und implizites
+Gauss–Legendre-RK4 (Ordnung 4), mit CI-Nachweisen und Oszillatorvergleich.
+Details: [Gauss–Legendre-Prüfung](docs/quality/gauss-legendre.md).
+Gauss–Legendre-Quadratur ist davon unabhängig.
+
+**Als nächster mathematischer Ausbau: AZM-040/041:** Neumann-/periodische Operatoren, Nullräume und FEM-Randbedingungen.
 
 Weitere offene Arbeiten wie Chandrupatla, AMG, NLP-Wiederherstellung,
 reelle Schur-Vektoren/Eigenvektoren, komplexe Sparse-Verfahren und größere
