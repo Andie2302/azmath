@@ -14,16 +14,10 @@ f32/f64-Eingaben gegen Gamma-Rekursion, Fehlerfunktions-Symmetrie,
 Komplementarität der unvollständigen Gammafunktionen und Bessel-Rekursionen.
 Das prüft einen begrenzten Bereich, keine globale Genauigkeitsgarantie.
 
-Referenzdaten neu erzeugen (mpmath 1.3.0):
-
-```sh
-python scripts/generate_special_refs.py
-cargo fmt --all --check
-```
-
-Der Generator rundet Eingaben zuerst auf den jeweiligen IEEE-Typ. Anschließend
-berechnet er den Sollwert mit 100 und 200 Dezimalstellen und verlangt identische,
-direkt auf den Zieltyp gerundete Ergebnisse. Die Tabellen speichern Bitmuster,
+Die eingecheckten Referenzdaten bleiben erhalten; die Generatoren wurden entfernt.
+Historische Erzeugung mit mpmath 1.3.0: Eingaben wurden zuerst auf den jeweiligen
+IEEE-Typ gerundet; Sollwerte bei 100 und 200 Dezimalstellen mussten identisch
+auf den Zieltyp runden. Die Tabellen speichern Bitmuster,
 damit Rusts Dezimalparser nicht Teil des Vergleichs wird. ULP bedeutet hier den
 Abstand in darstellbaren IEEE-Werten; für `ln_gamma` nahe seinen Nullstellen wird
 stattdessen ein absoluter Fehler von höchstens `8 * EPSILON` geprüft. Unendliche

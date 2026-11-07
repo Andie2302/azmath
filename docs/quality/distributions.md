@@ -37,14 +37,13 @@ zuerst exakt auf f32/f64 gerundet. mpmath 1.3.0 berechnet die Referenzen bei
 Quantile relativ und nicht nur absolut aufgelöst werden.
 
 ```sh
-python scripts/generate_dist_refs.py
 cargo test --test stats_dist_reference --test stats_dist_robustness -- --nocapture
 cargo test --no-default-features --features libm,alloc --test stats_dist_reference -- --nocapture
 ```
 
-Normale Cargo-Tests benötigen weder Python noch mpmath. Die Generatoren teilen
-`reference_ieee.py`; die bisherigen 356 special-Referenzen wurden unverändert
-reproduziert. Unendliche Sollwerte müssen exakt übereinstimmen. Es gibt kein
+Die eingecheckten Referenzdaten bleiben erhalten. Ihre ehemaligen Generatoren
+wurden entfernt; normale Cargo-Tests benötigen keine Referenzgeneratoren.
+Die bisherigen 356 special-Referenzen wurden damals unverändert reproduziert. Unendliche Sollwerte müssen exakt übereinstimmen. Es gibt kein
 pauschales absolutes Fehlerbudget, das kleine Tails verdeckt.
 
 | Familie | f32 max. ULP | f64 max. ULP |

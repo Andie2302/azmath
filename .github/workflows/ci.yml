@@ -121,5 +121,4 @@ jobs:
       - name: Test packaged crate
         shell: bash
         run: |
-          package_version="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
-          cargo test --manifest-path "target/package/azmath-$package_version/Cargo.toml" --all-features
+          cargo test --manifest-path target/package/azmath-*/Cargo.toml --all-features
