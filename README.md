@@ -1,5 +1,9 @@
 # azmath
 
+> Auf Projektwunsch ist automatische Push-/PR-CI deaktiviert. Vorhandene Workflows
+> sind ausschließlich manuell auslösbar. Keine Tests oder Fuzzing-Läufe ohne
+> ausdrücklichen neuen Auftrag. Historische Prüfergebnisse bleiben standbezogen gültig.
+
 Ein kleines `no_std`-Crate, das **ein einziges Trait `Real`** für `f32` und `f64` bereitstellt.
 Mathematische Funktionen (`sqrt`, `sin`, `exp`, …) werden je nach Feature-Flag an ein
 Backend weitergeleitet. So lässt sich numerischer Code einmal generisch schreiben und auf
