@@ -5,6 +5,7 @@
 //! | [`euler`] | explizit, feste Schrittweite | 1 | Demonstrationen, grobe Abschätzungen |
 //! | [`rk4`] | explizit, feste Schrittweite | 4 | glatte Probleme mit bekannter Schrittweite |
 //! | [`rk45`] | explizit, **adaptiv** (Dormand-Prince) | 5(4) | die erste Wahl für nicht steife Probleme |
+//! | [`gauss_legendre4`] | implizit, feste Schrittweite, symplektisch bei Hamilton-Systemen | 4 | auch nicht separierbare Hamilton-Systeme |
 //! | [`implicit_euler`] | implizit, feste Schrittweite | 1 | **steife** Probleme, sehr robust |
 //! | [`implicit_trapezoid`] | implizit, feste Schrittweite | 2 | steife Probleme, genauer |
 //! | [`verlet`], [`verlet_separable`] | explizit, **symplektisch**, feste Schrittweite | 2 | Hamilton-Systeme und `q'' = a(t, q)`; beschränkter Energiefehler |
@@ -59,6 +60,7 @@ mod bvp;
 mod dae;
 mod events;
 mod explicit;
+mod gauss_legendre;
 mod implicit;
 mod radau;
 mod rk45;
@@ -84,6 +86,7 @@ pub use events::{
     rk45_event_work_len,
 };
 pub use explicit::{euler, euler_work_len, rk4, rk4_step, rk4_work_len, try_rk4_step};
+pub use gauss_legendre::{gauss_legendre4, gauss_legendre4_fd, gauss_legendre4_work_len};
 pub use implicit::{
     implicit_euler, implicit_euler_fd, implicit_trapezoid, implicit_trapezoid_fd, implicit_work_len,
 };

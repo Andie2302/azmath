@@ -6,6 +6,10 @@ Das Crate ist noch nicht veröffentlicht (Version 0.0.1).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- Allokationsfreies zweistufiges Gauss–Legendre-RK4 (`ode::gauss_legendre4`,
+  `gauss_legendre4_fd`): gekoppelte Newton-Stufen, feste Schritte, analytische oder
+  numerische Jacobi-Matrix; f32/f64-Tests zu Ordnung, Zeitumkehr, quadratischen
+  Invarianten, nicht separierbaren Hamilton-Systemen und Fehlerpfaden (AZM-031).
 - Symplektisches Störmer-Verlet-Verfahren `ode::verlet` und `ode::verlet_separable` (Ordnung 2, zeitumkehrbar, allokationsfrei) mit Tests (`tests/ode_verlet.rs`), AZM-030.
 - MINRES/PMINRES für reelle symmetrisch-indefinite Systeme, konstante 8*n
   Arbeitselemente, Matrix-/DynMatrix-Hilfsmethoden und f32/f64-Regressionen.

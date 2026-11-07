@@ -13,6 +13,10 @@ Die bisherige vollständige Liste ist als
 erhalten. Alte Hinweise wie „bewusst ausgelassen“ sind offene Prüfpunkte und
 keine dauerhaften Ausschlüsse.
 
+AZM-031 ergänzt das implizite zweistufige Gauss–Legendre-RK-Verfahren
+(Ordnung 4) für allgemeine ODE und nicht separierbare Hamilton-Systeme.
+Die symplektischen Eigenschaften setzen hinreichend genau gelöste Stufen voraus.
+
 ## Vorhandene Grundlagen
 
 | Bereich | Implementiert |
